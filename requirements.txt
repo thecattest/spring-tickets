@@ -1,0 +1,12 @@
+# Database
+sqlalchemy>=2.0.0
+
+# Note: SQLite3 is built into Python, no additional driver needed
+
+# Optional: PostgreSQL support (uncomment if migrating from SQLite to PostgreSQL)
+# psycopg2-binary>=2.9.0
+
+# Optional: async support (if needed later)
+# aiosqlite>=0.19.0  # for async SQLite
+# asyncpg>=0.29.0    # for async PostgreSQL
+# sqlalchemy[asyncio]>=2.0.0
