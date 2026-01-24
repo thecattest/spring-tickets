@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-01-24
-**Current phase:** Phase 2 in progress (Plans 02-01, 02-02, 02-03 complete)
+**Current phase:** Phase 2 complete (all 4 plans done). Ready for Phase 3
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 2 Plan 03 завершена — seat deletion и reservation cancellation с admin permissions. Следующий: Plan 02-04 (если существует)
+**Current focus:** Phase 2 завершена. Готовность к Phase 3: Payment recording и management
 
 ---
 
@@ -78,10 +78,28 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Permission checking via AppUser.vk_user_id matching VK message sender
 - ✅ Error handling for PermissionError and DatabaseError
 
+✅ **Phase 2 Plan 04: Fix Same-Client Detection Bug** — ЗАВЕРШЕНА (3 минуты)
+- ✅ Fixed same-client detection to compare VK API IDs instead of VK API ID vs database ID
+- ✅ Updated show_main_menu and all 8 external callers to pass buyer_vk_api_id
+- ✅ Stored buyer_vk_api_id in FSM context at all entry points
+- ✅ Context switch flow preserves and passes VK API ID
+- ✅ Gap closure plan complete
+
+✅ **Phase 2: Главное меню и удаление мест** — ЗАВЕРШЕНА (15 минут total)
+- ✅ All 4 plans complete (02-01, 02-02, 02-03, 02-04)
+- ✅ Main menu navigation с context switching
+- ✅ Seat deletion with PAID seat protection
+- ✅ Reservation cancellation with admin permissions
+- ✅ VK API integration for display names
+- ✅ Status-aware seat display with emoji indicators
+- ✅ Same-client detection working correctly
+
 ### In Progress
 
-🔄 **Phase 2 Plan 04**
-- Plan 02-04: (if exists - check ROADMAP.md for Phase 2 completion status)
+🔄 **Phase 3: Регистрация оплаты и скрипт**
+- Payment recording по пересылке чека или через меню
+- Детерминированный выбор мест для частичной оплаты
+- Payment amount calculation и validation
 
 ### User Setup Required (Before Running Bot)
 
@@ -139,6 +157,8 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-01-24 | 02-02 | Store pending client info in CONTEXT_SWITCH_CONFIRM state | Enables restoration and continuation after switch confirmation | All state self-contained in StatePeer payload |
 | 2026-01-24 | 02-03 | Check admin status via AppUser.vk_user_id matching VK message sender | Seller identification by VK ID is primary auth mechanism | Admin permissions work without session-based auth |
 | 2026-01-24 | 02-03 | Validate all seats are BOOKED before releasing any | Prevents partial deletion if any seat is PAID | Atomic deletion ensures data consistency |
+| 2026-01-24 | 02-04 | Use buyer_vk_api_id (VK API user ID) for same-client detection instead of buyer_vk_user_id (database ID) | VK API ID is consistent identifier for users across VK API, database ID is internal only | Same-client comparison now works correctly |
+| 2026-01-24 | 02-04 | Store both buyer_vk_user_id and buyer_vk_api_id in FSM context | Need database ID for DB operations and VK API ID for same-client detection | Dual ID storage supports both use cases without conflicts |
 
 ---
 
@@ -185,11 +205,11 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 ### Progress
 - **Database layer:** 100% complete (Phase 0 ✅)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
-- **Phase 2:** 50% complete (2 of 4 plans complete)
+- **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
-- **Overall project:** █████░░ 50% (Phase 0, 1 complete; Phase 2: 2/4 plans)
+- **Overall project:** ████████░ 67% MVP (Phase 0, 1, 2 complete; Phase 3 next)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 Plan 01 = 2 min, Plan 02 = 4 min (highly efficient execution)
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), highly efficient execution
 
 ---
 
@@ -257,6 +277,29 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - Backward compatible seat addition handler (from_main_menu flag)
 - Created 02-02-SUMMARY.md
 - Updated STATE.md with Phase 2 progress
+
+**Late Evening (04:10-04:16 UTC):**
+- ✅ **PHASE 2 PLAN 03 COMPLETE** (6 minutes)
+- Executed 3 tasks atomically
+- 3 commits: all feature
+- 2 files created (bot/handlers/deletion.py - 145 lines), 2 modified
+- Database functions for deletion and permissions (is_user_admin, release_seats, cancel_reservation)
+- Seat deletion flow with PAID seat protection
+- Reservation cancellation with admin-only PAID seat handling
+- Atomic deletion operations with audit logging
+- Created 02-03-SUMMARY.md
+
+**Early Morning (06:25-06:28 UTC):**
+- ✅ **PHASE 2 PLAN 04 COMPLETE** (3 minutes) - Gap closure
+- Executed 3 tasks atomically
+- 3 commits: 2 feature + 1 fix
+- 0 files created, 3 modified (menu.py, reservation.py, deletion.py)
+- Fixed same-client detection bug (VK API ID comparison)
+- Updated show_main_menu and all 8 callers to pass buyer_vk_api_id
+- Stored buyer_vk_api_id in FSM context at all entry points
+- Context switch flow preserves VK API ID
+- Created 02-04-SUMMARY.md
+- ✅ **PHASE 2 COMPLETE** - All main menu and seat management features done, gap closed
 
 ---
 
