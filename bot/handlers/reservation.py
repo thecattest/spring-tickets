@@ -64,15 +64,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         seller_id = db.get_default_seller_id()
         reservation = db.create_reservation(vk_user.id, seller_id)
 
-        # Save context to Redis
-        await storage.update_context(
-            message.from_id,
-            reservation_id=reservation.id,
-            buyer_vk_user_id=vk_user.id,
-            buyer_display_name=vk_user.display_name,
-        )
-
-        # Transition to AWAITING_ROW
+        # Transition to AWAITING_ROW with context
         await message.ctx_api.messages.send(
             peer_id=message.peer_id,
             message=f"Создана новая бронь для {vk_user.display_name} (ID: {reservation.id}).\n\n"
@@ -80,7 +72,13 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             random_id=0,
         )
 
-        await storage.set(message.from_id, BotState.AWAITING_ROW)
+        await storage.set(
+            message.from_id,
+            BotState.AWAITING_ROW,
+            reservation_id=reservation.id,
+            buyer_vk_user_id=vk_user.id,
+            buyer_display_name=vk_user.display_name,
+        )
 
     except db.DatabaseError as e:
         logger.error(f"Database error creating reservation: {e}")
@@ -118,10 +116,10 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         )
         return
 
-    # Save row to context
-    await storage.update_context(message.from_id, current_row=row)
+    # Get existing context to preserve it
+    context = await storage.get_context(message.from_id)
 
-    # Transition to AWAITING_SEATS
+    # Transition to AWAITING_SEATS with updated context
     seat_count = get_seat_count(row)
     await message.answer(
         f"Ряд {row} (мест: {seat_count}).\n\n"
@@ -129,7 +127,7 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         f"Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
     )
 
-    await storage.set(message.from_id, BotState.AWAITING_SEATS)
+    await storage.set(message.from_id, BotState.AWAITING_SEATS, current_row=row, **context)
 
 
 async def awaiting_seats_handler(message: Message, storage: RedisStorage):
@@ -218,8 +216,8 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
             keyboard=seat_addition_menu_keyboard()
         )
 
-        # Transition to SEAT_ADDITION_MENU
-        await storage.set(message.from_id, BotState.SEAT_ADDITION_MENU)
+        # Transition to SEAT_ADDITION_MENU (preserve context)
+        await storage.set(message.from_id, BotState.SEAT_ADDITION_MENU, **context)
 
     except db.SeatOccupiedError as e:
         # Race condition - seat was just taken
@@ -250,12 +248,12 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
     context = await storage.get_context(message.from_id)
 
     if text == "Добавить еще":
-        # Return to AWAITING_ROW
+        # Return to AWAITING_ROW (preserve context)
         await message.answer(
             "Введите номер ряда:",
             keyboard=get_empty_keyboard()
         )
-        await storage.set(message.from_id, BotState.AWAITING_ROW)
+        await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
     elif text == "Готово":
         # Generate script

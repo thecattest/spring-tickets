@@ -16,7 +16,6 @@ if __name__ == "__main__":
 
 from vkbottle.bot import Bot
 from vkbottle import BaseStateGroup
-from vkbottle.dispatch.dispenser import BuiltinStateDispenser
 
 from bot import config
 from bot.fsm.storage import RedisStorage
@@ -45,7 +44,7 @@ async def setup():
     logger.info(f"Redis: {config.REDIS_HOST}:{config.REDIS_PORT}/{config.REDIS_DB}")
     logger.info(f"Database: {config.DATABASE_URL}")
 
-    # Initialize Redis storage for context (custom)
+    # Initialize Redis storage (FSM states + context via StatePeer)
     try:
         redis_storage = RedisStorage(
             host=config.REDIS_HOST,
@@ -54,15 +53,13 @@ async def setup():
             password=config.REDIS_PASSWORD if config.REDIS_PASSWORD else None,
         )
         await redis_storage.connect()
-        logger.info("Redis connection established")
+        logger.info("Redis FSM storage established")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
         return None
 
-    # Initialize VKBottle bot with built-in state dispenser
-    # Note: Using BuiltinStateDispenser for now, Redis storage used only for context
-    # TODO Phase 2: Properly integrate Redis with ABCStateDispenser
-    bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=BuiltinStateDispenser())
+    # Initialize VKBottle bot with Redis state dispenser
+    bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=redis_storage)
 
     # Register handlers
     logger.info("Registering handlers...")

@@ -1,7 +1,7 @@
 """
 Redis-based FSM storage with permanent persistence.
 
-Key pattern: bot:fsm:{vk_user_id}
+Key pattern: bot:fsm:{peer_id}
 No TTL: states persist until explicitly cleared
 """
 
@@ -10,19 +10,23 @@ import logging
 from typing import Optional, Any, Dict
 from redis.asyncio import Redis
 from vkbottle.dispatch.dispenser import ABCStateDispenser
+from vkbottle.dispatch.dispenser.builtin import StatePeer
+from vkbottle import BaseStateGroup
 
 logger = logging.getLogger(__name__)
 
 
 class RedisStorage(ABCStateDispenser):
     """
-    Redis storage for FSM states and context data.
+    Redis storage for FSM states using StatePeer objects.
 
     Features:
     - Permanent storage (no TTL)
-    - JSON serialization for complex context
+    - Full StatePeer serialization (peer_id, state, payload)
     - Atomic get/set operations
     - Manual cleanup only
+
+    Note: Uses StatePeer.payload for context data (replaces separate context storage)
     """
 
     def __init__(
@@ -73,170 +77,122 @@ class RedisStorage(ABCStateDispenser):
             await self.redis.close()
             logger.info("Redis connection closed")
 
-    def _make_key(self, vk_user_id: int) -> str:
+    def _make_key(self, peer_id: int) -> str:
         """
-        Generate Redis key for user state.
+        Generate Redis key for peer state.
 
         Args:
-            vk_user_id: VK user ID
+            peer_id: VK peer ID (user ID)
 
         Returns:
             Redis key string
         """
-        return f"bot:fsm:{vk_user_id}"
+        return f"bot:fsm:{peer_id}"
 
-    async def get(self, key: int) -> Optional[str]:
+    async def get(self, peer_id: int) -> Optional[StatePeer]:
         """
-        Get FSM state for user.
+        Get StatePeer for user.
 
         Args:
-            key: VK user ID
+            peer_id: VK peer ID (user ID)
 
         Returns:
-            Current state or None
+            StatePeer object or None
         """
         if not self.redis:
             raise RuntimeError("Redis not connected")
 
-        redis_key = self._make_key(key)
+        redis_key = self._make_key(peer_id)
         data = await self.redis.get(redis_key)
 
         if data:
             try:
                 parsed = json.loads(data)
-                state = parsed.get("state")
-                logger.debug(f"FSM get: {redis_key} -> {state}")
-                return state
-            except json.JSONDecodeError:
-                logger.error(f"Invalid JSON in Redis key: {redis_key}")
+                # Reconstruct StatePeer from stored data
+                state_peer = StatePeer(**parsed)
+                logger.debug(f"FSM get: {redis_key} -> {state_peer.state}")
+                return state_peer
+            except (json.JSONDecodeError, TypeError, ValueError) as e:
+                logger.error(f"Failed to parse StatePeer from Redis key {redis_key}: {e}")
                 return None
 
         return None
 
-    async def set(self, key: int, value):
+    async def set(self, peer_id: int, state: BaseStateGroup, **payload):
         """
         Set FSM state for user.
 
         Args:
-            key: VK user ID
-            value: New state (BaseStateGroup attribute or string)
+            peer_id: VK peer ID (user ID)
+            state: New state (BaseStateGroup attribute)
+            **payload: Additional context data to store in StatePeer.payload
         """
         if not self.redis:
             raise RuntimeError("Redis not connected")
 
-        redis_key = self._make_key(key)
+        redis_key = self._make_key(peer_id)
 
-        # BaseStateGroup attributes are special string-like objects
-        # We need just the string value, not the repr
-        # Simply convert to string - Python will use the __str__ which gives us the value
-        state_value = str(value) if not isinstance(value, str) else value
+        # Create StatePeer object
+        state_peer = StatePeer(
+            peer_id=peer_id,
+            state=state,
+            payload=payload
+        )
 
-        # Remove "BotState:" prefix if present (from repr)
-        if ":" in state_value and not state_value.startswith("bot:"):
-            # This is likely "BotState:awaiting_row" format
-            state_value = state_value.split(":", 1)[1]
+        # Serialize to JSON
+        data = state_peer.model_dump()
+        await self.redis.set(redis_key, json.dumps(data))
 
-        # Preserve existing context
-        existing_data = await self.redis.get(redis_key)
-        context = {}
+        logger.info(f"FSM transition: {redis_key} -> {state_peer.state} (payload: {len(payload)} keys)")
 
-        if existing_data:
-            try:
-                parsed = json.loads(existing_data)
-                context = parsed.get("context", {})
-            except json.JSONDecodeError:
-                logger.warning(f"Could not parse existing context for {redis_key}")
-
-        # Update state
-        new_data = {
-            "state": state_value,
-            "context": context,
-        }
-
-        await self.redis.set(redis_key, json.dumps(new_data))
-        logger.info(f"FSM transition: {redis_key} -> {state_value}")
-
-    async def delete(self, key: int):
+    async def delete(self, peer_id: int):
         """
         Delete FSM state for user.
 
         Args:
-            key: VK user ID
+            peer_id: VK peer ID (user ID)
         """
         if not self.redis:
             raise RuntimeError("Redis not connected")
 
-        redis_key = self._make_key(key)
+        redis_key = self._make_key(peer_id)
         await self.redis.delete(redis_key)
         logger.info(f"FSM cleared: {redis_key}")
 
-    async def get_context(self, vk_user_id: int) -> Dict[str, Any]:
+    # Helper methods for context access (using StatePeer.payload)
+
+    async def get_context(self, peer_id: int) -> Dict[str, Any]:
         """
-        Get context data for user.
+        Get context data (payload) for user.
 
         Args:
-            vk_user_id: VK user ID
+            peer_id: VK peer ID (user ID)
 
         Returns:
-            Context dictionary
+            Payload dictionary from StatePeer
         """
-        if not self.redis:
-            raise RuntimeError("Redis not connected")
+        state_peer = await self.get(peer_id)
+        return state_peer.payload if state_peer else {}
 
-        redis_key = self._make_key(vk_user_id)
-        data = await self.redis.get(redis_key)
-
-        if data:
-            try:
-                parsed = json.loads(data)
-                return parsed.get("context", {})
-            except json.JSONDecodeError:
-                logger.error(f"Invalid JSON in Redis key: {redis_key}")
-                return {}
-
-        return {}
-
-    async def set_context(self, vk_user_id: int, context: Dict[str, Any]):
-        """
-        Set context data for user.
-
-        Args:
-            vk_user_id: VK user ID
-            context: Context dictionary to store
-        """
-        if not self.redis:
-            raise RuntimeError("Redis not connected")
-
-        redis_key = self._make_key(vk_user_id)
-
-        # Preserve existing state
-        existing_data = await self.redis.get(redis_key)
-        state = None
-
-        if existing_data:
-            try:
-                parsed = json.loads(existing_data)
-                state = parsed.get("state")
-            except json.JSONDecodeError:
-                logger.warning(f"Could not parse existing state for {redis_key}")
-
-        # Update context
-        new_data = {
-            "state": state,
-            "context": context,
-        }
-
-        await self.redis.set(redis_key, json.dumps(new_data))
-        logger.debug(f"FSM context updated: {redis_key}")
-
-    async def update_context(self, vk_user_id: int, **kwargs):
+    async def update_context(self, peer_id: int, **kwargs):
         """
         Update specific context fields for user.
 
+        Preserves existing state and merges new payload data.
+
         Args:
-            vk_user_id: VK user ID
-            **kwargs: Key-value pairs to update in context
+            peer_id: VK peer ID (user ID)
+            **kwargs: Key-value pairs to update in payload
         """
-        context = await self.get_context(vk_user_id)
-        context.update(kwargs)
-        await self.set_context(vk_user_id, context)
+        # Get existing StatePeer
+        state_peer = await self.get(peer_id)
+
+        if not state_peer:
+            logger.warning(f"Cannot update context for {peer_id}: no state found")
+            return
+
+        # Merge payload
+        updated_payload = {**state_peer.payload, **kwargs}
+
+        # Set with updated payload, preserving state
+        await self.set(peer_id, state_peer.state, **updated_payload)
