@@ -41,7 +41,7 @@
 
 4. **Добавление мест**
    - Парсер ввода мест: пробелы, запятые, диапазоны (seat_parser.py)
-   - Валидация: ряд 1-24, места 1-28
+   - Валидация: ряд 1-24, места 1-{seatCount} (переменное по layout.json)
    - Проверка занятости через `SELECT ... WHERE released_at IS NULL`
    - Атомарная транзакция для всех мест
    - Создание SeatAssignment записей с status=BOOKED
@@ -76,6 +76,7 @@
 - Redis keys: `bot:fsm:{vk_user_id}` → JSON state
 - DB transaction: `with db.begin()` для add_seats_to_reservation()
 - Audit log: `seat_added`, `reservation_created`
+- **Валидация мест**: CHECK constraint в БД (1-28) — общая граница; точная валидация по layout.json на уровне приложения
 
 ### Dependencies
 
