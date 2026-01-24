@@ -66,9 +66,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     # Scenario 3: Seller is NOT IDLE (working with another client)
     if current_state != "idle":
         current_context = state_peer.payload
-        current_buyer_vk_id = current_context.get("buyer_vk_user_id")
+        current_buyer_vk_api_id = current_context.get("buyer_vk_api_id")
 
-        if buyer_vk_id == current_buyer_vk_id:
+        if buyer_vk_id == current_buyer_vk_api_id:
             # Same client - do nothing
             await message.answer("Вы уже работаете с этим клиентом.")
             return
