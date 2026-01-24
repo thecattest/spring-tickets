@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-01-24
-**Current phase:** Planning complete, ready for Phase 1 execution
+**Current phase:** Phase 0 complete, Phase 1 ready for execution via GSD
 
 ---
 
@@ -184,7 +184,12 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - Создан DB_VALIDATION.md (9 разделов, детальный анализ)
 - **Найден критичный gap:** Payment model не имеет payment_amount и seat_count
 - Обновлен CONCERNS.md с новыми находками
-- Определен action plan для Phase 1
+- **Исправлен Payment model:** добавлены payment_amount и seat_count
+- Создана миграция 001_add_payment_amount_fields.sql
+- **Создана GSD структура фаз:**
+  - .planning/phases/phase-0/ (COMPLETED)
+  - .planning/phases/phase-1/ через phase-6/ (детальные PLAN.md)
+  - Теперь можно использовать `/gsd:execute-phase 1`
 
 ---
 
