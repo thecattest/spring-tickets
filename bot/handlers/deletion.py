@@ -176,6 +176,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
 
     reservation_id = context.get("reservation_id")
     buyer_vk_user_id = context.get("buyer_vk_user_id")
+    buyer_vk_api_id = context.get("buyer_vk_api_id")
     buyer_display_name = context.get("buyer_display_name")
     row = context.get("current_row")
     seats = context.get("seats_to_delete")
@@ -202,7 +203,8 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
                 storage,
                 reservation_id,
                 buyer_vk_user_id,
-                buyer_display_name
+                buyer_display_name,
+                buyer_vk_api_id,
             )
 
         except db.DatabaseError as e:
@@ -218,7 +220,8 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
                 storage,
                 reservation_id,
                 buyer_vk_user_id,
-                buyer_display_name
+                buyer_display_name,
+                buyer_vk_api_id,
             )
 
     elif text == "Отмена":
@@ -230,7 +233,8 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
             storage,
             reservation_id,
             buyer_vk_user_id,
-            buyer_display_name
+            buyer_display_name,
+            buyer_vk_api_id,
         )
 
     else:
@@ -254,6 +258,7 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
 
     reservation_id = context.get("reservation_id")
     buyer_vk_user_id = context.get("buyer_vk_user_id")
+    buyer_vk_api_id = context.get("buyer_vk_api_id")
     buyer_display_name = context.get("buyer_display_name")
 
     if not reservation_id:
@@ -289,7 +294,8 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
                 storage,
                 reservation_id,
                 buyer_vk_user_id,
-                buyer_display_name
+                buyer_display_name,
+                buyer_vk_api_id,
             )
 
         except db.DatabaseError as e:
@@ -305,7 +311,8 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
                 storage,
                 reservation_id,
                 buyer_vk_user_id,
-                buyer_display_name
+                buyer_display_name,
+                buyer_vk_api_id,
             )
 
     elif text == "Отмена":
@@ -317,7 +324,8 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
             storage,
             reservation_id,
             buyer_vk_user_id,
-            buyer_display_name
+            buyer_display_name,
+            buyer_vk_api_id,
         )
 
     else:

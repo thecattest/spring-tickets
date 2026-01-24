@@ -26,6 +26,7 @@ async def show_main_menu(
     reservation_id: int,
     vk_user_id: int,
     buyer_display_name: str,
+    buyer_vk_api_id: int,
 ):
     """
     Display main menu for existing reservation.
@@ -36,6 +37,7 @@ async def show_main_menu(
         reservation_id: Reservation ID
         vk_user_id: VK user internal ID (not vk_user_id!)
         buyer_display_name: Display name of buyer
+        buyer_vk_api_id: VK API ID (from VK API, used for same-client detection)
     """
     try:
         # Fetch all seats for reservation
@@ -56,6 +58,7 @@ async def show_main_menu(
             BotState.MAIN_MENU,
             reservation_id=reservation_id,
             buyer_vk_user_id=vk_user_id,
+            buyer_vk_api_id=buyer_vk_api_id,
             buyer_display_name=buyer_display_name,
             from_main_menu=True,
         )
@@ -192,6 +195,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
 
     # Extract pending switch info and original state
     pending_buyer_vk_id = context.get("pending_buyer_vk_id")
+    pending_buyer_vk_api_id = context.get("pending_buyer_vk_api_id")
     pending_buyer_display_name = context.get("pending_buyer_display_name")
     pending_has_reservation = context.get("pending_has_reservation", False)
     pending_reservation_id = context.get("pending_reservation_id")
@@ -210,6 +214,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                 pending_reservation_id,
                 pending_buyer_vk_id,
                 pending_buyer_display_name,
+                pending_buyer_vk_api_id,
             )
         else:
             # Create new reservation for new client (Phase 1 flow)
@@ -229,6 +234,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     reservation_id=reservation.id,
                     buyer_vk_user_id=pending_buyer_vk_id,
                     buyer_display_name=pending_buyer_display_name,
+                    buyer_vk_api_id=pending_buyer_vk_api_id,
                 )
 
             except db.DatabaseError as e:

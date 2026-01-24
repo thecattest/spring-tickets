@@ -125,6 +125,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 existing.id,
                 vk_user.id,
                 display_name,
+                buyer_vk_id,
             )
             return
 
@@ -342,12 +343,14 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
         if from_main_menu:
             # Phase 2 behavior: return to main menu with updated seat list
             buyer_vk_user_id = context.get("buyer_vk_user_id")
+            buyer_vk_api_id = context.get("buyer_vk_api_id")
             await show_main_menu(
                 message,
                 storage,
                 reservation_id,
                 buyer_vk_user_id,
-                buyer_display_name
+                buyer_display_name,
+                buyer_vk_api_id,
             )
         else:
             # Phase 1 behavior: generate script and clear state
