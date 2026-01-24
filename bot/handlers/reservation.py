@@ -24,11 +24,15 @@ from models.base import SeatStatus
 logger = logging.getLogger(__name__)
 
 
-async def forwarded_message_handler(message: Message):
+async def forwarded_message_handler(message: Message, storage: RedisStorage):
     """
     Handle forwarded message - create reservation.
 
     Extracts VK user ID from forwarded message author and creates reservation.
+
+    Args:
+        message: VK message
+        storage: Redis storage instance
     """
     if not message.fwd_messages:
         return
@@ -61,7 +65,6 @@ async def forwarded_message_handler(message: Message):
         reservation = db.create_reservation(vk_user.id, seller_id)
 
         # Save context to Redis
-        storage: RedisStorage = message.ctx_api.state_dispenser
         await storage.update_context(
             message.from_id,
             reservation_id=reservation.id,
@@ -86,11 +89,15 @@ async def forwarded_message_handler(message: Message):
         )
 
 
-async def awaiting_row_handler(message: Message):
+async def awaiting_row_handler(message: Message, storage: RedisStorage):
     """
     Handle row input in AWAITING_ROW state.
 
     Validates row number and transitions to AWAITING_SEATS.
+
+    Args:
+        message: VK message
+        storage: Redis storage instance
     """
     text = message.text.strip()
 
@@ -112,7 +119,6 @@ async def awaiting_row_handler(message: Message):
         return
 
     # Save row to context
-    storage: RedisStorage = message.ctx_api.state_dispenser
     await storage.update_context(message.from_id, current_row=row)
 
     # Transition to AWAITING_SEATS
@@ -126,14 +132,17 @@ async def awaiting_row_handler(message: Message):
     await storage.set(message.from_id, BotState.AWAITING_SEATS)
 
 
-async def awaiting_seats_handler(message: Message):
+async def awaiting_seats_handler(message: Message, storage: RedisStorage):
     """
     Handle seat input in AWAITING_SEATS state.
 
     Parses seats, validates availability, and adds to reservation.
+
+    Args:
+        message: VK message
+        storage: Redis storage instance
     """
     text = message.text.strip()
-    storage: RedisStorage = message.ctx_api.state_dispenser
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
@@ -225,16 +234,19 @@ async def awaiting_seats_handler(message: Message):
         )
 
 
-async def seat_addition_menu_handler(message: Message):
+async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
     """
     Handle buttons in SEAT_ADDITION_MENU state.
 
     Buttons:
     - "Добавить еще" - return to AWAITING_ROW
     - "Готово" - generate script and finish
+
+    Args:
+        message: VK message
+        storage: Redis storage instance
     """
     text = message.text.strip()
-    storage: RedisStorage = message.ctx_api.state_dispenser
     context = await storage.get_context(message.from_id)
 
     if text == "Добавить еще":
@@ -291,22 +303,28 @@ def register_handlers(bot: Bot):
     Args:
         bot: VKBottle Bot instance
     """
+    # Get storage reference from bot
+    storage = bot.state_dispenser
+
+    # Wrap handlers with storage access
+    async def forwarded_with_storage(message: Message):
+        await forwarded_message_handler(message, storage)
+
+    async def awaiting_row_with_storage(message: Message):
+        await awaiting_row_handler(message, storage)
+
+    async def awaiting_seats_with_storage(message: Message):
+        await awaiting_seats_handler(message, storage)
+
+    async def seat_menu_with_storage(message: Message):
+        await seat_addition_menu_handler(message, storage)
+
     # Forwarded message (any state except active flows)
-    @bot.on.message(func=lambda msg: bool(msg.fwd_messages))
-    async def _(message: Message):
-        await forwarded_message_handler(message)
+    bot.on.message(func=lambda msg: bool(msg.fwd_messages))(forwarded_with_storage)
 
     # State-specific handlers
-    @bot.on.message(state=BotState.AWAITING_ROW)
-    async def _(message: Message):
-        await awaiting_row_handler(message)
-
-    @bot.on.message(state=BotState.AWAITING_SEATS)
-    async def _(message: Message):
-        await awaiting_seats_handler(message)
-
-    @bot.on.message(state=BotState.SEAT_ADDITION_MENU)
-    async def _(message: Message):
-        await seat_addition_menu_handler(message)
+    bot.on.message(state=BotState.AWAITING_ROW)(awaiting_row_with_storage)
+    bot.on.message(state=BotState.AWAITING_SEATS)(awaiting_seats_with_storage)
+    bot.on.message(state=BotState.SEAT_ADDITION_MENU)(seat_menu_with_storage)
 
     logger.info("Reservation handlers registered")

@@ -84,27 +84,26 @@ async def help_handler(message: Message):
     await message.answer(text)
 
 
-async def cancel_handler(message: Message):
+async def cancel_handler(message: Message, storage: RedisStorage):
     """
     /cancel command handler.
 
     Cancels current operation and resets FSM state.
+
+    Args:
+        message: VK message
+        storage: Redis storage instance
     """
     logger.info(f"User {message.from_id} sent /cancel")
 
-    # Get storage from ctx_api
     try:
-        storage = message.ctx_api.state_dispenser
-        if isinstance(storage, RedisStorage):
-            # Clear FSM state
-            await storage.delete(message.from_id)
+        # Clear FSM state
+        await storage.delete(message.from_id)
 
-            await message.answer(
-                "Операция отменена. Состояние сброшено.\n\n"
-                "Чтобы начать заново, перешлите сообщение клиента."
-            )
-        else:
-            await message.answer("Операция отменена.")
+        await message.answer(
+            "Операция отменена. Состояние сброшено.\n\n"
+            "Чтобы начать заново, перешлите сообщение клиента."
+        )
     except Exception as e:
         logger.error(f"Error in /cancel: {e}")
         await message.answer("Операция отменена.")
@@ -117,9 +116,16 @@ def register_handlers(bot: Bot):
     Args:
         bot: VKBottle Bot instance
     """
+    # Get storage reference from bot
+    storage = bot.state_dispenser
+
+    # Wrap cancel handler with storage access
+    async def cancel_with_storage(message: Message):
+        await cancel_handler(message, storage)
+
     # Commands work in any state
     bot.on.message(text="/start")(start_handler)
     bot.on.message(text="/help")(help_handler)
-    bot.on.message(text="/cancel")(cancel_handler)
+    bot.on.message(text="/cancel")(cancel_with_storage)
 
     logger.info("Command handlers registered")
