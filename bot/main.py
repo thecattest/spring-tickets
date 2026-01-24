@@ -85,17 +85,18 @@ async def main():
 
     logger.info("Bot is ready! Starting polling...")
 
-    # Start polling
-    try:
-        await bot.run_polling()
-    except KeyboardInterrupt:
-        logger.info("Bot stopped by user")
-    except Exception as e:
-        logger.error(f"Bot error: {e}", exc_info=True)
-    finally:
-        await storage.close()
-        logger.info("Bot shutdown complete")
+    # Start polling - VKBottle manages its own event loop
+    bot.run_forever()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Run async setup, then let VKBottle take over
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        loop.run_until_complete(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    finally:
+        loop.close()
