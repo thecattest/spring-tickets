@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-01-24
-**Current phase:** Phase 2 in progress (Plans 02-01, 02-02 complete)
+**Current phase:** Phase 2 in progress (Plans 02-01, 02-02, 02-03 complete)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 2 Plan 02 завершена — main menu и context switching готовы. Следующий: Plan 02-03 (seat deletion)
+**Current focus:** Phase 2 Plan 03 завершена — seat deletion и reservation cancellation с admin permissions. Следующий: Plan 02-04 (если существует)
 
 ---
 
@@ -70,11 +70,18 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Menu button routing (Добавить, Удалить, Удалить все, Оплата)
 - ✅ from_main_menu flag for conditional flow branching
 
+✅ **Phase 2 Plan 03: Seat Deletion & Cancellation** — ЗАВЕРШЕНА (6 минут)
+- ✅ Database functions for deletion and permissions (is_user_admin, release_seats, cancel_reservation)
+- ✅ Seat deletion flow with PAID seat protection (DELETING_ROW → DELETING_SEATS → DELETION_CONFIRM)
+- ✅ Reservation cancellation with admin-only PAID seat handling (CANCEL_CONFIRM)
+- ✅ Atomic deletion operations with audit logging
+- ✅ Permission checking via AppUser.vk_user_id matching VK message sender
+- ✅ Error handling for PermissionError and DatabaseError
+
 ### In Progress
 
-🔄 **Phase 2 Plans 03-04**
-- Plan 02-03: Seat deletion functionality
-- Plan 02-04: Reservation cancellation
+🔄 **Phase 2 Plan 04**
+- Plan 02-04: (if exists - check ROADMAP.md for Phase 2 completion status)
 
 ### User Setup Required (Before Running Bot)
 
@@ -130,6 +137,8 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-01-24 | 02-02 | Fetch VK display names via API on every forwarded message | Ensures up-to-date names without database migration | Extra API call per forward (acceptable for infrequent operation) |
 | 2026-01-24 | 02-02 | Use from_main_menu flag for Phase 1/2 flow differentiation | Preserves backward compatibility while enabling menu navigation | Single handler serves both flows cleanly |
 | 2026-01-24 | 02-02 | Store pending client info in CONTEXT_SWITCH_CONFIRM state | Enables restoration and continuation after switch confirmation | All state self-contained in StatePeer payload |
+| 2026-01-24 | 02-03 | Check admin status via AppUser.vk_user_id matching VK message sender | Seller identification by VK ID is primary auth mechanism | Admin permissions work without session-based auth |
+| 2026-01-24 | 02-03 | Validate all seats are BOOKED before releasing any | Prevents partial deletion if any seat is PAID | Atomic deletion ensures data consistency |
 
 ---
 
