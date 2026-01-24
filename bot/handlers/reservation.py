@@ -17,18 +17,22 @@ from bot.fsm.storage import RedisStorage
 from bot.utils import db
 from bot.utils.seat_parser import parse_seats, SeatParseError
 from bot.utils.layout import is_valid_row, is_valid_seat, get_seat_count, get_row_range
-from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard
+from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, context_switch_keyboard
 from bot.messages import generate_reservation_script
 from models.base import SeatStatus
+from bot.handlers.menu import show_main_menu
 
 logger = logging.getLogger(__name__)
 
 
 async def forwarded_message_handler(message: Message, storage: RedisStorage):
     """
-    Handle forwarded message - create reservation.
+    Handle forwarded message - create or show existing reservation.
 
-    Extracts VK user ID from forwarded message author and creates reservation.
+    Handles three scenarios:
+    1. Seller is IDLE, client has NO reservation -> create new reservation
+    2. Seller is IDLE, client HAS active reservation -> show main menu
+    3. Seller is NOT IDLE (working with another client) -> context switch confirmation
 
     Args:
         message: VK message
@@ -43,31 +47,95 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
     logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id}")
 
+    # Fetch VK user name via VK API (single location)
+    try:
+        vk_users = await message.ctx_api.users.get(user_ids=[buyer_vk_id])
+        if vk_users:
+            vk_info = vk_users[0]
+            display_name = f"{vk_info.first_name} {vk_info.last_name}"
+        else:
+            display_name = f"VK User {buyer_vk_id}"
+    except Exception as e:
+        logger.warning(f"Failed to fetch VK user info for {buyer_vk_id}: {e}")
+        display_name = f"VK User {buyer_vk_id}"
+
+    # Check current FSM state
+    state_peer = await storage.get(message.from_id)
+    current_state = state_peer.state if state_peer else "idle"
+
+    # Scenario 3: Seller is NOT IDLE (working with another client)
+    if current_state != "idle":
+        current_context = state_peer.payload
+        current_buyer_vk_id = current_context.get("buyer_vk_user_id")
+
+        if buyer_vk_id == current_buyer_vk_id:
+            # Same client - do nothing
+            await message.answer("Вы уже работаете с этим клиентом.")
+            return
+
+        # Different client - ask for confirmation
+        current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
+
+        await message.answer(
+            f"Переключиться на {display_name}?\n"
+            f"Текущая операция с {current_buyer_name} будет отменена.",
+            keyboard=context_switch_keyboard()
+        )
+
+        # Get or create VK user to check for existing reservation
+        try:
+            vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
+            existing_reservation = db.get_active_reservation(vk_user.id)
+
+            # Save pending switch info
+            await storage.set(
+                message.from_id,
+                BotState.CONTEXT_SWITCH_CONFIRM,
+                # Pending new client info
+                pending_buyer_vk_id=vk_user.id,
+                pending_buyer_display_name=display_name,
+                pending_has_reservation=bool(existing_reservation),
+                pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                # Original context to restore on "Нет"
+                original_state=current_state,
+                original_context=current_context,
+            )
+
+        except db.DatabaseError as e:
+            logger.error(f"Database error checking reservation: {e}")
+            await message.answer(
+                "Ошибка при проверке брони. Попробуйте позже."
+            )
+
+        return
+
+    # Seller is IDLE - proceed with create or show existing
     try:
         # Get or create VK user
-        # Note: We don't have display name from forwarded message in this context
-        # Will need to fetch from VK API or use ID as placeholder
-        vk_user = db.get_or_create_vk_user(buyer_vk_id, f"VK User {buyer_vk_id}")
+        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
 
         # Check if user already has active reservation
         existing = db.get_active_reservation(vk_user.id)
 
         if existing:
-            # Phase 2: show main menu
-            await message.answer(
-                f"У клиента {vk_user.display_name} уже есть активная бронь (ID: {existing.id}).\n\n"
-                "Функция редактирования существующей брони будет доступна в следующей версии."
+            # Scenario 2: Show main menu for existing reservation
+            await show_main_menu(
+                message,
+                storage,
+                existing.id,
+                vk_user.id,
+                display_name,
             )
             return
 
-        # Create new reservation
+        # Scenario 1: Create new reservation
         seller_id = db.get_default_seller_id()
         reservation = db.create_reservation(vk_user.id, seller_id)
 
         # Transition to AWAITING_ROW with context
         await message.ctx_api.messages.send(
             peer_id=message.peer_id,
-            message=f"Создана новая бронь для {vk_user.display_name} (ID: {reservation.id}).\n\n"
+            message=f"Создана новая бронь для {display_name} (ID: {reservation.id}).\n\n"
                     f"Введите номер ряда (1-24):",
             random_id=0,
         )
@@ -77,7 +145,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             BotState.AWAITING_ROW,
             reservation_id=reservation.id,
             buyer_vk_user_id=vk_user.id,
-            buyer_display_name=vk_user.display_name,
+            buyer_display_name=display_name,
         )
 
     except db.DatabaseError as e:
