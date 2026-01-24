@@ -108,12 +108,36 @@ class RedisStorage(ABCStateDispenser):
         if data:
             try:
                 parsed = json.loads(data)
-                # Reconstruct StatePeer from stored data
+
+                # Migrate old format (pre-StatePeer) to new format
+                if "peer_id" not in parsed:
+                    logger.warning(f"Old format detected in {redis_key}, migrating...")
+                    # Old format: {"state": "...", "context": {...}}
+                    # New format: {"peer_id": X, "state": "...", "payload": {...}}
+                    old_state = parsed.get("state")
+                    old_context = parsed.get("context", {})
+
+                    # Create StatePeer with migrated data
+                    state_peer = StatePeer(
+                        peer_id=peer_id,
+                        state=old_state if old_state else "idle",
+                        payload=old_context
+                    )
+
+                    # Update Redis with new format
+                    await self.redis.set(redis_key, json.dumps(state_peer.model_dump()))
+                    logger.info(f"Migrated {redis_key} to StatePeer format")
+                    return state_peer
+
+                # New format - reconstruct StatePeer
                 state_peer = StatePeer(**parsed)
                 logger.debug(f"FSM get: {redis_key} -> {state_peer.state}")
                 return state_peer
             except (json.JSONDecodeError, TypeError, ValueError) as e:
                 logger.error(f"Failed to parse StatePeer from Redis key {redis_key}: {e}")
+                # Clear corrupted data
+                await self.redis.delete(redis_key)
+                logger.warning(f"Cleared corrupted data from {redis_key}")
                 return None
 
         return None

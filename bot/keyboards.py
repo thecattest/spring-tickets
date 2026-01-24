@@ -28,7 +28,7 @@ def get_empty_keyboard() -> str:
     Get empty keyboard (removes keyboard from chat).
 
     Returns:
-        Empty keyboard JSON
+        Empty keyboard JSON with no buttons
     """
     keyboard = Keyboard()
-    return keyboard.get_empty_keyboard()
+    return keyboard.get_json()
