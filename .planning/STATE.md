@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-01-24
-**Current phase:** Phase 2 in progress (Plan 02-01 complete)
+**Current phase:** Phase 2 in progress (Plans 02-01, 02-02 complete)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 2 Plan 01 завершена — foundation components готовы. Следующий: Plan 02-02 (main menu handler)
+**Current focus:** Phase 2 Plan 02 завершена — main menu и context switching готовы. Следующий: Plan 02-03 (seat deletion)
 
 ---
 
@@ -62,12 +62,19 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Confirmation and context switch keyboards
 - ✅ Status-aware seat display с emoji indicators
 
+✅ **Phase 2 Plan 02: Main Menu Handler** — ЗАВЕРШЕНА (4 минуты)
+- ✅ Main menu display for existing reservations
+- ✅ VK API integration for fetching user display names
+- ✅ Context switch detection and confirmation flow
+- ✅ Backward compatible seat addition (Phase 1 + Phase 2 flows)
+- ✅ Menu button routing (Добавить, Удалить, Удалить все, Оплата)
+- ✅ from_main_menu flag for conditional flow branching
+
 ### In Progress
 
-🔄 **Phase 2 Plans 02-04**
-- Plan 02-02: Main menu handler после forwarded message
+🔄 **Phase 2 Plans 03-04**
 - Plan 02-03: Seat deletion functionality
-- Plan 02-04: Reservation cancellation и context switching
+- Plan 02-04: Reservation cancellation
 
 ### User Setup Required (Before Running Bot)
 
@@ -116,6 +123,16 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ---
 
+## Decisions
+
+| Date | Phase | Decision | Rationale | Impact |
+|------|-------|----------|-----------|--------|
+| 2026-01-24 | 02-02 | Fetch VK display names via API on every forwarded message | Ensures up-to-date names without database migration | Extra API call per forward (acceptable for infrequent operation) |
+| 2026-01-24 | 02-02 | Use from_main_menu flag for Phase 1/2 flow differentiation | Preserves backward compatibility while enabling menu navigation | Single handler serves both flows cleanly |
+| 2026-01-24 | 02-02 | Store pending client info in CONTEXT_SWITCH_CONFIRM state | Enables restoration and continuation after switch confirmation | All state self-contained in StatePeer payload |
+
+---
+
 ## Open Questions
 
 1. **AppUser модель:**
@@ -159,11 +176,11 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 ### Progress
 - **Database layer:** 100% complete (Phase 0 ✅)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
-- **Phase 2:** 25% complete (1 of 4 plans complete)
+- **Phase 2:** 50% complete (2 of 4 plans complete)
 - **Planning:** 100% complete
-- **Overall project:** ████░░░ 45% (Phase 0, 1 complete; Phase 2: 1/4 plans)
+- **Overall project:** █████░░ 50% (Phase 0, 1 complete; Phase 2: 2/4 plans)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 Plan 01 = 2 min (highly efficient execution)
+**Velocity:** Phase 1 = 8 min, Phase 2 Plan 01 = 2 min, Plan 02 = 4 min (highly efficient execution)
 
 ---
 
@@ -218,6 +235,18 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - Main menu keyboard with 4 action buttons
 - Status-aware seat display with emoji indicators (📌, ✅, 🔒)
 - Created 02-01-SUMMARY.md
+- Updated STATE.md with Phase 2 progress
+
+**Late Evening (04:00-04:04 UTC):**
+- ✅ **PHASE 2 PLAN 02 COMPLETE** (4 minutes)
+- Executed 4 tasks atomically
+- 4 commits: all feature
+- 1 file created (bot/handlers/menu.py - 281 lines), 2 modified
+- Main menu display with formatted seat list and status indicators
+- VK API integration for fetching user display names
+- Context switch detection for seller workflow conflicts
+- Backward compatible seat addition handler (from_main_menu flag)
+- Created 02-02-SUMMARY.md
 - Updated STATE.md with Phase 2 progress
 
 ---
