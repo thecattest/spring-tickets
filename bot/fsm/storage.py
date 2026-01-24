@@ -9,12 +9,12 @@ import json
 import logging
 from typing import Optional, Any, Dict
 from redis.asyncio import Redis
-from vkbottle.dispatch.dispenser import StateDispenser
+from vkbottle.dispatch.dispenser import ABCStateDispenser
 
 logger = logging.getLogger(__name__)
 
 
-class RedisStorage(StateDispenser):
+class RedisStorage(ABCStateDispenser):
     """
     Redis storage for FSM states and context data.
 
