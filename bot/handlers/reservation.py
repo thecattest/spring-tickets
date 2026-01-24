@@ -112,7 +112,7 @@ async def awaiting_row_handler(message: Message):
         return
 
     # Save row to context
-    storage: RedisStorage = message.state_peer.state_dispenser
+    storage: RedisStorage = message.ctx_api.state_dispenser
     await storage.update_context(message.from_id, current_row=row)
 
     # Transition to AWAITING_SEATS
@@ -234,7 +234,7 @@ async def seat_addition_menu_handler(message: Message):
     - "Готово" - generate script and finish
     """
     text = message.text.strip()
-    storage: RedisStorage = message.state_peer.state_dispenser
+    storage: RedisStorage = message.ctx_api.state_dispenser
     context = await storage.get_context(message.from_id)
 
     if text == "Добавить еще":
