@@ -92,17 +92,21 @@ async def cancel_handler(message: Message):
     """
     logger.info(f"User {message.from_id} sent /cancel")
 
-    # Get storage from bot state dispenser
-    bot = message.state_peer.state_dispenser
-    if isinstance(bot, RedisStorage):
-        # Clear FSM state
-        await bot.delete(message.from_id)
+    # Get storage from ctx_api
+    try:
+        storage = message.ctx_api.state_dispenser
+        if isinstance(storage, RedisStorage):
+            # Clear FSM state
+            await storage.delete(message.from_id)
 
-        await message.answer(
-            "Операция отменена. Состояние сброшено.\n\n"
-            "Чтобы начать заново, перешлите сообщение клиента."
-        )
-    else:
+            await message.answer(
+                "Операция отменена. Состояние сброшено.\n\n"
+                "Чтобы начать заново, перешлите сообщение клиента."
+            )
+        else:
+            await message.answer("Операция отменена.")
+    except Exception as e:
+        logger.error(f"Error in /cancel: {e}")
         await message.answer("Операция отменена.")
 
 

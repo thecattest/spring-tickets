@@ -372,6 +372,7 @@ def get_default_seller_id() -> int:
                 select(AppUser)
                 .where(AppUser.is_active == True)
                 .order_by(AppUser.id)
+                .limit(1)
             )
             user = session.execute(stmt).scalar_one_or_none()
 
