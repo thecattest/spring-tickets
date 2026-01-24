@@ -309,7 +309,10 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
 
     Buttons:
     - "Добавить еще" - return to AWAITING_ROW
-    - "Готово" - generate script and finish
+    - "Готово" - generate script (Phase 1) or return to main menu (Phase 2)
+
+    Phase 1 flow (from_main_menu=False): generates script and clears state
+    Phase 2 flow (from_main_menu=True): returns to main menu with updated seats
 
     Args:
         message: VK message
@@ -317,9 +320,10 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
     """
     text = message.text.strip()
     context = await storage.get_context(message.from_id)
+    from_main_menu = context.get("from_main_menu", False)
 
     if text == "Добавить еще":
-        # Return to AWAITING_ROW (preserve context)
+        # Return to AWAITING_ROW (preserve context including from_main_menu)
         await message.answer(
             "Введите номер ряда:",
             keyboard=get_empty_keyboard()
@@ -327,7 +331,6 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
         await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
     elif text == "Готово":
-        # Generate script
         reservation_id = context.get("reservation_id")
         buyer_display_name = context.get("buyer_display_name")
 
@@ -336,26 +339,32 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
             await storage.delete(message.from_id)
             return
 
-        try:
-            # Get all seats
-            seats = db.get_reservation_seats(reservation_id)
-
-            # Generate script
-            script = generate_reservation_script(
-                buyer_display_name=buyer_display_name,
-                seats=seats,
+        if from_main_menu:
+            # Phase 2 behavior: return to main menu with updated seat list
+            buyer_vk_user_id = context.get("buyer_vk_user_id")
+            await show_main_menu(
+                message,
+                storage,
+                reservation_id,
+                buyer_vk_user_id,
+                buyer_display_name
             )
+        else:
+            # Phase 1 behavior: generate script and clear state
+            try:
+                seats = db.get_reservation_seats(reservation_id)
+                script = generate_reservation_script(
+                    buyer_display_name=buyer_display_name,
+                    seats=seats,
+                )
+                await message.answer(script, keyboard=get_empty_keyboard())
+                await storage.delete(message.from_id)
 
-            await message.answer(script, keyboard=get_empty_keyboard())
-
-            # Clear FSM state
-            await storage.delete(message.from_id)
-
-        except db.DatabaseError as e:
-            logger.error(f"Error generating script: {e}")
-            await message.answer(
-                "Ошибка при генерации скрипта. Попробуйте позже."
-            )
+            except db.DatabaseError as e:
+                logger.error(f"Error generating script: {e}")
+                await message.answer(
+                    "Ошибка при генерации скрипта. Попробуйте позже."
+                )
 
     else:
         # Unknown button
