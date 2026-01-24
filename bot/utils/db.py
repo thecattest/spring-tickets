@@ -22,13 +22,18 @@ from models.user import AppUser
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.audit import AuditLog
-from models.base import SeatStatus, ReservationState, ActorType
+from models.base import SeatStatus, ReservationState, ActorType, UserRole
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseError(Exception):
     """Base exception for database operations."""
+    pass
+
+
+class PermissionError(DatabaseError):
+    """Exception raised when user lacks permission for operation."""
     pass
 
 
@@ -384,3 +389,227 @@ def get_default_seller_id() -> int:
         except Exception as e:
             logger.error(f"Failed to get default seller: {e}")
             raise DatabaseError(f"Failed to get default seller: {e}")
+
+
+def is_user_admin(vk_user_id: int) -> bool:
+    """
+    Check if VK user is an admin.
+
+    Args:
+        vk_user_id: VK user ID of the seller
+
+    Returns:
+        True if user is admin, False otherwise
+    """
+    with SessionLocal() as session:
+        stmt = (
+            select(AppUser)
+            .where(AppUser.vk_user_id == vk_user_id)
+            .where(AppUser.is_active == True)
+        )
+        user = session.execute(stmt).scalar_one_or_none()
+        return user is not None and user.role == UserRole.ADMIN
+
+
+def get_reservation_with_seats(reservation_id: int) -> tuple[Optional[Reservation], List[SeatAssignment]]:
+    """
+    Get reservation and its active seats.
+
+    Args:
+        reservation_id: Reservation ID
+
+    Returns:
+        Tuple of (Reservation or None, List of SeatAssignment)
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            # Get reservation
+            stmt = select(Reservation).where(Reservation.id == reservation_id)
+            reservation = session.execute(stmt).scalar_one_or_none()
+
+            # Get active seats
+            seats_stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.reservation_id == reservation_id)
+                .where(SeatAssignment.released_at.is_(None))
+                .order_by(SeatAssignment.row_number, SeatAssignment.seat_number)
+            )
+            seats = session.execute(seats_stmt).scalars().all()
+
+            return reservation, list(seats)
+
+        except Exception as e:
+            logger.error(f"Failed to get reservation with seats {reservation_id}: {e}")
+            raise DatabaseError(f"Failed to get reservation with seats: {e}")
+
+
+def release_seats(
+    reservation_id: int,
+    row: int,
+    seats: List[int],
+    user_id: int
+) -> int:
+    """
+    Release seats from reservation (atomic operation).
+
+    Sets released_at = NOW() for specified seats.
+    Only releases seats that are BOOKED (not PAID).
+
+    Args:
+        reservation_id: Reservation ID
+        row: Row number
+        seats: List of seat numbers to release
+        user_id: AppUser.id performing the action
+
+    Returns:
+        Count of released seats
+
+    Raises:
+        DatabaseError: If operation fails or seats not found
+    """
+    with SessionLocal() as session:
+        try:
+            # Get all matching seat assignments that are BOOKED
+            stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.reservation_id == reservation_id)
+                .where(SeatAssignment.row_number == row)
+                .where(SeatAssignment.seat_number.in_(seats))
+                .where(SeatAssignment.released_at.is_(None))
+                .where(SeatAssignment.status == SeatStatus.BOOKED)
+            )
+            assignments = session.execute(stmt).scalars().all()
+
+            if len(assignments) < len(seats):
+                # Some seats were not BOOKED or don't exist
+                found_seats = {a.seat_number for a in assignments}
+                missing = set(seats) - found_seats
+                raise DatabaseError(
+                    f"Cannot release seats: {missing} are either not found, already released, or are PAID"
+                )
+
+            # Release all seats
+            now = datetime.utcnow()
+            for assignment in assignments:
+                assignment.released_at = now
+
+            # Update reservation last_activity_at
+            reservation_stmt = select(Reservation).where(Reservation.id == reservation_id)
+            reservation = session.execute(reservation_stmt).scalar_one()
+            reservation.last_activity_at = now
+
+            session.commit()
+
+            # Audit log
+            audit = AuditLog(
+                actor_type=ActorType.USER,
+                actor_user_id=user_id,
+                action_type="seats_removed",
+                entity_type="reservation",
+                entity_id=str(reservation_id),
+                payload={
+                    "row": row,
+                    "seats": seats,
+                    "count": len(seats),
+                }
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(f"Released {len(assignments)} seats from reservation {reservation_id}: row {row}, seats {seats}")
+            return len(assignments)
+
+        except DatabaseError:
+            session.rollback()
+            raise
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to release seats: {e}")
+            raise DatabaseError(f"Failed to release seats: {e}")
+
+
+def cancel_reservation(
+    reservation_id: int,
+    user_id: int,
+    is_admin: bool
+) -> bool:
+    """
+    Cancel reservation and release all seats.
+
+    Args:
+        reservation_id: Reservation ID
+        user_id: AppUser.id performing the action
+        is_admin: Whether user is admin (can cancel with PAID seats)
+
+    Returns:
+        True if cancelled
+
+    Raises:
+        PermissionError: If has PAID seats and not admin
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            # Get reservation
+            reservation_stmt = select(Reservation).where(Reservation.id == reservation_id)
+            reservation = session.execute(reservation_stmt).scalar_one_or_none()
+
+            if not reservation:
+                raise DatabaseError(f"Reservation {reservation_id} not found")
+
+            # Get all active seats
+            seats_stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.reservation_id == reservation_id)
+                .where(SeatAssignment.released_at.is_(None))
+            )
+            seats = session.execute(seats_stmt).scalars().all()
+
+            # Check for PAID seats
+            paid_seats = [s for s in seats if s.status == SeatStatus.PAID]
+
+            if paid_seats and not is_admin:
+                raise PermissionError(
+                    f"Cannot cancel reservation with {len(paid_seats)} PAID seats. Admin permission required."
+                )
+
+            # Release all seats
+            now = datetime.utcnow()
+            for seat in seats:
+                seat.released_at = now
+
+            # Update reservation state
+            reservation.state = ReservationState.CANCELLED
+            reservation.last_activity_at = now
+
+            session.commit()
+
+            # Audit log
+            audit = AuditLog(
+                actor_type=ActorType.USER,
+                actor_user_id=user_id,
+                action_type="reservation_cancelled",
+                entity_type="reservation",
+                entity_id=str(reservation_id),
+                payload={
+                    "total_seats": len(seats),
+                    "paid_seats": len(paid_seats),
+                    "is_admin": is_admin,
+                }
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(f"Cancelled reservation {reservation_id}: {len(seats)} seats released (paid: {len(paid_seats)})")
+            return True
+
+        except (PermissionError, DatabaseError):
+            session.rollback()
+            raise
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to cancel reservation: {e}")
+            raise DatabaseError(f"Failed to cancel reservation: {e}")
