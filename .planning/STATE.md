@@ -39,11 +39,12 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ### In Progress
 
-🔄 **Phase 0: Валидация архитектуры БД**
-- Проверка покрытия всех ботовых сценариев
-- Проверка индексов для критичных запросов
-- Выявление недостающих полей/связей
-- Проверка audit log action types
+✅ **Phase 0: Валидация архитектуры БД** — ЗАВЕРШЕНА
+- ✅ Все сценарии покрыты существующими таблицами
+- ✅ Индексы проверены (1 composite рекомендован для оптимизации)
+- ❌ Найден критичный gap: Payment.payment_amount и Payment.seat_count отсутствуют
+- ✅ Audit log готов для всех action types
+- ✅ Создан DB_VALIDATION.md с полным отчетом
 
 🔄 **Phase 1 Preparation**
 - Roadmap создан с 7 фазами (Phase 0 + 6 основных)
@@ -52,41 +53,38 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ### Blocked
 
-❌ **Требуют уточнения перед началом разработки:**
+❌ **Требуют исправления перед началом Phase 1:**
 1. ✅ ~~AppUser.is_admin~~ — решено: используется `AppUser.role == UserRole.ADMIN`
 2. ✅ ~~layout.json структура~~ — создан с переменным количеством мест (21-28) в 24 рядах
-3. Время отправки напоминаний должникам (для cron в Phase 5)
-4. SEAT_PRICE — цена одного места (для расчета сумм в Phase 3)
+3. ✅ ~~DB validation~~ — завершена, найден gap
+4. ❌ **CRITICAL:** Payment model missing `payment_amount` и `seat_count` fields — нужно добавить перед Phase 1
+
+❌ **Требуют конфигурации (можно отложить):**
+5. Время отправки напоминаний должникам (для cron в Phase 5) — будет в .env
+6. SEAT_PRICE — цена одного места (для расчета сумм в Phase 3) — будет в .env
 
 ---
 
 ## Next Steps
 
-### Immediate (Phase 0)
+### Immediate (Fix Payment model)
 
-**Валидация архитектуры БД (~2-3 hours):**
+**Критичное исправление перед Phase 1 (~30 min):**
 
-1. **Проверить покрытие сценариев:**
-   - Создание брони, добавление/удаление мест
-   - Регистрация оплаты (детерминированная выборка)
-   - Управление резервами (с комментариями)
-   - Поиск должников
+1. **Добавить поля в Payment model:**
+   ```python
+   payment_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+   seat_count: Mapped[int] = mapped_column(Integer, nullable=False)
+   ```
 
-2. **Проверить индексы:**
-   - Поиск активной брони по buyer_vk_user_id
-   - Поиск мест по reservation_id
-   - Проверка занятости (row, seat, released_at IS NULL)
-   - Должники по sold_by_user_id + last_activity_at
+2. **Создать миграцию:**
+   - ALTER TABLE payments ADD COLUMN payment_amount
+   - ALTER TABLE payments ADD COLUMN seat_count
+   - Backfill existing data (if any)
 
-3. **Проверить недостающие элементы:**
-   - Поля для связи билетера с VK (AppUser.vk_user_id)
-   - Audit log action types из BOT_SPEC.md
-   - Constraints согласованы с layout.json?
-
-4. **Создать DB_VALIDATION.md:**
-   - Результаты проверки
-   - Список изменений (если требуется)
-   - Обновить CONCERNS.md
+3. **Обновить test_db.py:**
+   - Валидация новых полей
+   - Проверка payment creation with amount/count
 
 ### Before Phase 1
 
@@ -156,16 +154,19 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Requirements:** 6 validated, 24 active, 5 out of scope
 
 ### Progress
-- **Database layer:** 100% complete
+- **Database layer:** 95% complete (1 schema update required)
 - **Bot development:** 0% (not started)
 - **Planning:** 100% complete
-- **Overall project:** ~25% (infrastructure готов, основная разработка впереди)
+- **DB Validation (Phase 0):** 100% complete
+- **Overall project:** ~27% (infrastructure почти готов, 1 критичное исправление → Phase 1)
 
 ---
 
 ## Recent Activity
 
 **2026-01-24:**
+
+**Morning:**
 - Запущен `/gsd:map-codebase` — создано 7 документов о кодовой базе
 - Обсуждение деталей реализации VK бота
 - Созданы BOT_SPEC.md (1200 строк), PROJECT.md, ROADMAP.md
@@ -175,6 +176,15 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
   - Резервы — отдельная команда, не привязаны к брони
   - Админ-only удаление броней с оплаченными местами
   - Redis permanent storage (no TTL)
+- Создан layout.json с переменным количеством мест (21-28)
+
+**Afternoon:**
+- Добавлена Phase 0: Database Architecture Validation
+- Полная проверка БД против требований бота
+- Создан DB_VALIDATION.md (9 разделов, детальный анализ)
+- **Найден критичный gap:** Payment model не имеет payment_amount и seat_count
+- Обновлен CONCERNS.md с новыми находками
+- Определен action plan для Phase 1
 
 ---
 

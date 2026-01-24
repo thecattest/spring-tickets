@@ -73,10 +73,12 @@
 - Improvement path: (1) Implement eager loading with session.options(joinedload), (2) Aggregate seat counts in SQL (SELECT ... GROUP BY), (3) Cache results with 30-second TTL
 
 **Debtors Report Query Complexity:**
-- Problem: "Должники" (debtors) query joins Reservations → SeatAssignments → checks last_activity_at; no multi-column index optimization
-- Files: `DB_SCHEMA.md` (section 5.1, lines 263-276), `README_MODELS.md` (section примеры запросов, lines 149-171)
-- Cause: Query mixes temporal filter (last_activity_at <= 7 days ago) with status check (status='booked'); may cause table scan
-- Improvement path: (1) Create composite index on (sold_by_user_id, last_activity_at), (2) Consider materialized view for daily debtors report, (3) Profile query with EXPLAIN PLAN before optimization
+- Problem: "Должники" (debtors) query filters by sold_by_user_id + last_activity_at + state; no composite index optimization
+- Files: `DB_SCHEMA.md` (section 5.1, lines 263-276), `README_MODELS.md` (section примеры запросов, lines 149-171), `DB_VALIDATION.md` (section 1.6)
+- Cause: Query uses WHERE sold_by_user_id = X AND last_activity_at <= Y AND state = 'active'; separate indexes may require double scan
+- Impact: Low-Medium (works correctly, performance OK for <1000 reservations; may slow down with >10K)
+- Improvement path: (1) Add composite index: `CREATE INDEX reservations_debtors_idx ON reservations(sold_by_user_id, last_activity_at) WHERE state='active'`, (2) Profile with EXPLAIN PLAN before optimization
+- Priority: **Low** - optional optimization for Phase 5
 
 **Audit Log Query Performance with Large Datasets:**
 - Problem: Audit log will grow rapidly; filtering by entity_id with text comparison is slow
@@ -143,6 +145,14 @@
 
 ## Missing Critical Features
 
+**Payment Model Missing Required Fields (CRITICAL):**
+- Problem: Payment model lacks `payment_amount` (Decimal) and `seat_count` (Integer) fields required by VK bot
+- Files: `models/payment.py`, `BOT_SPEC.md` (line 282), `ROADMAP.md` Phase 3
+- Impact: Cannot implement payment registration (Phase 3); financial reports require complex JOINs; bot cannot display payment amounts
+- Blocks: Phase 3 development (payment recording and script generation)
+- Fix approach: Add fields to Payment model with migration; backfill existing payments if any
+- Priority: **CRITICAL** - must fix before Phase 1 starts
+
 **No Soft Delete / Archive Strategy:**
 - Problem: Deleting reservations cascades to SeatAssignments (line 43 in reservation.py uses ondelete="CASCADE"); no way to view historical data after cancellation
 - Blocks: Financial audits, dispute resolution with customers, trend analysis
@@ -172,9 +182,10 @@
 
 **No Concurrency/Race Condition Testing:**
 - What's not tested: Simultaneous seat booking attempts; payment recording under concurrent modifications
-- Files: `test_db.py` (single-threaded only)
-- Risk: Could break in production under load
+- Files: `test_db.py` (single-threaded only), `DB_VALIDATION.md` (section 6.1)
+- Risk: Partial index uniqueness `seat_assignments_one_active_per_seat` provides DB-level protection, but not tested under concurrent load
 - Priority: **High** - must test before VK bot launch
+- Test scenario: Two threads attempt to book same (row, seat) simultaneously → one succeeds, one gets IntegrityError
 
 **No Edge Case Testing for Seat Status Transitions:**
 - What's not tested: (1) Release seat that is already released, (2) Mark as PAID when status is RESERVED, (3) Delete reservation with mixed BOOKED/PAID statuses
