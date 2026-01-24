@@ -39,10 +39,16 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ### In Progress
 
+🔄 **Phase 0: Валидация архитектуры БД**
+- Проверка покрытия всех ботовых сценариев
+- Проверка индексов для критичных запросов
+- Выявление недостающих полей/связей
+- Проверка audit log action types
+
 🔄 **Phase 1 Preparation**
-- Roadmap создан с 6 фазами
+- Roadmap создан с 7 фазами (Phase 0 + 6 основных)
 - PROJECT.md инициализирован
-- Готовность к началу разработки
+- layout.json создан
 
 ### Blocked
 
@@ -56,27 +62,48 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ## Next Steps
 
-### Immediate (перед началом Phase 1)
+### Immediate (Phase 0)
 
-1. **Проверить модель AppUser:**
-   - Есть ли поле `is_admin`?
-   - Если нет — добавить в миграцию
+**Валидация архитектуры БД (~2-3 hours):**
 
-2. **Создать .env.example:**
-   - VK_BOT_TOKEN
-   - VK_GROUP_ID
+1. **Проверить покрытие сценариев:**
+   - Создание брони, добавление/удаление мест
+   - Регистрация оплаты (детерминированная выборка)
+   - Управление резервами (с комментариями)
+   - Поиск должников
+
+2. **Проверить индексы:**
+   - Поиск активной брони по buyer_vk_user_id
+   - Поиск мест по reservation_id
+   - Проверка занятости (row, seat, released_at IS NULL)
+   - Должники по sold_by_user_id + last_activity_at
+
+3. **Проверить недостающие элементы:**
+   - Поля для связи билетера с VK (AppUser.vk_user_id)
+   - Audit log action types из BOT_SPEC.md
+   - Constraints согласованы с layout.json?
+
+4. **Создать DB_VALIDATION.md:**
+   - Результаты проверки
+   - Список изменений (если требуется)
+   - Обновить CONCERNS.md
+
+### Before Phase 1
+
+1. **Создать .env.example:**
+   - VK_BOT_TOKEN, VK_GROUP_ID
    - REDIS_HOST/PORT/DB
    - DATABASE_URL
-   - SEAT_PRICE
+   - SEAT_PRICE (требует уточнения)
    - DEBTORS_DAYS_THRESHOLD=7
 
-3. **Создать layout.json:**
-   - Структура зала (24 ряда × 28 мест)
-   - Формат JSON для валидации
+2. **Уточнить открытые вопросы:**
+   - SEAT_PRICE — цена одного места
+   - Время отправки напоминаний должникам
 
 ### Phase 1 Execution
 
-После уточнений выше:
+После Phase 0 и уточнений:
 
 1. Инициализация VKBottle проекта
 2. Подключение Redis FSM storage
