@@ -27,16 +27,17 @@ config.setup_logging()
 logger = logging.getLogger(__name__)
 
 
-async def main():
+async def setup():
     """
-    Initialize and run the VK bot.
+    Async initialization tasks.
+    Returns configured bot instance.
     """
     # Validate configuration
     try:
         config.validate_config()
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
-        return
+        return None
 
     logger.info("Starting VK Bot...")
     logger.info(f"Group ID: {config.VK_GROUP_ID}")
@@ -55,7 +56,7 @@ async def main():
         logger.info("Redis connection established")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        return
+        return None
 
     # Initialize VKBottle bot
     bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=storage)
@@ -72,7 +73,7 @@ async def main():
         logger.info("Database initialized")
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
-        return
+        return None
 
     # Load hall layout
     from bot.utils.layout import load_layout
@@ -81,21 +82,22 @@ async def main():
         logger.info("Hall layout loaded")
     except Exception as e:
         logger.error(f"Failed to load hall layout: {e}")
-        return
+        return None
 
     logger.info("Bot is ready! Starting polling...")
-
-    # Start polling - VKBottle manages its own event loop
-    bot.run_forever()
+    return bot
 
 
 if __name__ == "__main__":
-    # Run async setup, then let VKBottle take over
+    # Run async setup
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
     try:
-        loop.run_until_complete(main())
+        bot = loop.run_until_complete(setup())
+        if bot:
+            # Now run VKBottle's synchronous run_forever()
+            bot.run_forever()
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     finally:
