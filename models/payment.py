@@ -3,8 +3,9 @@ Payment и PaymentSeat models - оплаты (чеки) и привязка ме
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional
-from sqlalchemy import ForeignKey, Index, Integer, Text
+from sqlalchemy import ForeignKey, Index, Integer, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from models.base import Base
 
@@ -36,6 +37,18 @@ class Payment(Base):
         nullable=False,
         comment="Дата отправки чека"
     )
+
+    payment_amount: Mapped[Decimal] = mapped_column(
+        Numeric(10, 2),
+        nullable=False,
+        comment="Сумма оплаты (руб.)"
+    )
+    seat_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        comment="Количество оплаченных мест"
+    )
+
     recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

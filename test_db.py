@@ -88,12 +88,14 @@ def test_database():
         )
         session.add(reserve_seat)
         
-        # Оплата
+        # Оплата (частичная: 2 из 3 мест)
         payment = Payment(
             reservation_id=reservation.id,
             recorded_by_user_id=seller.id,
             vk_message_url="https://vk.com/im?sel=-123456&msgid=789",
-            vk_message_ts=datetime.utcnow()
+            vk_message_ts=datetime.utcnow(),
+            payment_amount=3000.00,  # 2 места * 1500 руб (пример)
+            seat_count=2
         )
         session.add(payment)
         session.flush()
