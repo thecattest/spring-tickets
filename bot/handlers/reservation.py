@@ -93,6 +93,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 BotState.CONTEXT_SWITCH_CONFIRM,
                 # Pending new client info
                 pending_buyer_vk_id=vk_user.id,
+                pending_buyer_vk_api_id=buyer_vk_id,
                 pending_buyer_display_name=display_name,
                 pending_has_reservation=bool(existing_reservation),
                 pending_reservation_id=existing_reservation.id if existing_reservation else None,
@@ -146,6 +147,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             BotState.AWAITING_ROW,
             reservation_id=reservation.id,
             buyer_vk_user_id=vk_user.id,
+            buyer_vk_api_id=buyer_vk_id,
             buyer_display_name=display_name,
         )
 
