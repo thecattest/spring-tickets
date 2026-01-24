@@ -19,7 +19,7 @@ from vkbottle import BaseStateGroup
 
 from bot import config
 from bot.fsm.storage import RedisStorage
-from bot.handlers import commands, reservation
+from bot.handlers import commands, reservation, menu
 
 
 # Setup logging
@@ -65,6 +65,7 @@ async def setup():
     logger.info("Registering handlers...")
     commands.register_handlers(bot)
     reservation.register_handlers(bot)
+    menu.register_handlers(bot)
 
     # Initialize database
     from database import init_db
