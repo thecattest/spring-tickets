@@ -113,18 +113,28 @@ class RedisStorage(ABCStateDispenser):
 
         return None
 
-    async def set(self, key: int, value: str):
+    async def set(self, key: int, value):
         """
         Set FSM state for user.
 
         Args:
             key: VK user ID
-            value: New state
+            value: New state (BaseStateGroup attribute or string)
         """
         if not self.redis:
             raise RuntimeError("Redis not connected")
 
         redis_key = self._make_key(key)
+
+        # BaseStateGroup attributes are special string-like objects
+        # We need just the string value, not the repr
+        # Simply convert to string - Python will use the __str__ which gives us the value
+        state_value = str(value) if not isinstance(value, str) else value
+
+        # Remove "BotState:" prefix if present (from repr)
+        if ":" in state_value and not state_value.startswith("bot:"):
+            # This is likely "BotState:awaiting_row" format
+            state_value = state_value.split(":", 1)[1]
 
         # Preserve existing context
         existing_data = await self.redis.get(redis_key)
@@ -139,12 +149,12 @@ class RedisStorage(ABCStateDispenser):
 
         # Update state
         new_data = {
-            "state": value,
+            "state": state_value,
             "context": context,
         }
 
         await self.redis.set(redis_key, json.dumps(new_data))
-        logger.info(f"FSM transition: {redis_key} -> {value}")
+        logger.info(f"FSM transition: {redis_key} -> {state_value}")
 
     async def delete(self, key: int):
         """
