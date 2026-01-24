@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-24
 **Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Planning
+**Status:** Phase 2 Planned
 
 ---
 
@@ -19,6 +19,8 @@
 ## Phase 0: Валидация архитектуры БД
 
 **Goal:** Убедиться, что существующая архитектура БД полностью покрывает требования VK бота.
+
+**Status:** ✅ COMPLETE
 
 **Estimated effort:** ~2-3 hours
 
@@ -158,7 +160,15 @@
 
 **Goal:** Полноценная работа с бронью через главное меню.
 
+**Status:** PLANNED
 **Estimated effort:** ~10-12 hours
+
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — FSM states, formatting utilities, keyboards
+- [ ] 02-02-PLAN.md — Main menu display, context switching
+- [ ] 02-03-PLAN.md — Seat deletion and reservation cancellation
 
 ### Requirements
 
@@ -197,14 +207,14 @@
 
 ### Technical Notes
 
-- Проверка админа: `AppUser.is_admin` (нужно добавить поле в модель?)
-- Audit log: `seat_removed`, `reservation_cancelled`
-- После удаления — остаться в контекст меню или выйти? (Уточнить)
+- Проверка админа: `AppUser.role == UserRole.ADMIN` via `AppUser.vk_user_id`
+- Audit log: `seats_removed`, `reservation_cancelled`
+- После удаления — вернуться в главное меню с обновленным списком
 
 ### Dependencies
 
 - Phase 1
-- AppUser.is_admin поле (проверить существование)
+- AppUser.vk_user_id поле (существует)
 
 ---
 
@@ -495,3 +505,4 @@
 ---
 
 *Roadmap created: 2026-01-24*
+*Phase 2 planned: 2026-01-24*
