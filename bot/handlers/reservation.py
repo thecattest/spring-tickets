@@ -61,7 +61,7 @@ async def forwarded_message_handler(message: Message):
         reservation = db.create_reservation(vk_user.id, seller_id)
 
         # Save context to Redis
-        storage: RedisStorage = message.state_peer.state_dispenser
+        storage: RedisStorage = message.ctx_api.state_dispenser
         await storage.update_context(
             message.from_id,
             reservation_id=reservation.id,
