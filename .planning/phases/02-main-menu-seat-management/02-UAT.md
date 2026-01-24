@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 02-main-menu-seat-management
 source: 02-01-SUMMARY.md, 02-02-SUMMARY.md, 02-03-SUMMARY.md
 started: 2026-01-24T04:21:10Z
@@ -96,7 +96,17 @@ skipped: 3
   reason: "User reported: переспрашивает переключиться ли на клиента А, операция с клиентом А будет прервана. и показывает клавиатуру с да / нет"
   severity: major
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "ID type mismatch in same-client detection logic (reservation.py:71) - compares VK API user ID (buyer_vk_id from forwarded.from_id) against database primary key (current_buyer_vk_id from context) which will never match even for same client"
+  artifacts:
+    - path: "bot/handlers/reservation.py"
+      issue: "Line 69: Retrieves wrong ID type from context (database primary key instead of VK API ID)"
+    - path: "bot/handlers/reservation.py"
+      issue: "Line 71: Compares VK API ID to database primary key"
+    - path: "bot/handlers/reservation.py"
+      issue: "Line 147: Stores database ID in context (needs VK API ID added)"
+    - path: "bot/handlers/menu.py"
+      issue: "Line 58: Also stores database ID (needs VK API ID added)"
+  missing:
+    - "Add buyer_vk_api_id field to context (do NOT rename buyer_vk_user_id - used by deletion.py and menu.py for database lookups)"
+    - "Update same-client comparison to use buyer_vk_api_id"
+  debug_session: ".planning/debug/same-client-forward-ignored.md"
