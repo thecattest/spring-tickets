@@ -1,0 +1,101 @@
+"""
+Configuration management for the VK bot.
+
+Loads settings from environment variables and provides centralized configuration.
+"""
+
+import os
+import logging
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env file
+load_dotenv()
+
+# VK Bot Configuration
+VK_BOT_TOKEN = os.getenv("VK_BOT_TOKEN", "")
+VK_GROUP_ID = int(os.getenv("VK_GROUP_ID", "0"))
+
+# Redis Configuration
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+
+# Database Configuration
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tickets.db")
+
+# Business Logic Configuration
+SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
+
+# Logging Configuration
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+# Project paths
+PROJECT_ROOT = Path(__file__).parent.parent
+LAYOUT_FILE = PROJECT_ROOT / "layout.json"
+
+
+def setup_logging():
+    """
+    Configure logging for the bot.
+
+    Sets up:
+    - Log level from environment
+    - Timestamp formatting
+    - Module name in logs
+    """
+    logging.basicConfig(
+        level=getattr(logging, LOG_LEVEL),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
+    # Suppress noisy third-party loggers
+    logging.getLogger("vkbottle").setLevel(logging.WARNING)
+    logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
+    return logging.getLogger(__name__)
+
+
+def validate_config():
+    """
+    Validate required configuration is present.
+
+    Raises:
+        ValueError: If required configuration is missing
+    """
+    errors = []
+
+    if not VK_BOT_TOKEN:
+        errors.append("VK_BOT_TOKEN is required")
+
+    if not VK_GROUP_ID:
+        errors.append("VK_GROUP_ID is required")
+
+    if not LAYOUT_FILE.exists():
+        errors.append(f"Layout file not found: {LAYOUT_FILE}")
+
+    if errors:
+        raise ValueError("Configuration errors:\n" + "\n".join(f"  - {e}" for e in errors))
+
+
+if __name__ == "__main__":
+    # Test configuration
+    setup_logging()
+    logger = logging.getLogger(__name__)
+
+    logger.info("Configuration loaded:")
+    logger.info(f"  VK_BOT_TOKEN: {'*' * len(VK_BOT_TOKEN) if VK_BOT_TOKEN else 'NOT SET'}")
+    logger.info(f"  VK_GROUP_ID: {VK_GROUP_ID}")
+    logger.info(f"  REDIS_HOST: {REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
+    logger.info(f"  DATABASE_URL: {DATABASE_URL}")
+    logger.info(f"  SEAT_PRICE: {SEAT_PRICE}")
+    logger.info(f"  LOG_LEVEL: {LOG_LEVEL}")
+    logger.info(f"  LAYOUT_FILE: {LAYOUT_FILE}")
+
+    try:
+        validate_config()
+        logger.info("Configuration validation passed!")
+    except ValueError as e:
+        logger.error(f"Configuration validation failed:\n{e}")

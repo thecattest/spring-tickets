@@ -1,6 +1,15 @@
 # Database
 sqlalchemy>=2.0.0
 
+# VK Bot
+vkbottle>=4.0.0
+
+# Redis (FSM storage)
+redis>=5.0.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
 # Note: SQLite3 is built into Python, no additional driver needed
 
 # Optional: PostgreSQL support (uncomment if migrating from SQLite to PostgreSQL)
