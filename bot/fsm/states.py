@@ -14,6 +14,15 @@ class BotState(BaseStateGroup):
 
     Flow for reservation creation:
     IDLE -> AWAITING_ROW -> AWAITING_SEATS -> SEAT_ADDITION_MENU -> IDLE
+
+    Deletion flow:
+    MAIN_MENU -> DELETING_ROW -> DELETING_SEATS -> DELETION_CONFIRM -> MAIN_MENU
+
+    Cancel flow:
+    MAIN_MENU -> CANCEL_CONFIRM -> IDLE
+
+    Context switch:
+    (any state) -> CONTEXT_SWITCH_CONFIRM -> (new client context)
     """
 
     # Default state: waiting for user action
@@ -24,8 +33,13 @@ class BotState(BaseStateGroup):
     AWAITING_SEATS = "awaiting_seats"
     SEAT_ADDITION_MENU = "seat_addition_menu"
 
-    # Future states (Phase 2+)
-    # MAIN_MENU = "main_menu"
-    # AWAITING_DELETE_ROW = "awaiting_delete_row"
-    # AWAITING_DELETE_SEATS = "awaiting_delete_seats"
+    # Main menu and deletion flow (Phase 2)
+    MAIN_MENU = "main_menu"
+    DELETING_ROW = "deleting_row"
+    DELETING_SEATS = "deleting_seats"
+    DELETION_CONFIRM = "deletion_confirm"
+    CANCEL_CONFIRM = "cancel_confirm"
+    CONTEXT_SWITCH_CONFIRM = "context_switch_confirm"
+
+    # Future states (Phase 3+)
     # AWAITING_PAYMENT_AMOUNT = "awaiting_payment_amount"
