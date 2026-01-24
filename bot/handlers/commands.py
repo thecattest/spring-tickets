@@ -84,7 +84,7 @@ async def help_handler(message: Message):
     await message.answer(text)
 
 
-async def cancel_handler(message: Message, storage: RedisStorage):
+async def cancel_handler(message: Message, storage):
     """
     /cancel command handler.
 
@@ -92,7 +92,7 @@ async def cancel_handler(message: Message, storage: RedisStorage):
 
     Args:
         message: VK message
-        storage: Redis storage instance
+        storage: State dispenser instance
     """
     logger.info(f"User {message.from_id} sent /cancel")
 
