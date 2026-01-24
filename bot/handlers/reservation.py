@@ -119,6 +119,9 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
     # Get existing context to preserve it
     context = await storage.get_context(message.from_id)
 
+    # Update context with new row (replaces old current_row if exists)
+    context['current_row'] = row
+
     # Transition to AWAITING_SEATS with updated context
     seat_count = get_seat_count(row)
     await message.answer(
@@ -127,7 +130,7 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         f"Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
     )
 
-    await storage.set(message.from_id, BotState.AWAITING_SEATS, current_row=row, **context)
+    await storage.set(message.from_id, BotState.AWAITING_SEATS, **context)
 
 
 async def awaiting_seats_handler(message: Message, storage: RedisStorage):
