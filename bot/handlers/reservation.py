@@ -133,7 +133,7 @@ async def awaiting_seats_handler(message: Message):
     Parses seats, validates availability, and adds to reservation.
     """
     text = message.text.strip()
-    storage: RedisStorage = message.state_peer.state_dispenser
+    storage: RedisStorage = message.ctx_api.state_dispenser
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
