@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-24
 **Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Phase 2 Gap Closure, Phase 3 Ready
+**Status:** Phase 3 Planning Complete, Ready for Execution
 
 ---
 
@@ -160,17 +160,17 @@
 
 **Goal:** Полноценная работа с бронью через главное меню.
 
-**Status:** UAT in progress (gap closure)
+**Status:** ✅ COMPLETE (2026-01-24)
 **Estimated effort:** ~10-12 hours
-**Actual effort:** ~12 minutes (AI-assisted) + gap closure
+**Actual effort:** ~15 minutes (AI-assisted)
 
-**Plans:** 4 plans (3 complete, 1 gap closure)
+**Plans:** 4 plans
 
 Plans:
 - [x] 02-01-PLAN.md — FSM states, formatting utilities, keyboards (2 min)
 - [x] 02-02-PLAN.md — Main menu display, context switching (4 min)
 - [x] 02-03-PLAN.md — Seat deletion and reservation cancellation (6 min)
-- [ ] 02-04-PLAN.md — Gap closure: Fix same-client detection bug
+- [x] 02-04-PLAN.md — Gap closure: Fix same-client detection bug (3 min)
 
 ### Requirements
 
@@ -205,7 +205,7 @@ Plans:
 - ✅ Можно отменить всю бронь
 - ✅ Админ может отменить бронь с оплаченными местами
 - ✅ Обычный пользователь не может отменить бронь с оплаченными местами
-- ⏳ Конфликт контекста обрабатывается корректно (gap closure in progress)
+- ✅ Конфликт контекста обрабатывается корректно
 
 ### Technical Notes
 
@@ -222,9 +222,16 @@ Plans:
 
 ## Phase 3: Регистрация оплаты и скрипт
 
-**Goal:** Полный цикл: бронь → оплата → скрипт для клиента.
+**Goal:** Полный цикл: бронь -> оплата -> скрипт для клиента.
 
+**Status:** Planning complete, ready for execution
 **Estimated effort:** ~12-15 hours
+
+**Plans:** 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Payment foundation: model fix, FSM state, keyboard, DB function, message formatter
+- [ ] 03-02-PLAN.md — Payment handlers: payment.py, receipt forwarding, menu wiring, registration
 
 ### Requirements
 
@@ -509,3 +516,4 @@ Plans:
 *Roadmap created: 2026-01-24*
 *Phase 2 planned: 2026-01-24*
 *Phase 2 gap closure: 2026-01-24*
+*Phase 3 planned: 2026-02-17*
