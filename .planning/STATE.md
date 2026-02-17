@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 3 COMPLETE (Plans 01 and 02 done), Phase 4 next
+**Current phase:** Phase 3 COMPLETE (Plans 01, 02, and 03 gap closure done), Phase 4 next
 
 ---
 
@@ -110,11 +110,23 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ "Оплата" button routes to start_payment_flow via local import (no circular dependency)
 - ✅ Payment handlers registered in bot startup (bot/main.py)
 
-✅ **Phase 3: Payment Recording** — ЗАВЕРШЕНА (7 минут total)
-- ✅ Both plans complete (03-01, 03-02)
+✅ **Phase 3 Plan 03: Gap Closure — Receipt Forwarding Bugs** — ЗАВЕРШЕНА (3 минуты)
+- ✅ Fixed critical state comparison bug: str(BotState.MAIN_MENU) instead of .value (dead code fix)
+- ✅ Added forwarded_has_receipt_attachment helper: photo/doc detection for receipt identification
+- ✅ MAIN_MENU + same client + receipt → payment flow (was broken by state comparison bug)
+- ✅ MAIN_MENU + same client + plain text → re-show main menu (not payment)
+- ✅ MAIN_MENU + different client + receipt → context switch offer with pending_is_receipt=True
+- ✅ MAIN_MENU + different client + plain text → context switch offer with pending_is_receipt=False
+- ✅ IDLE + receipt + existing reservation → payment flow directly (new shortcut)
+- ✅ context_switch_handler updated: pending_is_receipt=True routes to start_payment_flow after switch
+- ✅ Non-MAIN_MENU context switch stores pending_is_receipt for future use
+
+✅ **Phase 3: Payment Recording** — ЗАВЕРШЕНА (10 минут total, including gap closure)
+- ✅ All plans complete (03-01, 03-02, 03-03 gap closure)
 - ✅ Full payment flow operational: receipt-forward and button both functional
 - ✅ Partial payment: pay N of M booked seats, remaining shown in confirmation
 - ✅ No circular imports: local import pattern established
+- ✅ All receipt forwarding bugs fixed; routing matrix fully correct
 
 ### User Setup Required (Before Running Bot)
 
@@ -179,6 +191,11 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-02-18 | 03-02 | Local import inside function to break circular dependency (payment.py <-> menu.py) | Both files need functions from each other; top-level imports would create circular dependency | payment_quantity_handler imports show_main_menu locally; Oplata block imports start_payment_flow locally |
 | 2026-02-18 | 03-02 | Serialize vk_message_ts as ISO string in FSM context | datetime objects not JSON-serializable for Redis storage | Store as isoformat string, parse back with fromisoformat() on retrieval |
 | 2026-02-18 | 03-02 | MAIN_MENU + different-client receipt: error only, no context switch | Context switch is disruptive mid-payment flow; user should use button for current client | Wrong-client error with main_menu_keyboard keeps seller in MAIN_MENU context |
+| 2026-02-18 | 03-03 | str(BotState.X) for FSM state comparison, not .value | vkbottle stores state as "BotState:x" format; .value returns only raw enum value which never matches stored state | MAIN_MENU branches were dead code; fix makes all state routing live |
+| 2026-02-18 | 03-03 | Receipt detection via attachment presence (.photo or .doc) | Receipts are always images or documents; plain text forwards should not trigger payment flow | Plain text forwards now correctly re-show menu or offer context switch |
+| 2026-02-18 | 03-03 | pending_is_receipt flag carried in CONTEXT_SWITCH_CONFIRM state | Context switch is a separate state; need to carry receipt intent across state boundary to route correctly after confirmation | After confirming switch, payment flow entered immediately if receipt was forwarded |
+| 2026-02-18 | 03-03 | IDLE + receipt + existing reservation skips main menu and enters payment directly | Forwarding receipt from IDLE with reservation implies payment intent; skipping menu reduces friction | Direct path from receipt forward to payment quantity keyboard |
+| 2026-02-18 | 03-03 | MAIN_MENU + different client: context switch offer (not error) for both receipt and plain text | UAT test 7 revealed error was wrong behavior; both receipt and plain text forwards from different clients deserve context switch offer | Different-client forwards now correctly offer context switch regardless of attachment type |
 
 ---
 
@@ -227,7 +244,7 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
-- **Overall project:** ██████████ 100% MVP (Phase 0, 1, 2, 3 complete)
+- **Overall project:** ██████████ 100% MVP (Phase 0, 1, 2, 3 complete, gap closure done)
 
 **Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), highly efficient execution
 
@@ -236,6 +253,19 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 3 PLAN 03 COMPLETE** (3 minutes) - Gap closure: receipt forwarding bugs fixed
+- Executed 2 tasks atomically
+- 2 commits: both fixes (f63ad4f, 431b1a1)
+- 2 files modified (reservation.py, menu.py)
+- Fixed critical state comparison bug (str(BotState.X) vs .value — all MAIN_MENU branches were dead code)
+- Added forwarded_has_receipt_attachment helper for attachment-based receipt detection
+- Fixed all 4 receipt forwarding routing paths (UAT tests 6 and 7 now passing)
+- context_switch_handler updated to route receipt-triggered switches to payment flow
+- IDLE + receipt + existing reservation now enters payment flow directly
+- Created 03-03-SUMMARY.md
+- Updated STATE.md with gap closure completion
+- ✅ **PHASE 3 FULLY COMPLETE** — All receipt forwarding bugs resolved, all routing correct
 
 - ✅ **PHASE 3 PLAN 02 COMPLETE** (3 minutes) - Payment handlers wired
 - Executed 2 tasks atomically
