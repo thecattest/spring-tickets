@@ -133,3 +133,19 @@ def payment_quantity_keyboard(booked_count: int) -> str:
     keyboard.add(Text("Отмена"), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
+
+
+def reserve_action_keyboard() -> str:
+    """
+    Reserve action keyboard for admin reserve management.
+
+    Layout:
+    [Добавить резерв] [Удалить резерв]
+
+    Returns:
+        Keyboard JSON
+    """
+    keyboard = Keyboard(one_time=False, inline=True)
+    keyboard.add(Text("Добавить резерв"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("Удалить резерв"), color=KeyboardButtonColor.NEGATIVE)
+    return keyboard.get_json()

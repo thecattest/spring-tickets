@@ -23,6 +23,10 @@ class BotState(BaseStateGroup):
 
     Context switch:
     (any state) -> CONTEXT_SWITCH_CONFIRM -> (new client context)
+
+    Reserve flow:
+    RESERVE_ACTION -> RESERVE_ADDING_ROW -> RESERVE_ADDING_SEATS -> RESERVE_COMMENT -> RESERVE_ACTION
+    RESERVE_ACTION -> RESERVE_REMOVING_ROW -> RESERVE_REMOVING_SEATS -> RESERVE_REMOVE_CONFIRM -> RESERVE_ACTION
     """
 
     # Default state: waiting for user action
@@ -43,3 +47,12 @@ class BotState(BaseStateGroup):
 
     # Payment flow (Phase 3)
     PAYMENT_QUANTITY = "payment_quantity"
+
+    # Reserve flow (Phase 4) — admin only
+    RESERVE_ACTION = "reserve_action"
+    RESERVE_ADDING_ROW = "reserve_adding_row"
+    RESERVE_ADDING_SEATS = "reserve_adding_seats"
+    RESERVE_COMMENT = "reserve_comment"
+    RESERVE_REMOVING_ROW = "reserve_removing_row"
+    RESERVE_REMOVING_SEATS = "reserve_removing_seats"
+    RESERVE_REMOVE_CONFIRM = "reserve_remove_confirm"
