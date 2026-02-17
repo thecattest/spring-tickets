@@ -25,6 +25,16 @@ from bot.handlers.menu import show_main_menu
 logger = logging.getLogger(__name__)
 
 
+def forwarded_has_receipt_attachment(forwarded) -> bool:
+    """Check if forwarded message has photo or document attachment (receipt indicator)."""
+    if not hasattr(forwarded, 'attachments') or not forwarded.attachments:
+        return False
+    for att in forwarded.attachments:
+        if att.photo is not None or att.doc is not None:
+            return True
+    return False
+
+
 async def forwarded_message_handler(message: Message, storage: RedisStorage):
     """
     Handle forwarded message - create or show existing reservation.
@@ -33,6 +43,10 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     1. Seller is IDLE, client has NO reservation -> create new reservation
     2. Seller is IDLE, client HAS active reservation -> show main menu
     3. Seller is NOT IDLE (working with another client) -> context switch confirmation
+
+    For MAIN_MENU state, receipt forwards (photo/doc) are routed to payment flow.
+    Plain text forwards in MAIN_MENU re-show the main menu (same client) or offer
+    context switch (different client).
 
     Args:
         message: VK message
@@ -44,8 +58,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     # Get VK user ID from forwarded message
     forwarded = message.fwd_messages[0]
     buyer_vk_id = forwarded.from_id
+    is_receipt = forwarded_has_receipt_attachment(forwarded)
 
-    logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id}")
+    logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
 
     # Fetch VK user name via VK API (single location)
     try:
@@ -68,30 +83,99 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         current_context = state_peer.payload
         current_buyer_vk_api_id = current_context.get("buyer_vk_api_id")
 
-        # MAIN_MENU + same client forward = receipt for payment
-        if current_state == BotState.MAIN_MENU.value and buyer_vk_id == current_buyer_vk_api_id:
-            from bot.handlers.payment import start_payment_flow
-            reservation_id = current_context.get("reservation_id")
-            vk_message_ts = None
-            if forwarded.date:
-                from datetime import datetime as dt
-                vk_message_ts = dt.utcfromtimestamp(forwarded.date)
-            await start_payment_flow(
-                message, storage, reservation_id, display_name,
-                vk_message_url=None,
-                vk_message_ts=vk_message_ts,
-            )
-            return
+        # MAIN_MENU state handling
+        if current_state == str(BotState.MAIN_MENU):
+            if buyer_vk_id == current_buyer_vk_api_id:
+                # Same client
+                if is_receipt:
+                    # Receipt from same client -> payment flow
+                    from bot.handlers.payment import start_payment_flow
+                    reservation_id = current_context.get("reservation_id")
+                    vk_message_ts = None
+                    if forwarded.date:
+                        from datetime import datetime as dt
+                        vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                    await start_payment_flow(
+                        message, storage, reservation_id, display_name,
+                        vk_message_url=None,
+                        vk_message_ts=vk_message_ts,
+                    )
+                else:
+                    # Plain text forward from same client -> re-show main menu
+                    reservation_id = current_context.get("reservation_id")
+                    buyer_vk_user_id = current_context.get("buyer_vk_user_id")
+                    await show_main_menu(
+                        message, storage, reservation_id,
+                        buyer_vk_user_id, display_name, buyer_vk_id,
+                    )
+                return
 
-        # MAIN_MENU + different client forward = wrong client error (NOT context switch)
-        if current_state == BotState.MAIN_MENU.value and buyer_vk_id != current_buyer_vk_api_id:
-            current_buyer_display_name = current_context.get("buyer_display_name", "текущего клиента")
-            await message.answer(
-                f"Получен чек от {display_name}, но вы работаете с {current_buyer_display_name}.\n"
-                f"Используйте кнопку «Оплата» для текущего клиента.",
-                keyboard=main_menu_keyboard()
-            )
-            return
+            else:
+                # Different client
+                if is_receipt:
+                    # Receipt from different client -> offer context switch with pending_is_receipt flag
+                    try:
+                        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
+                        existing_reservation = db.get_active_reservation(vk_user.id)
+
+                        current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
+                        await message.answer(
+                            f"Получен чек от {display_name}.\n"
+                            f"Переключиться с {current_buyer_name} на {display_name}?",
+                            keyboard=context_switch_keyboard()
+                        )
+
+                        # Build vk_message_ts for pending receipt context
+                        vk_message_ts_iso = None
+                        if forwarded.date:
+                            from datetime import datetime as dt
+                            vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
+
+                        await storage.set(
+                            message.from_id,
+                            BotState.CONTEXT_SWITCH_CONFIRM,
+                            pending_buyer_vk_id=vk_user.id,
+                            pending_buyer_vk_api_id=buyer_vk_id,
+                            pending_buyer_display_name=display_name,
+                            pending_has_reservation=bool(existing_reservation),
+                            pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                            pending_is_receipt=True,
+                            pending_receipt_vk_message_ts=vk_message_ts_iso,
+                            original_state=current_state,
+                            original_context=current_context,
+                        )
+                    except db.DatabaseError as e:
+                        logger.error(f"Database error checking reservation: {e}")
+                        await message.answer("Ошибка при проверке брони. Попробуйте позже.")
+                else:
+                    # Plain text forward from different client in MAIN_MENU -> context switch (no receipt)
+                    try:
+                        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
+                        existing_reservation = db.get_active_reservation(vk_user.id)
+
+                        current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
+                        await message.answer(
+                            f"Вы работаете с {current_buyer_name}.\n"
+                            f"Переключиться на {display_name}?",
+                            keyboard=context_switch_keyboard()
+                        )
+
+                        await storage.set(
+                            message.from_id,
+                            BotState.CONTEXT_SWITCH_CONFIRM,
+                            pending_buyer_vk_id=vk_user.id,
+                            pending_buyer_vk_api_id=buyer_vk_id,
+                            pending_buyer_display_name=display_name,
+                            pending_has_reservation=bool(existing_reservation),
+                            pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                            pending_is_receipt=False,
+                            original_state=current_state,
+                            original_context=current_context,
+                        )
+                    except db.DatabaseError as e:
+                        logger.error(f"Database error checking reservation: {e}")
+                        await message.answer("Ошибка при проверке брони. Попробуйте позже.")
+                return
 
         # Same client in non-MAIN_MENU state - already working with them
         if buyer_vk_id == current_buyer_vk_api_id:
@@ -112,6 +196,12 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
             existing_reservation = db.get_active_reservation(vk_user.id)
 
+            # Build vk_message_ts for pending receipt context (if receipt)
+            vk_message_ts_iso = None
+            if is_receipt and forwarded.date:
+                from datetime import datetime as dt
+                vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
+
             # Save pending switch info
             await storage.set(
                 message.from_id,
@@ -122,6 +212,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 pending_buyer_display_name=display_name,
                 pending_has_reservation=bool(existing_reservation),
                 pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                pending_is_receipt=is_receipt,
+                pending_receipt_vk_message_ts=vk_message_ts_iso if is_receipt else None,
                 # Original context to restore on "Нет"
                 original_state=current_state,
                 original_context=current_context,
@@ -144,7 +236,30 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         existing = db.get_active_reservation(vk_user.id)
 
         if existing:
-            # Scenario 2: Show main menu for existing reservation
+            if is_receipt:
+                # Receipt from IDLE -> enter payment flow directly
+                await storage.set(
+                    message.from_id,
+                    BotState.MAIN_MENU,
+                    reservation_id=existing.id,
+                    buyer_vk_user_id=vk_user.id,
+                    buyer_vk_api_id=buyer_vk_id,
+                    buyer_display_name=display_name,
+                    from_main_menu=True,
+                )
+                from bot.handlers.payment import start_payment_flow
+                vk_message_ts = None
+                if forwarded.date:
+                    from datetime import datetime as dt
+                    vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                await start_payment_flow(
+                    message, storage, existing.id, display_name,
+                    vk_message_url=None,
+                    vk_message_ts=vk_message_ts,
+                )
+                return
+
+            # Scenario 2: Show main menu for existing reservation (non-receipt)
             await show_main_menu(
                 message,
                 storage,
@@ -155,7 +270,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             )
             return
 
-        # Scenario 1: Create new reservation
+        # Scenario 1: Create new reservation (always, regardless of receipt for IDLE + no reservation)
         seller_id = db.get_default_seller_id()
         reservation = db.create_reservation(vk_user.id, seller_id)
 
