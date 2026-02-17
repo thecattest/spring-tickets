@@ -32,9 +32,9 @@ class Payment(Base):
         comment="Кто отметил оплату"
     )
     
-    vk_message_url: Mapped[str] = mapped_column(Text, nullable=False)
-    vk_message_ts: Mapped[datetime] = mapped_column(
-        nullable=False,
+    vk_message_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    vk_message_ts: Mapped[Optional[datetime]] = mapped_column(
+        nullable=True,
         comment="Дата отправки чека"
     )
 

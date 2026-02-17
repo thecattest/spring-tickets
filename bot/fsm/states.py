@@ -41,5 +41,5 @@ class BotState(BaseStateGroup):
     CANCEL_CONFIRM = "cancel_confirm"
     CONTEXT_SWITCH_CONFIRM = "context_switch_confirm"
 
-    # Future states (Phase 3+)
-    # AWAITING_PAYMENT_AMOUNT = "awaiting_payment_amount"
+    # Payment flow (Phase 3)
+    PAYMENT_QUANTITY = "payment_quantity"
