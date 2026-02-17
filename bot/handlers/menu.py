@@ -166,10 +166,12 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             )
 
     elif text == "Оплата":
-        # Phase 3 placeholder
-        await message.answer(
-            "Функция оплаты будет доступна в следующей версии",
-            keyboard=main_menu_keyboard()
+        # Local import to avoid circular dependency (payment.py uses local import for show_main_menu)
+        from bot.handlers.payment import start_payment_flow
+        await start_payment_flow(
+            message, storage, reservation_id, buyer_display_name,
+            vk_message_url=None,
+            vk_message_ts=None,
         )
 
     else:
