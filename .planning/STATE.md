@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 3 in progress (Plan 01 complete, Plan 02 next)
+**Current phase:** Phase 3 COMPLETE (Plans 01 and 02 done), Phase 4 next
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 3 в процессе: Payment foundation complete, handlers next
+**Current focus:** Phase 3 COMPLETE. Phase 4 (debt reminders) next
 
 ---
 
@@ -103,13 +103,18 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ InsufficientSeatsError exception
 - ✅ format_payment_confirmation с grouped rows и remaining seats
 
-### In Progress
+✅ **Phase 3 Plan 02: Payment Handlers** — ЗАВЕРШЕНА (3 минуты)
+- ✅ bot/handlers/payment.py: start_payment_flow (shared entry) и payment_quantity_handler
+- ✅ MAIN_MENU + same-client receipt forwarding → payment flow
+- ✅ MAIN_MENU + different-client receipt forwarding → error with main_menu_keyboard (no context switch)
+- ✅ "Оплата" button routes to start_payment_flow via local import (no circular dependency)
+- ✅ Payment handlers registered in bot startup (bot/main.py)
 
-🔄 **Phase 3 Plan 02: Payment Handlers**
-- Handler wiring для PAYMENT_QUANTITY state
-- Forwarded message payment flow (с чеком)
-- Button payment flow (без чека)
-- Error handling для InsufficientSeatsError
+✅ **Phase 3: Payment Recording** — ЗАВЕРШЕНА (7 минут total)
+- ✅ Both plans complete (03-01, 03-02)
+- ✅ Full payment flow operational: receipt-forward and button both functional
+- ✅ Partial payment: pay N of M booked seats, remaining shown in confirmation
+- ✅ No circular imports: local import pattern established
 
 ### User Setup Required (Before Running Bot)
 
@@ -171,6 +176,9 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-01-24 | 02-04 | Store both buyer_vk_user_id and buyer_vk_api_id in FSM context | Need database ID for DB operations and VK API ID for same-client detection | Dual ID storage supports both use cases without conflicts |
 | 2026-02-18 | 03-01 | Make vk_message_url and vk_message_ts nullable in Payment model | Button-flow payments have no VK receipt message | Enables payment recording without forwarded receipt |
 | 2026-02-18 | 03-01 | Deterministic partial payment: row ASC, seat ASC selection | Predictable, reproducible seat selection for partial payments | record_payment always picks lowest-numbered seats first |
+| 2026-02-18 | 03-02 | Local import inside function to break circular dependency (payment.py <-> menu.py) | Both files need functions from each other; top-level imports would create circular dependency | payment_quantity_handler imports show_main_menu locally; Oplata block imports start_payment_flow locally |
+| 2026-02-18 | 03-02 | Serialize vk_message_ts as ISO string in FSM context | datetime objects not JSON-serializable for Redis storage | Store as isoformat string, parse back with fromisoformat() on retrieval |
+| 2026-02-18 | 03-02 | MAIN_MENU + different-client receipt: error only, no context switch | Context switch is disruptive mid-payment flow; user should use button for current client | Wrong-client error with main_menu_keyboard keeps seller in MAIN_MENU context |
 
 ---
 
@@ -219,15 +227,29 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
-- **Overall project:** █████████░ 72% MVP (Phase 0, 1, 2 complete; Phase 3 Plan 01 done)
+- **Overall project:** ██████████ 100% MVP (Phase 0, 1, 2, 3 complete)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 Plan 01 = 4 min, highly efficient execution
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), highly efficient execution
 
 ---
 
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 3 PLAN 02 COMPLETE** (3 minutes) - Payment handlers wired
+- Executed 2 tasks atomically
+- 2 commits: both feature
+- 1 file created (bot/handlers/payment.py), 3 modified (reservation.py, menu.py, main.py)
+- start_payment_flow shared entry point for both receipt-forward and button flows
+- payment_quantity_handler handles PAYMENT_QUANTITY state with full error handling
+- Local import pattern established for circular dependency avoidance
+- MAIN_MENU receipt forwarding: same-client → payment, different-client → error (no context switch)
+- "Оплата" button wired to payment flow
+- Payment handlers registered in bot startup
+- Created 03-02-SUMMARY.md
+- Updated STATE.md with Phase 3 completion
+- ✅ **PHASE 3 COMPLETE** - Full payment recording operational
 
 - ✅ **PHASE 3 PLAN 01 COMPLETE** (4 minutes) - Payment foundation
 - Executed 2 tasks atomically
