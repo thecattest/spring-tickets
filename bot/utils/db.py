@@ -11,6 +11,7 @@ Provides high-level functions for:
 
 import logging
 from datetime import datetime
+from decimal import Decimal
 from typing import Optional, List
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -21,8 +22,10 @@ from models.vk_user import VkUser
 from models.user import AppUser
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
+from models.payment import Payment, PaymentSeat
 from models.audit import AuditLog
 from models.base import SeatStatus, ReservationState, ActorType, UserRole
+from bot.config import SEAT_PRICE
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,15 @@ class SeatOccupiedError(DatabaseError):
         self.seat = seat
         self.assignment = assignment
         super().__init__(f"Seat {row}/{seat} is already occupied")
+
+
+class InsufficientSeatsError(DatabaseError):
+    """Exception raised when requested payment count exceeds available BOOKED seats."""
+
+    def __init__(self, requested: int, available: int):
+        self.requested = requested
+        self.available = available
+        super().__init__(f"Requested {requested} seats but only {available} BOOKED seats available")
 
 
 def get_or_create_vk_user(vk_id: int, display_name: str) -> VkUser:
@@ -613,3 +625,115 @@ def cancel_reservation(
             session.rollback()
             logger.error(f"Failed to cancel reservation: {e}")
             raise DatabaseError(f"Failed to cancel reservation: {e}")
+
+
+def record_payment(
+    reservation_id: int,
+    seat_count: int,
+    user_id: int,
+    vk_message_url: Optional[str] = None,
+    vk_message_ts: Optional[datetime] = None,
+) -> tuple[Payment, List[SeatAssignment]]:
+    """
+    Record payment for N seats in a reservation (atomic operation).
+
+    Deterministically selects the first seat_count BOOKED seats (row ASC, seat ASC),
+    marks them as PAID, creates Payment and PaymentSeat records, and logs audit.
+
+    Args:
+        reservation_id: Reservation ID
+        seat_count: Number of seats to mark as paid
+        user_id: AppUser.id of the person recording payment
+        vk_message_url: VK receipt message URL (optional, None for button-flow)
+        vk_message_ts: VK receipt message timestamp (optional, None for button-flow)
+
+    Returns:
+        Tuple of (Payment, List of SeatAssignment that were marked PAID)
+
+    Raises:
+        InsufficientSeatsError: If seat_count > available BOOKED seats
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            # Query BOOKED seats for this reservation, ordered deterministically
+            stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.reservation_id == reservation_id)
+                .where(SeatAssignment.status == SeatStatus.BOOKED)
+                .where(SeatAssignment.released_at.is_(None))
+                .order_by(SeatAssignment.row_number.asc(), SeatAssignment.seat_number.asc())
+            )
+            booked_seats = list(session.execute(stmt).scalars().all())
+
+            if len(booked_seats) < seat_count:
+                raise InsufficientSeatsError(seat_count, len(booked_seats))
+
+            # Take first seat_count seats (deterministic)
+            selected_seats = booked_seats[:seat_count]
+            remaining_booked = booked_seats[seat_count:]
+
+            # Calculate payment amount
+            payment_amount = Decimal(seat_count) * Decimal(SEAT_PRICE)
+
+            # Create Payment record
+            payment = Payment(
+                reservation_id=reservation_id,
+                recorded_by_user_id=user_id,
+                vk_message_url=vk_message_url,
+                vk_message_ts=vk_message_ts,
+                payment_amount=payment_amount,
+                seat_count=seat_count,
+            )
+            session.add(payment)
+            session.flush()  # get payment.id before creating PaymentSeat
+
+            # Update seats to PAID and create PaymentSeat records
+            for seat in selected_seats:
+                seat.status = SeatStatus.PAID
+                payment_seat = PaymentSeat(
+                    payment_id=payment.id,
+                    seat_assignment_id=seat.id,
+                )
+                session.add(payment_seat)
+
+            # Update reservation last_activity_at
+            reservation_stmt = select(Reservation).where(Reservation.id == reservation_id)
+            reservation = session.execute(reservation_stmt).scalar_one()
+            reservation.last_activity_at = datetime.utcnow()
+
+            # Audit log
+            audit = AuditLog(
+                actor_type=ActorType.USER,
+                actor_user_id=user_id,
+                action_type="payment_recorded",
+                entity_type="payment",
+                entity_id=str(payment.id),
+                payload={
+                    "reservation_id": reservation_id,
+                    "seat_count": seat_count,
+                    "payment_amount": float(payment_amount),
+                    "seat_ids": [seat.id for seat in selected_seats],
+                    "partial": len(remaining_booked) > 0,
+                }
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(
+                f"Recorded payment {payment.id} for reservation {reservation_id}: "
+                f"{seat_count} seats, {payment_amount} rub, partial={len(remaining_booked) > 0}"
+            )
+            return payment, selected_seats
+
+        except InsufficientSeatsError:
+            session.rollback()
+            raise
+        except IntegrityError as e:
+            session.rollback()
+            logger.error(f"Integrity error recording payment: {e}")
+            raise DatabaseError(f"Integrity error: {e}")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to record payment: {e}")
+            raise DatabaseError(f"Failed to record payment: {e}")

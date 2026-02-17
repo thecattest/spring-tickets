@@ -6,6 +6,7 @@ Provides script generation and formatted messages.
 
 from typing import List
 from collections import defaultdict
+from decimal import Decimal
 from itertools import groupby
 
 from models.seat_assignment import SeatAssignment
@@ -166,3 +167,60 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
             lines.append(f"Ряд {row_num}: {seat_range} {status_text}")
 
     return "\n".join(lines)
+
+
+def format_payment_confirmation(
+    paid_seats: List[SeatAssignment],
+    remaining_seats: List[SeatAssignment],
+    payment_amount: Decimal,
+    buyer_display_name: str,
+) -> str:
+    """
+    Format payment confirmation message.
+
+    Shows paid seats grouped by row and any remaining unpaid seats.
+
+    Args:
+        paid_seats: SeatAssignment objects that were just marked PAID
+        remaining_seats: SeatAssignment objects still BOOKED (not yet paid)
+        payment_amount: Amount paid in rubles
+        buyer_display_name: Customer's display name
+
+    Returns:
+        Formatted confirmation text
+    """
+    # Group paid seats by row
+    paid_by_row: defaultdict = defaultdict(list)
+    for seat in paid_seats:
+        paid_by_row[seat.row_number].append(seat.seat_number)
+
+    paid_lines = []
+    for row in sorted(paid_by_row.keys()):
+        seat_nums = sorted(paid_by_row[row])
+        paid_lines.append(f"Ряд {row}: места {format_seat_ranges(seat_nums)}")
+
+    result = (
+        f"Оплата зарегистрирована для {buyer_display_name}.\n\n"
+        f"Оплачено {len(paid_seats)} мест:\n"
+        + "\n".join(paid_lines)
+        + f"\n\nСумма: {payment_amount} руб."
+    )
+
+    if remaining_seats:
+        remaining_by_row: defaultdict = defaultdict(list)
+        for seat in remaining_seats:
+            remaining_by_row[seat.row_number].append(seat.seat_number)
+
+        remaining_lines = []
+        for row in sorted(remaining_by_row.keys()):
+            seat_nums = sorted(remaining_by_row[row])
+            remaining_lines.append(f"Ряд {row}: места {format_seat_ranges(seat_nums)}")
+
+        result += (
+            f"\n\nОсталось к оплате: {len(remaining_seats)} мест:\n"
+            + "\n".join(remaining_lines)
+        )
+    else:
+        result += "\n\nВсе места оплачены!"
+
+    return result
