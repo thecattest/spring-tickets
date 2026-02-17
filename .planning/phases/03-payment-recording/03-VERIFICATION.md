@@ -1,43 +1,116 @@
 ---
 phase: 03-payment-recording
-verified: 2026-02-17T21:33:45Z
+verified: 2026-02-17T22:52:57Z
 status: passed
-score: 16/16 must-haves verified
+score: 7/7 must-haves verified
+re_verification:
+  previous_status: passed
+  previous_score: 16/16
+  note: >
+    Previous verification (2026-02-17T21:33:45Z) was 16/16 but completed BEFORE UAT, which
+    found 2 major failures in receipt forwarding (Tests 6 and 7). Those failures were caused
+    by bugs not catchable via static analysis: state comparison dead code (BotState.value vs
+    str()) and missing attachment detection. Plan 03-03 fixed both. This re-verification
+    confirms the fixes are present.
+  gaps_closed:
+    - "State comparison bug: BotState.MAIN_MENU.value ('main_menu') vs str(BotState.MAIN_MENU) ('BotState:main_menu') — MAIN_MENU branches were unreachable dead code. Fixed: reservation.py line 87 now uses str(BotState.MAIN_MENU)."
+    - "Attachment detection missing: any forward triggered payment. Fixed: forwarded_has_receipt_attachment() helper (reservation.py lines 28-35) checks .photo/.doc on attachments. Plain text forwards no longer trigger payment."
+    - "Different-client MAIN_MENU receipt showed error instead of context switch. Fixed: now offers context switch with pending_is_receipt=True."
+    - "IDLE + receipt + existing reservation showed main menu instead of payment flow. Fixed: reservation.py lines 238-260 branch on is_receipt before show_main_menu."
+    - "context_switch_handler always called show_main_menu on confirm. Fixed: menu.py lines 211-240 check pending_is_receipt and call start_payment_flow when True."
+  gaps_remaining: []
+  regressions: []
 ---
 
-# Phase 3: Payment Recording Verification Report
+# Phase 3: Payment Recording Verification Report (Re-verification)
 
 **Phase Goal:** Полный цикл: бронь -> оплата -> скрипт для клиента. Register payment by receipt forwarding or menu button. Deterministic seat selection (row ASC, seat ASC). Partial payment support. Repeat payment for remaining seats.
-**Verified:** 2026-02-17T21:33:45Z
+**Verified:** 2026-02-17T22:52:57Z
 **Status:** passed
-**Re-verification:** No — initial verification
+**Re-verification:** Yes — after gap closure plan 03-03 (receipt forwarding bugs)
 
 ---
 
 ## Goal Achievement
 
-### Observable Truths
+### Observable Truths (Phase Must-Haves)
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | Payment model accepts null vk_message_url and vk_message_ts | VERIFIED | `models/payment.py` lines 35-39: `Mapped[Optional[str]] = mapped_column(Text, nullable=True)` and `Mapped[Optional[datetime]] = mapped_column(nullable=True, ...)` |
-| 2 | Existing tickets.db schema migrated to allow NULL | VERIFIED | Live DB inspection: `{'vk_message_url': True, 'vk_message_ts': True}` — both columns confirmed nullable in the actual database |
-| 3 | PAYMENT_QUANTITY FSM state exists | VERIFIED | `bot/fsm/states.py` line 45: `PAYMENT_QUANTITY = "payment_quantity"` |
-| 4 | payment_quantity_keyboard renders numbered buttons | VERIFIED | `bot/keyboards.py` lines 95-135: generates [1]..[N], [Все N] (skipped if N=1), [Отмена] on separate row; layout confirmed by runtime test (booked=1: 2 rows, booked=5: 3 rows, booked=7: 3 rows) |
-| 5 | record_payment atomically selects N BOOKED seats (row ASC, seat ASC) | VERIFIED | `bot/utils/db.py` lines 630-739: queries BOOKED seats with `.order_by(row_number.asc(), seat_number.asc())`, takes first N, marks PAID, creates Payment+PaymentSeat records, commits atomically |
-| 6 | InsufficientSeatsError raised when requested count exceeds BOOKED seats | VERIFIED | `bot/utils/db.py` lines 53-59 (class definition), lines 669-670: `if len(booked_seats) < seat_count: raise InsufficientSeatsError(seat_count, len(booked_seats))` |
-| 7 | format_payment_confirmation returns human-readable result with remaining seats | VERIFIED | `bot/messages.py` lines 172-226: groups paid seats by row using format_seat_ranges, shows remaining if any, shows "Все места оплачены!" if none; confirmed by runtime test |
-| 8 | Forwarding receipt in MAIN_MENU state triggers payment flow | VERIFIED | `bot/handlers/reservation.py` lines 71-84: `if current_state == BotState.MAIN_MENU.value and buyer_vk_id == current_buyer_vk_api_id:` calls `start_payment_flow` |
-| 9 | Pressing Oplata button triggers payment flow | VERIFIED | `bot/handlers/menu.py` lines 168-175: `elif text == "Оплата":` uses local import + calls `start_payment_flow(message, storage, reservation_id, buyer_display_name, vk_message_url=None, vk_message_ts=None)` |
-| 10 | Selecting quantity records payment and shows confirmation | VERIFIED | `bot/handlers/payment.py` lines 183-226: calls `db.record_payment()`, fetches updated seats, calls `format_payment_confirmation()`, sends with `main_menu_keyboard()`, returns to MAIN_MENU |
-| 11 | Selecting Otmena returns to main menu without changes | VERIFIED | `bot/handlers/payment.py` lines 114-121: `if text == "Отмена":` calls `show_main_menu(...)` via local import, returns immediately without touching DB |
-| 12 | Invalid quantity shows error and re-prompts | VERIFIED | `bot/handlers/payment.py` lines 162-181: fetches current booked count, sends error with re-shown `payment_quantity_keyboard(len(booked_seats))` |
-| 13 | Receipt from client with no BOOKED seats shows error | VERIFIED | `bot/handlers/payment.py` lines 50-55: `if len(booked_seats) == 0: await message.answer("У клиента {name} нет мест для оплаты. Все места уже оплачены.", keyboard=main_menu_keyboard())` |
-| 14 | Forwarding receipt from DIFFERENT client in MAIN_MENU shows wrong-client error | VERIFIED | `bot/handlers/reservation.py` lines 86-94: `if current_state == BotState.MAIN_MENU.value and buyer_vk_id != current_buyer_vk_api_id:` sends "Получен чек от X, но вы работаете с Y" with `main_menu_keyboard()`, returns without state change |
-| 15 | Partial payment supported: remaining seats tracked | VERIFIED | `bot/handlers/payment.py` lines 203-209: after payment, re-fetches `all_seats`, filters `remaining_booked = [s for s in all_seats if s.status == SeatStatus.BOOKED]`, passes to `format_payment_confirmation`; confirmed by runtime test |
-| 16 | Repeat payment works: state returns to MAIN_MENU after payment | VERIFIED | `bot/handlers/payment.py` lines 212-221: `await storage.set(message.from_id, BotState.MAIN_MENU, ...)` after payment recorded; Oplata button accessible again |
+| 1 | Можно зарегистрировать оплату по пересылке чека (receipt forwarding) | VERIFIED | `reservation.py` line 61: `is_receipt = forwarded_has_receipt_attachment(forwarded)`; line 87: `if current_state == str(BotState.MAIN_MENU):`; line 90-102: same-client + receipt -> `start_payment_flow`; lines 238-260: IDLE + receipt + existing reservation -> `start_payment_flow` |
+| 2 | Можно зарегистрировать оплату через меню (Оплата button) | VERIFIED | `menu.py` lines 168-175: `elif text == "Оплата":` local-imports `start_payment_flow` and calls it with `vk_message_url=None, vk_message_ts=None` |
+| 3 | Детерминированный выбор мест (row ASC, seat ASC) | VERIFIED | `db.py` line 665: `.order_by(SeatAssignment.row_number.asc(), SeatAssignment.seat_number.asc())` inside `record_payment`; first `seat_count` seats taken deterministically |
+| 4 | Частичная оплата поддерживается | VERIFIED | `payment.py` lines 204-208: after `record_payment`, re-fetches all seats, computes `remaining_booked`, passes to `format_payment_confirmation`; `db.py` line 717: `"partial": len(remaining_booked) > 0` in audit payload |
+| 5 | Повторная оплата оставшихся мест работает | VERIFIED | `payment.py` lines 212-221: after payment recorded, state returns to `BotState.MAIN_MENU`; Оплата button immediately accessible again; `start_payment_flow` re-fetches only BOOKED seats |
+| 6 | Скрипт после брони реализован (Phase 1) | VERIFIED | `reservation.py` lines 499-506: `seat_addition_menu_handler` calls `generate_reservation_script` and clears state on "Готово" when `from_main_menu=False` |
+| 7 | Audit log фиксирует все платежи с payload | VERIFIED | `db.py` lines 706-720: `AuditLog` created with `action_type="payment_recorded"`, payload: `reservation_id`, `seat_count`, `payment_amount` (float), `seat_ids` (list of ints), `partial` (bool) |
 
-**Score:** 16/16 truths verified
+**Score:** 7/7 truths verified
+
+---
+
+### Gap Closure Verification (03-03 Plan)
+
+The 03-03 plan fixed 4 bugs. Each fix is verified against the actual code:
+
+#### Fix 1: State comparison bug (CRITICAL)
+
+**Before:** `current_state == BotState.MAIN_MENU.value` — compares to `"main_menu"` but vkbottle stores `"BotState:main_menu"` — DEAD CODE.
+
+**After:** `current_state == str(BotState.MAIN_MENU)` — compares to `"BotState:main_menu"` — MATCHES.
+
+**Verification:**
+- `str(BotState.MAIN_MENU)` = `"BotState:main_menu"` (confirmed via live Python check)
+- `BotState.MAIN_MENU.value` = `"main_menu"` (confirmed — they differ)
+- `reservation.py` line 87: `if current_state == str(BotState.MAIN_MENU):` — FIXED
+- No remaining `BotState.*.value` comparisons in `reservation.py` (grep confirmed zero matches)
+
+#### Fix 2: Attachment detection added
+
+**Before:** Any forwarded message triggered payment flow.
+
+**After:** `forwarded_has_receipt_attachment()` helper (lines 28-35) checks `att.photo is not None or att.doc is not None` for each attachment. `is_receipt` computed at line 61 before all routing logic.
+
+**Verification:**
+- Helper exists at `reservation.py` lines 28-35
+- `is_receipt = forwarded_has_receipt_attachment(forwarded)` at line 61
+- All routing branches reference `is_receipt`
+
+#### Fix 3: Different-client MAIN_MENU receipt — context switch with pending_is_receipt
+
+**Before:** Different-client receipt in MAIN_MENU showed "wrong client" error.
+
+**After:** Lines 113-178 in `reservation.py` — `is_receipt=True` branch sends context switch offer and stores `pending_is_receipt=True` in FSM; `is_receipt=False` (plain text) also offers context switch with `pending_is_receipt=False`.
+
+**Verification:**
+- `reservation.py` line 115: `if is_receipt:` inside different-client MAIN_MENU branch
+- `reservation.py` line 142: `pending_is_receipt=True` stored in FSM context
+- `reservation.py` line 171: `pending_is_receipt=False` stored for plain-text forward
+
+#### Fix 4: IDLE + receipt + existing reservation -> payment flow
+
+**Before:** IDLE with existing reservation always showed main menu.
+
+**After:** `reservation.py` lines 238-260 — `if is_receipt:` branch sets MAIN_MENU state then calls `start_payment_flow` directly.
+
+**Verification:**
+- `reservation.py` line 239: `if is_receipt:` before `show_main_menu`
+- Lines 241-248: sets `BotState.MAIN_MENU` state with full context
+- Lines 250-258: local import + call to `start_payment_flow`
+- Line 260: explicit `return` exits before `show_main_menu`
+
+#### Fix 5: context_switch_handler routes to payment on pending_is_receipt=True
+
+**Before:** `context_switch_handler` always called `show_main_menu` on "Да".
+
+**After:** `menu.py` lines 211-240 — extracts `pending_is_receipt` from context; if True and reservation exists: sets MAIN_MENU state, calls `start_payment_flow`; if True and no reservation: creates new reservation; if False: original `show_main_menu` behavior.
+
+**Verification:**
+- `menu.py` line 212: `pending_is_receipt = context.get("pending_is_receipt", False)`
+- `menu.py` line 216: `if pending_is_receipt:` guards payment flow path
+- `menu.py` lines 218-226: `storage.set` to MAIN_MENU before `start_payment_flow`
+- `menu.py` line 227: local import `from bot.handlers.payment import start_payment_flow`
+- `menu.py` lines 235-239: call to `start_payment_flow`
 
 ---
 
@@ -45,15 +118,11 @@ score: 16/16 must-haves verified
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `models/payment.py` | Payment model with nullable vk_message_url and vk_message_ts | VERIFIED | 94 lines; `Optional[str]` + `nullable=True` on both fields (lines 35-39) |
-| `bot/fsm/states.py` | PAYMENT_QUANTITY state | VERIFIED | 46 lines; `PAYMENT_QUANTITY = "payment_quantity"` at line 45 |
-| `bot/keyboards.py` | payment_quantity_keyboard function | VERIFIED | 135 lines; exported function at line 95; dynamic button grid with [1]..[N], [Все N], [Отмена] |
-| `bot/messages.py` | format_payment_confirmation function | VERIFIED | 226 lines; exported function at line 172; full implementation with row grouping and remaining seats |
-| `bot/utils/db.py` | record_payment function and InsufficientSeatsError | VERIFIED | 739 lines; `InsufficientSeatsError` class at line 53; `record_payment` function at line 630 |
-| `bot/handlers/payment.py` | Payment flow handlers (start_payment_flow, payment_quantity_handler) | VERIFIED | 267 lines (well above 80 min); both functions present; register_handlers at line 253 |
-| `bot/handlers/reservation.py` | MAIN_MENU branch with start_payment_flow and wrong-client error | VERIFIED | 438 lines; both MAIN_MENU branches present at lines 71-94 |
-| `bot/handlers/menu.py` | Real payment routing replacing placeholder | VERIFIED | 289 lines; local import + start_payment_flow at lines 168-175; placeholder text removed |
-| `bot/main.py` | Payment handler registration | VERIFIED | 108 lines; `payment` in import at line 22; `payment.register_handlers(bot)` at line 70 |
+| `bot/handlers/reservation.py` | Fixed forwarded_message_handler with str() state comparison, attachment detection, receipt routing | VERIFIED | 553 lines; `forwarded_has_receipt_attachment` at line 28; `str(BotState.MAIN_MENU)` at line 87; all 8 routing branches present |
+| `bot/handlers/menu.py` | Updated context_switch_handler with pending_is_receipt support | VERIFIED | 344 lines; `pending_is_receipt` extracted at line 212; receipt-to-payment path at lines 216-240; "Нет" branch unchanged at line 303 |
+| `bot/handlers/payment.py` | start_payment_flow and payment_quantity_handler (unchanged) | VERIFIED | 267 lines; both functions present; registers on PAYMENT_QUANTITY state |
+| `bot/utils/db.py` | record_payment with deterministic ordering and audit log | VERIFIED | record_payment at line 630; `.order_by(row_number.asc(), seat_number.asc())` at line 665; AuditLog at lines 706-720 |
+| `bot/fsm/states.py` | PAYMENT_QUANTITY state | VERIFIED | Line 45: `PAYMENT_QUANTITY = "payment_quantity"` |
 
 ---
 
@@ -61,29 +130,15 @@ score: 16/16 must-haves verified
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `bot/utils/db.py` | `models/payment.py` | record_payment creates Payment+PaymentSeat | WIRED | Line 25: `from models.payment import Payment, PaymentSeat`; line 680: `payment = Payment(...)` |
-| `bot/utils/db.py` | `models/seat_assignment.py` | record_payment updates SeatAssignment.status to PAID | WIRED | Line 693: `seat.status = SeatStatus.PAID` inside record_payment |
-| `bot/keyboards.py` | vkbottle Keyboard | payment_quantity_keyboard builds dynamic button grid | WIRED | Line 113: `keyboard = Keyboard(one_time=False, inline=True)` |
-| `bot/handlers/payment.py` | `bot/utils/db.py` | payment_quantity_handler calls record_payment | WIRED | Line 195: `payment, paid_seats = db.record_payment(...)` |
-| `bot/handlers/payment.py` | `bot/keyboards.py` | start_payment_flow uses payment_quantity_keyboard | WIRED | Line 17: top-level import; line 64: `keyboard=payment_quantity_keyboard(len(booked_seats))` |
-| `bot/handlers/payment.py` | `bot/messages.py` | payment_quantity_handler uses format_payment_confirmation | WIRED | Line 18: top-level import; line 207: `format_payment_confirmation(paid_seats, remaining_booked, ...)` |
-| `bot/handlers/reservation.py` | `bot/handlers/payment.py` | forwarded_message_handler calls start_payment_flow when MAIN_MENU + same client | WIRED | Line 73: local import `from bot.handlers.payment import start_payment_flow`; line 79: `await start_payment_flow(...)` |
-| `bot/handlers/reservation.py` | `bot/keyboards.py` | forwarded_message_handler sends main_menu_keyboard for wrong-client error | WIRED | Line 20: `main_menu_keyboard` in imports; line 92: `keyboard=main_menu_keyboard()` |
-| `bot/handlers/menu.py` | `bot/handlers/payment.py` | Oplata button calls start_payment_flow via local import | WIRED | Line 170: local import inside `elif text == "Оплата":`; line 171: `await start_payment_flow(...)` |
-| `bot/main.py` | `bot/handlers/payment.py` | registers payment handlers | WIRED | Line 22: `from bot.handlers import commands, reservation, menu, deletion, payment`; line 70: `payment.register_handlers(bot)` |
-
----
-
-### Requirements Coverage
-
-| Requirement | Status | Notes |
-|-------------|--------|-------|
-| Регистрация оплаты по пересылке чека | SATISFIED | Receipt forwarding in MAIN_MENU + same client triggers start_payment_flow |
-| Регистрация оплаты через меню | SATISFIED | Oplata button in MAIN_MENU calls start_payment_flow via local import |
-| Детерминированный выбор мест (row ASC, seat ASC) | SATISFIED | record_payment uses `.order_by(row_number.asc(), seat_number.asc())` |
-| Частичная оплата поддерживается | SATISFIED | record_payment takes first N seats; remaining_booked computed and shown in confirmation |
-| Повторная оплата оставшихся мест | SATISFIED | After payment, state returns to MAIN_MENU; Oplata button immediately re-usable |
-| Audit log фиксирует все платежи с payload | SATISFIED | record_payment creates AuditLog with action_type="payment_recorded", payload includes reservation_id, seat_count, payment_amount (float), seat_ids (list), partial (bool) |
+| `reservation.py` | `payment.py` | `start_payment_flow` (MAIN_MENU same-client receipt) | WIRED | Line 92: local import; line 98: `await start_payment_flow(...)` |
+| `reservation.py` | `payment.py` | `start_payment_flow` (IDLE + receipt + existing reservation) | WIRED | Line 250: local import; line 255: `await start_payment_flow(...)` |
+| `reservation.py` | FSM | `storage.set(BotState.CONTEXT_SWITCH_CONFIRM, pending_is_receipt=...)` | WIRED | Lines 134-146: MAIN_MENU different-client receipt stores `pending_is_receipt=True` |
+| `menu.py` | `payment.py` | `start_payment_flow` (context switch confirm + is_receipt) | WIRED | Line 227: local import inside "Да" branch; line 235: `await start_payment_flow(...)` |
+| `menu.py` | `payment.py` | `start_payment_flow` (Оплата button) | WIRED | Line 170: local import; line 171: `await start_payment_flow(...)` |
+| `payment.py` | `db.py` | `record_payment` | WIRED | Line 195: `payment, paid_seats = db.record_payment(...)` |
+| `payment.py` | FSM | `storage.set(BotState.MAIN_MENU)` after payment | WIRED | Lines 212-221: returns to MAIN_MENU with full context |
+| `db.py` | `models/payment.py` | `Payment`, `PaymentSeat` creation | WIRED | Line 680: `payment = Payment(...)`; line 694: `PaymentSeat(...)` |
+| `db.py` | `models/audit.py` | `AuditLog(action_type="payment_recorded")` | WIRED | Lines 706-720: audit log with full payload |
 
 ---
 
@@ -91,49 +146,56 @@ score: 16/16 must-haves verified
 
 | File | Line | Pattern | Severity | Impact |
 |------|------|---------|----------|--------|
-| `bot/handlers/menu.py` | 83 | Stale docstring: `"Оплата" - Show placeholder message (Phase 3)` | Info | Non-functional; docstring not updated to reflect real implementation. No runtime impact. |
+| `bot/handlers/menu.py` | 83 | Stale docstring: `"Оплата" - Show placeholder message (Phase 3)` | Info | Non-functional; docstring not updated across plans 02-04, 03-02, 03-03. Zero runtime impact. |
 
-No blocker or warning anti-patterns found. The stale docstring in `main_menu_handler` is cosmetic — the actual `elif text == "Оплата":` block calls `start_payment_flow` correctly.
+No blocker or warning anti-patterns found.
 
 ---
 
 ### Human Verification Required
 
-The following scenarios require live bot testing to fully confirm:
+The following scenarios require live bot testing to confirm the gap-closure fixes work end-to-end. UAT Tests 6 and 7 (the two that failed) are the priority items.
 
-#### 1. Receipt Forwarding to Payment Flow
+#### 1. Receipt Forwarding — Same Client in MAIN_MENU (UAT Test 6 re-test)
 
-**Test:** With an active reservation in MAIN_MENU state, forward a message from the same client.
-**Expected:** Bot shows seat list with PAYMENT_QUANTITY keyboard (numbered buttons + Все N + Отмена).
-**Why human:** Cannot verify VK message forwarding context parsing (`forwarded.date`, `from_id`) without live VK API.
+**Test:** With an active reservation in MAIN_MENU state for Client A, forward a VK message that contains a photo or document from Client A.
+**Expected:** Bot shows payment quantity keyboard with numbered buttons [1]..[N] for N booked seats, "Все N" (if N>1), and "Отмена". State transitions to PAYMENT_QUANTITY.
+**Why human:** State comparison fix (`str(BotState.MAIN_MENU)` vs `.value`) makes branches live — confirmed by code analysis, but requires live VK + Redis environment to confirm the bot actually enters the MAIN_MENU branch at runtime.
 
-#### 2. Partial Payment Menu Update
+#### 2. Receipt Forwarding — Different Client in MAIN_MENU (UAT Test 7 re-test)
 
-**Test:** Start with 5 BOOKED seats. Pay 2 via Oplata button. Return to main menu.
-**Expected:** Main menu now shows "Бронь: 3 | Оплачено: 2" with correct seat list.
-**Why human:** Requires live DB state + bot state round-trip to verify updated seat display.
+**Test:** In MAIN_MENU working with Client A, forward a message with a photo/doc from Client B.
+**Expected:** Bot offers "Получен чек от [B]. Переключиться с [A] на [B]?" with Да/Нет keyboard. Pressing "Да" switches context to Client B and immediately shows payment quantity keyboard (not main menu). Pressing "Нет" restores Client A context.
+**Why human:** Two-step flow requires live state transitions through CONTEXT_SWITCH_CONFIRM state to verify pending_is_receipt flag is correctly read.
 
-#### 3. Repeat Payment After Partial
+#### 3. IDLE + Receipt + Existing Reservation
 
-**Test:** After paying 2 of 5 seats, press Oplata again.
-**Expected:** Keyboard shows [1][2][3][Все 3][Отмена] (only remaining 3 BOOKED seats).
-**Why human:** Requires chained state transitions in live bot.
+**Test:** While in IDLE state, forward a VK message with a photo/doc from a client who already has a reservation with BOOKED seats.
+**Expected:** Bot skips main menu entirely and shows payment quantity keyboard directly.
+**Why human:** Requires live DB state (existing reservation with BOOKED seats) + live FSM idle state to confirm the IDLE branch correctly detects `is_receipt=True` and calls `start_payment_flow`.
 
-#### 4. Wrong-Client Receipt Error (No State Change)
+#### 4. Plain Text Forward Does NOT Trigger Payment
 
-**Test:** In MAIN_MENU working with Client A, forward a message from Client B.
-**Expected:** Error "Получен чек от [B], но вы работаете с [A]." with main_menu_keyboard; state remains MAIN_MENU with Client A context.
-**Why human:** State persistence in Redis requires live environment to verify context is unchanged.
+**Test:** In MAIN_MENU for Client A, forward a plain text message (no photo/doc) from Client A.
+**Expected:** Bot re-shows main menu (NOT payment quantity keyboard). No payment flow entered.
+**Why human:** Attachment detection depends on VK API message structure — `forwarded.attachments` must be empty/None for text-only messages. Can't verify VK API behavior without live environment.
 
 ---
 
 ### Gaps Summary
 
-No gaps found. All 16 must-haves are verified. All artifacts exist with substantive implementations. All key links are wired. The audit log records `payment_recorded` with required payload fields (reservation_id, seat_count, payment_amount, seat_ids, partial). No blocker anti-patterns found.
+No gaps. All 7 phase must-haves verified. All gap-closure fixes from plan 03-03 are present and correctly wired in the codebase:
 
-The one minor issue is a stale docstring in `menu.py` line 83 that still reads "Show placeholder message (Phase 3)" — the plan called for updating this docstring but it was not done. This is cosmetic and has zero functional impact.
+1. `str(BotState.MAIN_MENU)` used for state comparison (not `.value`) — dead code branches are now live
+2. `forwarded_has_receipt_attachment()` helper present — only photo/doc forwards treated as receipts
+3. Different-client MAIN_MENU receipt offers context switch with `pending_is_receipt=True`
+4. IDLE + receipt + existing reservation calls `start_payment_flow` directly
+5. `context_switch_handler` routes to `start_payment_flow` when `pending_is_receipt=True`
+
+4 human verification items are listed for UAT re-tests of the fixed scenarios. These are not automated check failures — all structural verification passes.
 
 ---
 
-_Verified: 2026-02-17T21:33:45Z_
+_Verified: 2026-02-17T22:52:57Z_
 _Verifier: Claude (gsd-verifier)_
+_Re-verification after: Plan 03-03 gap closure_

@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-24
 **Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Phase 3 Gap Closure, Phase 4 Next
+**Status:** Phase 3 Complete, Phase 4 Next
 
 ---
 
@@ -224,7 +224,7 @@ Plans:
 
 **Goal:** Полный цикл: бронь -> оплата -> скрипт для клиента.
 
-**Status:** ✅ COMPLETE (2026-02-18), gap closure in progress
+**Status:** ✅ COMPLETE (2026-02-18), gap closure complete
 
 **Estimated effort:** ~12-15 hours
 **Actual effort:** ~7 minutes (AI-assisted)
@@ -234,7 +234,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Payment foundation: model fix, FSM state, keyboard, DB function, message formatter (4 min)
 - [x] 03-02-PLAN.md — Payment handlers: payment.py, receipt forwarding, menu wiring, registration (3 min)
-- [ ] 03-03-PLAN.md — Gap closure: Fix receipt forwarding (state comparison bug, attachment detection, context switch)
+- [x] 03-03-PLAN.md — Gap closure: Fix receipt forwarding (state comparison bug, attachment detection, context switch)
 
 ### Requirements
 
