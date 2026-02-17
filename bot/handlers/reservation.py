@@ -17,7 +17,7 @@ from bot.fsm.storage import RedisStorage
 from bot.utils import db
 from bot.utils.seat_parser import parse_seats, SeatParseError
 from bot.utils.layout import is_valid_row, is_valid_seat, get_seat_count, get_row_range
-from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, context_switch_keyboard
+from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, context_switch_keyboard, main_menu_keyboard
 from bot.messages import generate_reservation_script
 from models.base import SeatStatus
 from bot.handlers.menu import show_main_menu
@@ -68,12 +68,37 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         current_context = state_peer.payload
         current_buyer_vk_api_id = current_context.get("buyer_vk_api_id")
 
+        # MAIN_MENU + same client forward = receipt for payment
+        if current_state == BotState.MAIN_MENU.value and buyer_vk_id == current_buyer_vk_api_id:
+            from bot.handlers.payment import start_payment_flow
+            reservation_id = current_context.get("reservation_id")
+            vk_message_ts = None
+            if forwarded.date:
+                from datetime import datetime as dt
+                vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+            await start_payment_flow(
+                message, storage, reservation_id, display_name,
+                vk_message_url=None,
+                vk_message_ts=vk_message_ts,
+            )
+            return
+
+        # MAIN_MENU + different client forward = wrong client error (NOT context switch)
+        if current_state == BotState.MAIN_MENU.value and buyer_vk_id != current_buyer_vk_api_id:
+            current_buyer_display_name = current_context.get("buyer_display_name", "текущего клиента")
+            await message.answer(
+                f"Получен чек от {display_name}, но вы работаете с {current_buyer_display_name}.\n"
+                f"Используйте кнопку «Оплата» для текущего клиента.",
+                keyboard=main_menu_keyboard()
+            )
+            return
+
+        # Same client in non-MAIN_MENU state - already working with them
         if buyer_vk_id == current_buyer_vk_api_id:
-            # Same client - do nothing
             await message.answer("Вы уже работаете с этим клиентом.")
             return
 
-        # Different client - ask for confirmation
+        # Different client in non-MAIN_MENU state - context switch confirmation
         current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
 
         await message.answer(
