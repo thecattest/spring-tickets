@@ -737,3 +737,200 @@ def record_payment(
             session.rollback()
             logger.error(f"Failed to record payment: {e}")
             raise DatabaseError(f"Failed to record payment: {e}")
+
+
+def get_app_user_by_vk_id(vk_user_id: int) -> Optional[AppUser]:
+    """
+    Get AppUser by VK user ID.
+
+    Used to resolve the admin's AppUser.id from their VK user ID so that
+    created_by_user_id on SeatAssignment is the internal AppUser.id (NOT the VK user ID).
+
+    Args:
+        vk_user_id: VK user ID of the admin/seller
+
+    Returns:
+        AppUser if found and active, None otherwise
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            stmt = (
+                select(AppUser)
+                .where(AppUser.vk_user_id == vk_user_id)
+                .where(AppUser.is_active == True)
+            )
+            user = session.execute(stmt).scalar_one_or_none()
+            return user
+
+        except Exception as e:
+            logger.error(f"Failed to get AppUser by VK user ID {vk_user_id}: {e}")
+            raise DatabaseError(f"Failed to get AppUser by VK user ID: {e}")
+
+
+def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[SeatAssignment]:
+    """
+    Add reserved seats (atomic operation, admin-only).
+
+    Creates SeatAssignment rows with status=RESERVED and reservation_id=None.
+    All seats must be available or none are added.
+
+    Args:
+        row: Row number
+        seats: List of seat numbers to reserve
+        comment: Reserve reason/note (stored in SeatAssignment.note)
+        user_id: AppUser.id of the admin performing the action
+
+    Returns:
+        List of created SeatAssignment
+
+    Raises:
+        SeatOccupiedError: If any seat is already occupied
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            # Check all seats are available first (atomic — check before any insert)
+            for seat in seats:
+                stmt = (
+                    select(SeatAssignment)
+                    .where(SeatAssignment.row_number == row)
+                    .where(SeatAssignment.seat_number == seat)
+                    .where(SeatAssignment.released_at.is_(None))
+                )
+                assignment = session.execute(stmt).scalar_one_or_none()
+                if assignment:
+                    raise SeatOccupiedError(row, seat, assignment)
+
+            # All seats available — create RESERVED assignments
+            assignments = []
+            for seat in seats:
+                assignment = SeatAssignment(
+                    row_number=row,
+                    seat_number=seat,
+                    status=SeatStatus.RESERVED,
+                    reservation_id=None,
+                    created_by_user_id=user_id,
+                    note=comment,
+                )
+                session.add(assignment)
+                assignments.append(assignment)
+
+            session.commit()
+
+            # Refresh to get IDs
+            for assignment in assignments:
+                session.refresh(assignment)
+
+            # Audit log
+            audit = AuditLog(
+                actor_type=ActorType.USER,
+                actor_user_id=user_id,
+                action_type="reserve_added",
+                entity_type="seat_assignment",
+                payload={
+                    "row": row,
+                    "seats": seats,
+                    "comment": comment,
+                    "user_id": user_id,
+                    "count": len(seats),
+                }
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(f"Added reserve: row {row}, seats {seats}, comment={comment!r}, user_id={user_id}")
+            return assignments
+
+        except SeatOccupiedError:
+            session.rollback()
+            raise
+        except IntegrityError as e:
+            session.rollback()
+            logger.error(f"Integrity error adding reserve: {e}")
+            raise DatabaseError(f"Integrity error: {e}")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to add reserve: {e}")
+            raise DatabaseError(f"Failed to add reserve: {e}")
+
+
+def release_reserve(row: int, seats: List[int], user_id: int) -> List[dict]:
+    """
+    Release reserved seats (atomic operation, admin-only).
+
+    Sets released_at on RESERVED seats and returns previous notes for audit.
+
+    Args:
+        row: Row number
+        seats: List of seat numbers to release
+        user_id: AppUser.id of the admin performing the action
+
+    Returns:
+        List of dicts with previous notes: [{"seat": seat_number, "note": note}, ...]
+
+    Raises:
+        DatabaseError: If any seats are not found as active RESERVED seats,
+                       or if operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            # Query all matching RESERVED seats
+            stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.row_number == row)
+                .where(SeatAssignment.seat_number.in_(seats))
+                .where(SeatAssignment.status == SeatStatus.RESERVED)
+                .where(SeatAssignment.released_at.is_(None))
+            )
+            assignments = list(session.execute(stmt).scalars().all())
+
+            if len(assignments) < len(seats):
+                found_seats = {a.seat_number for a in assignments}
+                missing = sorted(set(seats) - found_seats)
+                raise DatabaseError(
+                    f"Seats not found as active RESERVED in row {row}: {missing}"
+                )
+
+            # Collect previous notes before modification
+            previous_notes = [
+                {"seat": a.seat_number, "note": a.note}
+                for a in assignments
+            ]
+
+            # Release all seats
+            now = datetime.utcnow()
+            for assignment in assignments:
+                assignment.released_at = now
+                assignment.released_by_user_id = user_id
+
+            session.commit()
+
+            # Audit log
+            audit = AuditLog(
+                actor_type=ActorType.USER,
+                actor_user_id=user_id,
+                action_type="reserve_removed",
+                entity_type="seat_assignment",
+                payload={
+                    "row": row,
+                    "seats": seats,
+                    "previous_notes": previous_notes,
+                    "user_id": user_id,
+                }
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(f"Released reserve: row {row}, seats {seats}, user_id={user_id}")
+            return previous_notes
+
+        except DatabaseError:
+            session.rollback()
+            raise
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to release reserve: {e}")
+            raise DatabaseError(f"Failed to release reserve: {e}")
