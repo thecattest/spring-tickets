@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 3 COMPLETE (Plans 01, 02, and 03 gap closure done), Phase 4 next
+**Current phase:** Phase 4 in progress (Plan 01 complete, Plan 02 next)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 3 COMPLETE. Phase 4 (debt reminders) next
+**Current focus:** Phase 4 Plan 01 COMPLETE. Plan 02 (reserve handler) next
 
 ---
 
@@ -128,6 +128,14 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ No circular imports: local import pattern established
 - ✅ All receipt forwarding bugs fixed; routing matrix fully correct
 
+✅ **Phase 4 Plan 01: Admin Reserve Foundation** — ЗАВЕРШЕНА (6 минут)
+- ✅ 7 new BotState values for reserve flow (RESERVE_ACTION through RESERVE_REMOVE_CONFIRM)
+- ✅ reserve_action_keyboard with Добавить резерв / Удалить резерв buttons
+- ✅ get_app_user_by_vk_id: resolves VK user ID to AppUser.id for DB writes
+- ✅ add_reserve: atomic RESERVED SeatAssignment creation with note=comment, reservation_id=None, audit log
+- ✅ release_reserve: releases RESERVED seats, returns previous notes, audit log
+- ✅ All functions follow established pattern (SessionLocal, try/except/rollback, audit logging)
+
 ### User Setup Required (Before Running Bot)
 
 ⚠️ **Manual configuration needed:**
@@ -196,6 +204,9 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-02-18 | 03-03 | pending_is_receipt flag carried in CONTEXT_SWITCH_CONFIRM state | Context switch is a separate state; need to carry receipt intent across state boundary to route correctly after confirmation | After confirming switch, payment flow entered immediately if receipt was forwarded |
 | 2026-02-18 | 03-03 | IDLE + receipt + existing reservation skips main menu and enters payment directly | Forwarding receipt from IDLE with reservation implies payment intent; skipping menu reduces friction | Direct path from receipt forward to payment quantity keyboard |
 | 2026-02-18 | 03-03 | MAIN_MENU + different client: context switch offer (not error) for both receipt and plain text | UAT test 7 revealed error was wrong behavior; both receipt and plain text forwards from different clients deserve context switch offer | Different-client forwards now correctly offer context switch regardless of attachment type |
+| 2026-02-18 | 04-01 | Reserve seats use reservation_id=None | Reserves are admin-only hold seats not tied to any customer reservation | Distinguishes reserves from bookings in SeatAssignment table |
+| 2026-02-18 | 04-01 | get_app_user_by_vk_id bridges VK user ID to AppUser.id | created_by_user_id must be AppUser.id (internal), not VK user ID | Handler calls this at entry to resolve admin identity before any DB write |
+| 2026-02-18 | 04-01 | release_reserve returns previous notes list | Handler can show what was in the note field before clearing for audit display | Collected before modifying rows to ensure consistent snapshot |
 
 ---
 
@@ -246,13 +257,23 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Planning:** 100% complete
 - **Overall project:** ██████████ 100% MVP (Phase 0, 1, 2, 3 complete, gap closure done)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), highly efficient execution
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 Plan 01 = 6 min, highly efficient execution
 
 ---
 
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 4 PLAN 01 COMPLETE** (6 minutes) - Admin reserve foundation
+- Executed 2 tasks atomically
+- 2 commits: both feature (671dac1, ca3d4e7)
+- 3 files modified (bot/fsm/states.py, bot/keyboards.py, bot/utils/db.py)
+- 7 new BotState values for reserve flow
+- reserve_action_keyboard with Добавить резерв / Удалить резерв
+- get_app_user_by_vk_id, add_reserve, release_reserve DB functions
+- Created 04-01-SUMMARY.md
+- Updated STATE.md
 
 - ✅ **PHASE 3 PLAN 03 COMPLETE** (3 minutes) - Gap closure: receipt forwarding bugs fixed
 - Executed 2 tasks atomically
