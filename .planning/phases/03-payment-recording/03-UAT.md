@@ -1,9 +1,10 @@
 ---
 status: complete
 phase: 03-payment-recording
-source: 03-01-SUMMARY.md, 03-02-SUMMARY.md
-started: 2026-02-18T12:00:00Z
-updated: 2026-02-18T12:10:00Z
+source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md
+started: 2026-02-18T13:00:00Z
+updated: 2026-02-18T13:15:00Z
+note: Re-verification after gap closure plan 03-03
 ---
 
 ## Current Test
@@ -12,76 +13,51 @@ updated: 2026-02-18T12:10:00Z
 
 ## Tests
 
-### 1. Payment flow via "Оплата" button
-expected: From main menu (client with BOOKED seats), click "Оплата". Bot shows payment quantity keyboard with numbered buttons [1]..[N] for N booked seats, "Все N" button (if N>1), and "Отмена" button.
-result: pass
-
-### 2. Select payment quantity and confirm
-expected: After clicking "Оплата", select a number (e.g. "2"). Bot records payment for that many seats (first N by row ASC, seat ASC), shows confirmation message listing paid seats grouped by row and remaining unpaid seats.
-result: pass
-
-### 3. "Все N" pays all booked seats
-expected: Click "Оплата", then "Все N". Bot records payment for all booked seats. Confirmation shows all seats as paid and "Все места оплачены!" (or similar) for remaining.
-result: pass
-
-### 4. "Отмена" cancels payment flow
-expected: Click "Оплата", then "Отмена". Bot cancels payment, returns to main menu unchanged. No payment recorded.
-result: pass
-
-### 5. Main menu shows paid seat status
-expected: After recording a payment, main menu displays paid seats with ✅ Оплачено status emoji (instead of 📌 Бронь).
-result: pass
-
-### 6. Receipt forwarding triggers payment (same client)
-expected: While in MAIN_MENU for Client A, forward a VK message with picture/file from Client A. Bot treats it as payment receipt and shows quantity keyboard (same as "Оплата" flow).
+### 1. Receipt forward (same client, MAIN_MENU) triggers payment
+expected: While in MAIN_MENU for Client A, forward a VK message WITH photo/doc attachment from Client A. Bot treats it as payment receipt and shows quantity keyboard (same as clicking "Оплата").
 result: issue
-reported: "bot answers that i am already working with client from whom i forward the message. if i forward picture or file while idle or in main menu, bot must open menu for this client in state of payment, like if i clicked оплата button in main menu for this client"
+reported: "Бот отвечает что я уже работаю с этим клиентом когда присылаю сообщение с картинкой от клиента А из MAIN_MENU. Должен переходить в режим оплаты. IDLE + картинка работает корректно."
 severity: major
 
-### 7. Receipt forwarding shows error (different client)
-expected: While in MAIN_MENU for Client A, forward a message with picture/file from Client B. Bot offers context switch. If confirmed, switches to Client B and enters payment flow (quantity keyboard).
-result: issue
-reported: "only message with picture or file must be considered as receipt. it must suggest context switch if i work with A and forward message with picture or file of client B. if i confirm switch, bot must switch and go to state like if i clicked оплата button from main menu for this client"
-severity: major
-
-### 8. Delete PAID seats blocked
-expected: From main menu with some PAID seats, click "Удалить", enter row with paid seats, enter paid seat numbers. Bot shows "Места уже оплачены, удалить нельзя" and stays in seat input.
+### 2. Plain text forward (same client, MAIN_MENU) re-shows menu
+expected: While in MAIN_MENU for Client A, forward a VK message WITHOUT photo/doc (plain text only) from Client A. Bot re-shows main menu (does NOT enter payment flow).
 result: pass
 
-### 9. Cancel reservation with PAID seats (non-admin)
-expected: Non-admin tries "Удалить все" on reservation containing PAID seats. Bot shows "В брони есть оплаченные места. Отмена доступна только админам." and returns to menu.
+### 3. Receipt forward (different client, MAIN_MENU) offers context switch then payment
+expected: While in MAIN_MENU for Client A, forward a VK message WITH photo/doc from Client B. Bot offers context switch ("Переключиться?"). On "Да", switches to Client B and enters payment flow (quantity keyboard), not just main menu.
 result: pass
 
-### 10. Cancel reservation with PAID seats (admin)
-expected: Admin clicks "Удалить все" on reservation containing PAID seats. Bot cancels reservation successfully, shows "Бронь отменена", returns to IDLE.
-result: skipped
-reason: "No admins configured yet to test with"
+### 4. Plain text forward (different client, MAIN_MENU) offers context switch then menu
+expected: While in MAIN_MENU for Client A, forward a VK message WITHOUT photo/doc from Client B. Bot offers context switch. On "Да", switches to Client B and shows main menu (not payment flow).
+result: pass
+
+### 5. Receipt forward from IDLE with existing reservation enters payment
+expected: From IDLE state, forward a VK message WITH photo/doc from a client who has an existing active reservation with BOOKED seats. Bot enters payment flow directly (quantity keyboard) without showing main menu first.
+result: pass
+
+### 6. Plain text forward from IDLE with existing reservation shows menu
+expected: From IDLE state, forward a VK message WITHOUT photo/doc (plain text only) from a client with existing reservation. Bot shows main menu (same as before the fix).
+result: pass
+
+### 7. Receipt forward from IDLE without reservation creates reservation
+expected: From IDLE state, forward a VK message WITH photo/doc from a brand new client (no reservation). Bot creates a new reservation and asks for row number (normal create flow, does NOT try payment).
+result: pass
 
 ## Summary
 
-total: 10
-passed: 7
-issues: 2
+total: 7
+passed: 6
+issues: 1
 pending: 0
-skipped: 1
+skipped: 0
 
 ## Gaps
 
-- truth: "Forwarding picture/file from same client in MAIN_MENU triggers payment flow (quantity keyboard)"
+- truth: "Forwarding photo/doc from same client in MAIN_MENU triggers payment flow (quantity keyboard)"
   status: failed
-  reason: "User reported: bot answers that i am already working with client from whom i forward the message. Only picture/file forwards should be receipts. Should open payment flow like clicking Оплата."
+  reason: "User reported: bot says 'already working with this client' instead of entering payment flow when forwarding picture from same client in MAIN_MENU. IDLE + receipt works correctly."
   severity: major
-  test: 6
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
-
-- truth: "Forwarding picture/file from different client in MAIN_MENU offers context switch, then enters payment flow on confirm"
-  status: failed
-  reason: "User reported: should suggest context switch for different-client receipt forward. On confirm, switch and enter payment flow. Only picture/file forwards are receipts."
-  severity: major
-  test: 7
+  test: 1
   root_cause: ""
   artifacts: []
   missing: []
