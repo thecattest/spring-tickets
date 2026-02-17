@@ -1,7 +1,7 @@
 # Project State
 
-**Last updated:** 2026-01-24
-**Current phase:** Phase 2 complete (all 4 plans done). Ready for Phase 3
+**Last updated:** 2026-02-18
+**Current phase:** Phase 3 in progress (Plan 01 complete, Plan 02 next)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 2 завершена. Готовность к Phase 3: Payment recording и management
+**Current focus:** Phase 3 в процессе: Payment foundation complete, handlers next
 
 ---
 
@@ -94,12 +94,22 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Status-aware seat display with emoji indicators
 - ✅ Same-client detection working correctly
 
+✅ **Phase 3 Plan 01: Payment Foundation Components** — ЗАВЕРШЕНА (4 минуты)
+- ✅ Payment model с nullable vk_message_url и vk_message_ts (button flow)
+- ✅ SQLite DB migration: сохранены данные, добавлены payment_amount/seat_count, сделаны nullable
+- ✅ PAYMENT_QUANTITY FSM state
+- ✅ payment_quantity_keyboard с numbered buttons, "Все N", "Отмена"
+- ✅ record_payment: deterministic seat selection (row ASC, seat ASC), atomic, audit log
+- ✅ InsufficientSeatsError exception
+- ✅ format_payment_confirmation с grouped rows и remaining seats
+
 ### In Progress
 
-🔄 **Phase 3: Регистрация оплаты и скрипт**
-- Payment recording по пересылке чека или через меню
-- Детерминированный выбор мест для частичной оплаты
-- Payment amount calculation и validation
+🔄 **Phase 3 Plan 02: Payment Handlers**
+- Handler wiring для PAYMENT_QUANTITY state
+- Forwarded message payment flow (с чеком)
+- Button payment flow (без чека)
+- Error handling для InsufficientSeatsError
 
 ### User Setup Required (Before Running Bot)
 
@@ -159,6 +169,8 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-01-24 | 02-03 | Validate all seats are BOOKED before releasing any | Prevents partial deletion if any seat is PAID | Atomic deletion ensures data consistency |
 | 2026-01-24 | 02-04 | Use buyer_vk_api_id (VK API user ID) for same-client detection instead of buyer_vk_user_id (database ID) | VK API ID is consistent identifier for users across VK API, database ID is internal only | Same-client comparison now works correctly |
 | 2026-01-24 | 02-04 | Store both buyer_vk_user_id and buyer_vk_api_id in FSM context | Need database ID for DB operations and VK API ID for same-client detection | Dual ID storage supports both use cases without conflicts |
+| 2026-02-18 | 03-01 | Make vk_message_url and vk_message_ts nullable in Payment model | Button-flow payments have no VK receipt message | Enables payment recording without forwarded receipt |
+| 2026-02-18 | 03-01 | Deterministic partial payment: row ASC, seat ASC selection | Predictable, reproducible seat selection for partial payments | record_payment always picks lowest-numbered seats first |
 
 ---
 
@@ -207,13 +219,29 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
-- **Overall project:** ████████░ 67% MVP (Phase 0, 1, 2 complete; Phase 3 next)
+- **Overall project:** █████████░ 72% MVP (Phase 0, 1, 2 complete; Phase 3 Plan 01 done)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), highly efficient execution
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 Plan 01 = 4 min, highly efficient execution
 
 ---
 
 ## Recent Activity
+
+**2026-02-18:**
+
+- ✅ **PHASE 3 PLAN 01 COMPLETE** (4 minutes) - Payment foundation
+- Executed 2 tasks atomically
+- 2 commits: both feature
+- 5 files modified (models/payment.py, bot/fsm/states.py, bot/keyboards.py, bot/messages.py, bot/utils/db.py), plus DB migration
+- Payment model nullable receipt fields for button-flow
+- SQLite migration preserving test data (added missing columns)
+- PAYMENT_QUANTITY FSM state
+- payment_quantity_keyboard with dynamic numbered grid
+- record_payment with deterministic seat selection and audit logging
+- InsufficientSeatsError exception
+- format_payment_confirmation with grouped rows
+- Created 03-01-SUMMARY.md
+- Updated STATE.md with Phase 3 progress
 
 **2026-01-24:**
 
