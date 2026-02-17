@@ -1,9 +1,9 @@
 ---
-status: complete
+status: passed
 phase: 03-payment-recording
 source: 03-01-SUMMARY.md, 03-02-SUMMARY.md, 03-03-SUMMARY.md
 started: 2026-02-18T13:00:00Z
-updated: 2026-02-18T13:15:00Z
+updated: 2026-02-18T13:20:00Z
 note: Re-verification after gap closure plan 03-03
 ---
 
@@ -15,9 +15,8 @@ note: Re-verification after gap closure plan 03-03
 
 ### 1. Receipt forward (same client, MAIN_MENU) triggers payment
 expected: While in MAIN_MENU for Client A, forward a VK message WITH photo/doc attachment from Client A. Bot treats it as payment receipt and shows quantity keyboard (same as clicking "Оплата").
-result: issue
-reported: "Бот отвечает что я уже работаю с этим клиентом когда присылаю сообщение с картинкой от клиента А из MAIN_MENU. Должен переходить в режим оплаты. IDLE + картинка работает корректно."
-severity: major
+result: pass
+note: Initially reported as issue, user re-confirmed working correctly after re-test.
 
 ### 2. Plain text forward (same client, MAIN_MENU) re-shows menu
 expected: While in MAIN_MENU for Client A, forward a VK message WITHOUT photo/doc (plain text only) from Client A. Bot re-shows main menu (does NOT enter payment flow).
@@ -46,19 +45,11 @@ result: pass
 ## Summary
 
 total: 7
-passed: 6
-issues: 1
+passed: 7
+issues: 0
 pending: 0
 skipped: 0
 
 ## Gaps
 
-- truth: "Forwarding photo/doc from same client in MAIN_MENU triggers payment flow (quantity keyboard)"
-  status: failed
-  reason: "User reported: bot says 'already working with this client' instead of entering payment flow when forwarding picture from same client in MAIN_MENU. IDLE + receipt works correctly."
-  severity: major
-  test: 1
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+[none — all tests passed]
