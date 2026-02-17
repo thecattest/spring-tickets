@@ -208,42 +208,97 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
         # Clear FSM and switch to new client
         await storage.delete(message.from_id)
 
+        # Extract receipt metadata
+        pending_is_receipt = context.get("pending_is_receipt", False)
+        pending_receipt_vk_message_ts = context.get("pending_receipt_vk_message_ts")
+
         if pending_has_reservation:
-            # Show main menu for new client's existing reservation
-            await show_main_menu(
-                message,
-                storage,
-                pending_reservation_id,
-                pending_buyer_vk_id,
-                pending_buyer_display_name,
-                pending_buyer_vk_api_id,
-            )
-        else:
-            # Create new reservation for new client (Phase 1 flow)
-            try:
-                seller_id = db.get_default_seller_id()
-                reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
-
-                await message.answer(
-                    f"Создана новая бронь для {pending_buyer_display_name} (ID: {reservation.id}).\n\n"
-                    f"Введите номер ряда:",
-                    keyboard=get_empty_keyboard()
-                )
-
+            if pending_is_receipt:
+                # Receipt-triggered switch -> enter payment flow for new client
                 await storage.set(
                     message.from_id,
-                    BotState.AWAITING_ROW,
-                    reservation_id=reservation.id,
+                    BotState.MAIN_MENU,
+                    reservation_id=pending_reservation_id,
                     buyer_vk_user_id=pending_buyer_vk_id,
-                    buyer_display_name=pending_buyer_display_name,
                     buyer_vk_api_id=pending_buyer_vk_api_id,
+                    buyer_display_name=pending_buyer_display_name,
+                    from_main_menu=True,
                 )
+                from bot.handlers.payment import start_payment_flow
+                vk_message_ts = None
+                if pending_receipt_vk_message_ts:
+                    from datetime import datetime
+                    try:
+                        vk_message_ts = datetime.fromisoformat(pending_receipt_vk_message_ts)
+                    except (ValueError, TypeError):
+                        vk_message_ts = None
+                await start_payment_flow(
+                    message, storage, pending_reservation_id,
+                    pending_buyer_display_name,
+                    vk_message_url=None,
+                    vk_message_ts=vk_message_ts,
+                )
+            else:
+                # Normal switch -> show main menu for new client's existing reservation
+                await show_main_menu(
+                    message,
+                    storage,
+                    pending_reservation_id,
+                    pending_buyer_vk_id,
+                    pending_buyer_display_name,
+                    pending_buyer_vk_api_id,
+                )
+        else:
+            if pending_is_receipt:
+                # Receipt from client with no reservation — can't record payment, create reservation
+                try:
+                    seller_id = db.get_default_seller_id()
+                    reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
 
-            except db.DatabaseError as e:
-                logger.error(f"Error creating reservation on context switch: {e}")
-                await message.answer(
-                    "Ошибка при создании брони. Попробуйте позже."
-                )
+                    await message.answer(
+                        f"У {pending_buyer_display_name} нет активной брони.\n"
+                        f"Создана новая бронь (ID: {reservation.id}).\n\n"
+                        f"Введите номер ряда:",
+                        keyboard=get_empty_keyboard()
+                    )
+
+                    await storage.set(
+                        message.from_id,
+                        BotState.AWAITING_ROW,
+                        reservation_id=reservation.id,
+                        buyer_vk_user_id=pending_buyer_vk_id,
+                        buyer_display_name=pending_buyer_display_name,
+                        buyer_vk_api_id=pending_buyer_vk_api_id,
+                    )
+                except db.DatabaseError as e:
+                    logger.error(f"Error creating reservation on context switch: {e}")
+                    await message.answer("Ошибка при создании брони. Попробуйте позже.")
+            else:
+                # Normal switch with no reservation -> create new reservation
+                try:
+                    seller_id = db.get_default_seller_id()
+                    reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
+
+                    await message.answer(
+                        f"Создана новая бронь для {pending_buyer_display_name} (ID: {reservation.id}).\n\n"
+                        f"Введите номер ряда:",
+                        keyboard=get_empty_keyboard()
+                    )
+
+                    await storage.set(
+                        message.from_id,
+                        BotState.AWAITING_ROW,
+                        reservation_id=reservation.id,
+                        buyer_vk_user_id=pending_buyer_vk_id,
+                        buyer_display_name=pending_buyer_display_name,
+                        buyer_vk_api_id=pending_buyer_vk_api_id,
+                    )
+
+                except db.DatabaseError as e:
+                    logger.error(f"Error creating reservation on context switch: {e}")
+                    await message.answer(
+                        "Ошибка при создании брони. Попробуйте позже."
+                    )
 
     elif text == "Нет":
         # Restore previous state and context
