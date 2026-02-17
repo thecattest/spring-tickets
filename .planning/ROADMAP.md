@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-24
 **Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Phase 3 Complete, Phase 4 Next
+**Status:** Phase 3 Complete, Phase 4 Planning Complete
 
 ---
 
@@ -291,16 +291,22 @@ Plans:
 
 **Estimated effort:** ~8-10 hours
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Reserve foundation: FSM states, keyboard, DB functions (add_reserve, release_reserve, get_app_user_by_vk_id)
+- [ ] 04-02-PLAN.md — Reserve handler: /reserve command, add/remove flows, bot registration
+
 ### Requirements
 
 1. **Команда /reserve для админов**
-   - Проверка AppUser.is_admin
+   - Проверка AppUser.role == UserRole.ADMIN via db.is_user_admin()
    - Если не админ → "Управление резервами доступно только администраторам"
    - FSM state: `RESERVE_ACTION`
 
 2. **Добавление резерва**
    - FSM states: `RESERVE_ADDING_ROW` → `RESERVE_ADDING_SEATS` → `RESERVE_COMMENT`
-   - Парсер мест (переиспользование)
+   - Парсер мест (переиспользование parse_seats)
    - Обязательный ввод комментария
    - Создание SeatAssignment: status=RESERVED, reservation_id=NULL, note=<комментарий>
 
@@ -313,27 +319,28 @@ Plans:
 4. **Отображение резервов при проверке занятости**
    - При ошибке "Места уже заняты" показывать:
      - "Ряд X место Y (Резерв: комментарий)"
+   - NOTE: Already implemented in reservation.py awaiting_seats_handler
 
 ### Success Criteria
 
-- ✅ Админы видят и могут использовать /reserve
-- ✅ Не-админы не могут использовать /reserve
-- ✅ Можно создать резерв с обязательным комментарием
-- ✅ Можно удалить резерв
-- ✅ Резервы отображаются при проверке занятости мест
-- ✅ Комментарий сохраняется в SeatAssignment.note
-- ✅ При удалении комментарий логируется в audit
+- Админы видят и могут использовать /reserve
+- Не-админы не могут использовать /reserve
+- Можно создать резерв с обязательным комментарием
+- Можно удалить резерв
+- Резервы отображаются при проверке занятости мест
+- Комментарий сохраняется в SeatAssignment.note
+- При удалении комментарий логируется в audit
 
 ### Technical Notes
 
-- AppUser.is_admin — нужно добавить поле (или проверить существующее)
+- AppUser.role == UserRole.ADMIN — db.is_user_admin() exists
 - Audit log: `reserve_added`, `reserve_removed`
 - Резервы НЕ привязаны к Reservation (reservation_id=NULL)
 
 ### Dependencies
 
-- Phase 1, Phase 2
-- AppUser.is_admin поле
+- Phase 1, Phase 2 (both complete)
+- AppUser.role field (exists)
 
 ---
 
@@ -521,3 +528,4 @@ Plans:
 *Phase 2 gap closure: 2026-01-24*
 *Phase 3 planned: 2026-02-17*
 *Phase 3 gap closure: 2026-02-18*
+*Phase 4 planned: 2026-02-18*
