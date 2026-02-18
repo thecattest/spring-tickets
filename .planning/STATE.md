@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 4 COMPLETE (Plan 01 + Plan 02 done)
+**Current phase:** Phase 5 IN PROGRESS (Plan 01 of 02 done)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 4 COMPLETE. Ready for Phase 5 (reminders) or Phase 6 (reporting)
+**Current focus:** Phase 5 Plan 01 COMPLETE. Next: Phase 5 Plan 02 (cron reminder script)
 
 ---
 
@@ -144,6 +144,16 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Reserve handlers registered in bot startup (bot/main.py)
 - ✅ /reserve documented in /help command
 
+✅ **Phase 5 Plan 01: Debtors Command** — ЗАВЕРШЕНА (2 минуты)
+- ✅ get_debtors(seller_id=None): ACTIVE reservations with BOOKED seats and 7+ days no activity
+- ✅ get_all_active_sellers(): active AppUsers with vk_user_id for cron use
+- ✅ debtors_keyboard() with Обновить button
+- ✅ format_debtors_list() and format_reminder() message formatters
+- ✅ /debtors command handler with admin/seller filtering (stateless, no FSM)
+- ✅ Обновить button refresh handler (shared _show_debtors() helper)
+- ✅ Handler registered in bot/main.py
+- ✅ /debtors documented in /help command
+
 ✅ **Phase 4: Admin Reserve Management** — ЗАВЕРШЕНА (9 минут total)
 - ✅ All 2 plans complete (04-01, 04-02)
 - ✅ Complete admin reserve management via /reserve command
@@ -222,6 +232,10 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-02-18 | 04-02 | SeatOccupiedError on add transitions back to RESERVE_ADDING_SEATS | Admin can re-enter seats without restarting the entire flow | Better UX: only seat input re-prompted, not row selection |
 | 2026-02-18 | 04-02 | Previous notes filter out None/empty before display | Avoid blank bullet points in removal confirmation message | Clean output only shows meaningful notes |
 | 2026-02-18 | 04-02 | On return to RESERVE_ACTION, only admin_user_id preserved | Row/seats context no longer needed after operation completes | Clean state prevents stale context from affecting next operation |
+| 2026-02-18 | 05-01 | get_debtors uses Python timedelta(days=7), not SQL INTERVAL | SQLite does not support SQL INTERVAL; consistent with datetime.utcnow() pattern throughout codebase | Query runs on both SQLite (dev) and future PostgreSQL (prod) |
+| 2026-02-18 | 05-01 | Correlated subquery for BOOKED seat count per reservation | Cleaner than GROUP BY; enables simple WHERE booked_count > 0 filter | Readable query that correctly excludes reservations with zero BOOKED seats |
+| 2026-02-18 | 05-01 | /debtors and Обновить are stateless handlers (no FSM) | Read-only view requires no multi-step flow; follows commands.py stateless pattern | No state pollution; both /debtors and Обновить work from any FSM state |
+| 2026-02-18 | 05-01 | format_reminder() takes same dict list as format_debtors_list | Cron script passes get_debtors() result directly; no transform needed | Single return type from get_debtors() serves both bot handler and cron script |
 
 ---
 
@@ -271,15 +285,28 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
 - **Phase 4:** 100% complete (Phase 4, all 2 plans done)
-- **Overall project:** ██████████ 100% MVP + Phase 4 (Phase 0, 1, 2, 3, 4 complete)
+- **Phase 5:** 50% complete (Plan 01 done, Plan 02 pending)
+- **Overall project:** ██████████ MVP + Phase 4 + Phase 5 Plan 01 (Phase 0, 1, 2, 3, 4 complete, Phase 5 in progress)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 = 9 min total (Plans: 6min + 3min), highly efficient execution
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 = 9 min total (Plans: 6min + 3min), Phase 5 Plan 01 = 2 min, highly efficient execution
 
 ---
 
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 5 PLAN 01 COMPLETE** (2 minutes) - Debtors command
+- Executed 2 tasks atomically
+- 2 commits: both feature (676546e, cf0bde1)
+- 1 file created (bot/handlers/debtors.py), 5 modified (bot/utils/db.py, bot/keyboards.py, bot/messages.py, bot/main.py, bot/handlers/commands.py)
+- get_debtors() with correlated BOOKED subquery, Python timedelta threshold
+- get_all_active_sellers() for cron use
+- debtors_keyboard(), format_debtors_list(), format_reminder()
+- /debtors command + Обновить button handlers (stateless, no FSM)
+- /debtors documented in /help
+- Created 05-01-SUMMARY.md
+- Updated STATE.md
 
 - ✅ **PHASE 4 PLAN 02 COMPLETE** (3 minutes) - Reserve handler
 - Executed 2 tasks atomically
