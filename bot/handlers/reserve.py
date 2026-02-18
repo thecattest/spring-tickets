@@ -22,6 +22,8 @@ from bot.keyboards import (
     confirmation_keyboard,
     get_empty_keyboard,
 )
+from bot.messages import format_reserves_list
+from bot.utils.formatting import format_seat_ranges
 from models.base import SeatStatus
 
 logger = logging.getLogger(__name__)
@@ -45,8 +47,11 @@ async def reserve_command_handler(message: Message, storage: RedisStorage):
         await message.answer("Ошибка: ваш аккаунт не найден в системе.")
         return
 
+    reserves = db.get_active_reserves()
+    reserves_text = format_reserves_list(reserves)
+
     await message.answer(
-        "Управление резервами:",
+        f"{reserves_text}\n\nУправление резервами:",
         keyboard=reserve_action_keyboard()
     )
     await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=app_user.id)
@@ -61,19 +66,38 @@ async def reserve_action_handler(message: Message, storage: RedisStorage):
     text = message.text.strip()
     context = await storage.get_context(message.from_id)
 
-    if text == "Добавить резерв":
+    if text == "Добавить":
         await message.answer(
             "Введите номер ряда:",
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ADDING_ROW, **context)
 
-    elif text == "Удалить резерв":
+    elif text == "Удалить":
         await message.answer(
             "Введите номер ряда:",
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_REMOVING_ROW, **context)
+
+    elif text.startswith("/"):
+        # Command entered — clear state and let command handlers process
+        await storage.delete(message.from_id)
+        # Re-dispatch: manually call the command since state handler consumed the message
+        if text == "/cancel":
+            from bot.handlers.commands import cancel_handler
+            await cancel_handler(message, storage)
+        elif text == "/debtors":
+            from bot.handlers.debtors import _show_debtors
+            await _show_debtors(message)
+        elif text == "/reserve":
+            await reserve_command_handler(message, storage)
+        elif text == "/help":
+            from bot.handlers.commands import help_handler
+            await help_handler(message)
+        elif text == "/start":
+            from bot.handlers.commands import start_handler
+            await start_handler(message)
 
     else:
         await message.answer(
@@ -177,7 +201,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
     try:
         db.add_reserve(row, seats, comment, admin_user_id)
 
-        seats_str = ", ".join(map(str, seats))
+        seats_str = format_seat_ranges(sorted(seats))
         await message.answer(
             f"Резерв создан:\n"
             f"Ряд {row}, места: {seats_str}\n"
@@ -187,21 +211,20 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
     except db.SeatOccupiedError as e:
-        # Show which seats are occupied (same error pattern as reservation.py)
+        # Show all occupied seats at once
         error_lines = ["Места уже заняты:"]
-        assignment = e.assignment
-        if assignment.status == SeatStatus.RESERVED:
-            status_text = "Резерв"
-            detail = assignment.note or "без комментария"
-        else:
-            status_text = "Бронь" if assignment.status == SeatStatus.BOOKED else "Оплачено"
-            try:
-                res_seats = db.get_reservation_seats(assignment.reservation_id)
-                detail = f"бронь #{assignment.reservation_id}, всего мест: {len(res_seats)}"
-            except Exception:
-                detail = f"бронь #{assignment.reservation_id}"
-
-        error_lines.append(f"• Ряд {e.row}, место {e.seat} — {status_text} ({detail})")
+        for c in e.conflicts:
+            if c['status'] == SeatStatus.RESERVED:
+                status_text = "Резерв"
+                detail = c['note'] or "без комментария"
+            else:
+                status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
+                try:
+                    res_seats = db.get_reservation_seats(c['reservation_id'])
+                    detail = f"бронь #{c['reservation_id']}, всего мест: {len(res_seats)}"
+                except Exception:
+                    detail = f"бронь #{c['reservation_id']}"
+            error_lines.append(f"• Ряд {c['row']}, место {c['seat']} — {status_text} ({detail})")
         error_lines.append("\nВведите другие места:")
         await message.answer("\n".join(error_lines))
 
@@ -287,7 +310,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
 
     # Store seats and show confirmation
     context['reserve_seats_to_remove'] = seats
-    seats_str = ", ".join(map(str, seats))
+    seats_str = format_seat_ranges(sorted(seats))
 
     await message.answer(
         f"Снять резерв:\n"
@@ -318,7 +341,7 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
         try:
             previous_notes = db.release_reserve(row, seats, admin_user_id)
 
-            seats_str = ", ".join(map(str, seats))
+            seats_str = format_seat_ranges(sorted(seats))
             result_text = f"Резерв снят:\nРяд {row}, места: {seats_str}"
 
             # Show previous notes if any exist

@@ -169,6 +169,31 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
     return "\n".join(lines)
 
 
+def format_reserves_list(reserves: list) -> str:
+    """
+    Format active reserves list for /reserve command display.
+
+    Args:
+        reserves: List of dicts from db.get_active_reserves()
+                  Each dict has: row, seats (list[int]), note
+
+    Returns:
+        Formatted multi-line string
+    """
+    if not reserves:
+        return "Активных резервов нет."
+
+    total_seats = sum(len(r['seats']) for r in reserves)
+    lines = [f"🔒 Активные резервы ({total_seats} мест):", ""]
+
+    for r in reserves:
+        seats_str = format_seat_ranges(r['seats'])
+        note = r['note'] or "без комментария"
+        lines.append(f"Ряд {r['row']}: {seats_str} — {note}")
+
+    return "\n".join(lines)
+
+
 def format_debtors_list(debtors: list) -> str:
     """
     Format debtor list for /debtors command display.

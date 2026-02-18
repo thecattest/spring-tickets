@@ -41,13 +41,16 @@ class PermissionError(DatabaseError):
 
 
 class SeatOccupiedError(DatabaseError):
-    """Exception raised when trying to assign an occupied seat."""
+    """Exception raised when trying to assign occupied seats."""
 
-    def __init__(self, row: int, seat: int, assignment: SeatAssignment):
-        self.row = row
-        self.seat = seat
-        self.assignment = assignment
-        super().__init__(f"Seat {row}/{seat} is already occupied")
+    def __init__(self, conflicts: list):
+        """
+        Args:
+            conflicts: List of dicts with keys: row, seat, status, note, reservation_id
+        """
+        self.conflicts = conflicts
+        seats_str = ", ".join(f"{c['row']}/{c['seat']}" for c in conflicts)
+        super().__init__(f"Seats already occupied: {seats_str}")
 
 
 class InsufficientSeatsError(DatabaseError):
@@ -205,7 +208,7 @@ def is_seat_available(row: int, seat: int) -> bool:
                 .where(SeatAssignment.seat_number == seat)
                 .where(SeatAssignment.released_at.is_(None))
             )
-            assignment = session.execute(stmt).scalar_one_or_none()
+            assignment = session.execute(stmt).scalars().first()
             return assignment is None
 
         except Exception as e:
@@ -232,7 +235,7 @@ def get_seat_assignment(row: int, seat: int) -> Optional[SeatAssignment]:
                 .where(SeatAssignment.seat_number == seat)
                 .where(SeatAssignment.released_at.is_(None))
             )
-            assignment = session.execute(stmt).scalar_one_or_none()
+            assignment = session.execute(stmt).scalars().first()
             return assignment
 
         except Exception as e:
@@ -267,7 +270,7 @@ def add_seats_to_reservation(
     with SessionLocal() as session:
         try:
             # Check all seats are available first
-            occupied = []
+            conflicts = []
             for seat in seats:
                 stmt = (
                     select(SeatAssignment)
@@ -275,14 +278,18 @@ def add_seats_to_reservation(
                     .where(SeatAssignment.seat_number == seat)
                     .where(SeatAssignment.released_at.is_(None))
                 )
-                assignment = session.execute(stmt).scalar_one_or_none()
+                assignment = session.execute(stmt).scalars().first()
                 if assignment:
-                    occupied.append((seat, assignment))
+                    conflicts.append({
+                        'row': row,
+                        'seat': seat,
+                        'status': assignment.status,
+                        'note': assignment.note,
+                        'reservation_id': assignment.reservation_id,
+                    })
 
-            if occupied:
-                # Raise error with first occupied seat
-                seat, assignment = occupied[0]
-                raise SeatOccupiedError(row, seat, assignment)
+            if conflicts:
+                raise SeatOccupiedError(conflicts)
 
             # All seats available - add them
             assignments = []
@@ -770,6 +777,42 @@ def get_app_user_by_vk_id(vk_user_id: int) -> Optional[AppUser]:
             raise DatabaseError(f"Failed to get AppUser by VK user ID: {e}")
 
 
+def get_active_reserves() -> List[dict]:
+    """
+    Get all active reserved seats grouped by row and comment.
+
+    Returns:
+        List of dicts: {'row': int, 'seats': list[int], 'note': str}
+        Sorted by row ASC, then by note.
+    """
+    with SessionLocal() as session:
+        try:
+            stmt = (
+                select(SeatAssignment)
+                .where(SeatAssignment.status == SeatStatus.RESERVED)
+                .where(SeatAssignment.released_at.is_(None))
+                .where(SeatAssignment.reservation_id.is_(None))
+                .order_by(SeatAssignment.row_number, SeatAssignment.seat_number)
+            )
+            assignments = session.execute(stmt).scalars().all()
+
+            # Group by (row, note)
+            from itertools import groupby as gb
+            groups = []
+            for (row, note), group in gb(assignments, lambda a: (a.row_number, a.note)):
+                groups.append({
+                    'row': row,
+                    'seats': sorted(a.seat_number for a in group),
+                    'note': note or "",
+                })
+
+            return groups
+
+        except Exception as e:
+            logger.error(f"Failed to get active reserves: {e}")
+            raise DatabaseError(f"Failed to get active reserves: {e}")
+
+
 def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[SeatAssignment]:
     """
     Add reserved seats (atomic operation, admin-only).
@@ -793,6 +836,7 @@ def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[
     with SessionLocal() as session:
         try:
             # Check all seats are available first (atomic — check before any insert)
+            conflicts = []
             for seat in seats:
                 stmt = (
                     select(SeatAssignment)
@@ -800,9 +844,18 @@ def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[
                     .where(SeatAssignment.seat_number == seat)
                     .where(SeatAssignment.released_at.is_(None))
                 )
-                assignment = session.execute(stmt).scalar_one_or_none()
+                assignment = session.execute(stmt).scalars().first()
                 if assignment:
-                    raise SeatOccupiedError(row, seat, assignment)
+                    conflicts.append({
+                        'row': row,
+                        'seat': seat,
+                        'status': assignment.status,
+                        'note': assignment.note,
+                        'reservation_id': assignment.reservation_id,
+                    })
+
+            if conflicts:
+                raise SeatOccupiedError(conflicts)
 
             # All seats available — create RESERVED assignments
             assignments = []

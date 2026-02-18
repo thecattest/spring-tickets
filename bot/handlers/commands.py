@@ -9,6 +9,7 @@ from vkbottle.bot import Bot, Message
 
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
+from bot.keyboards import commands_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,7 @@ async def start_handler(message: Message):
 
 Начните с пересылки сообщения клиента!"""
 
-    await message.answer(text)
+    await message.answer(text, keyboard=commands_keyboard())
 
 
 async def help_handler(message: Message):
@@ -83,7 +84,7 @@ async def help_handler(message: Message):
 
 По вопросам обращайтесь к администратору."""
 
-    await message.answer(text)
+    await message.answer(text, keyboard=commands_keyboard())
 
 
 async def cancel_handler(message: Message, storage):
@@ -104,7 +105,8 @@ async def cancel_handler(message: Message, storage):
 
         await message.answer(
             "Операция отменена. Состояние сброшено.\n\n"
-            "Чтобы начать заново, перешлите сообщение клиента."
+            "Чтобы начать заново, перешлите сообщение клиента.",
+            keyboard=commands_keyboard(),
         )
     except Exception as e:
         logger.error(f"Error in /cancel: {e}")

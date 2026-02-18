@@ -434,11 +434,22 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         await storage.set(message.from_id, BotState.SEAT_ADDITION_MENU, **context)
 
     except db.SeatOccupiedError as e:
-        # Race condition - seat was just taken
-        await message.answer(
-            f"Место ряд {e.row}, место {e.seat} только что было занято.\n"
-            f"Попробуйте другие места:"
-        )
+        # Show all conflicting seats at once
+        error_lines = ["Места уже заняты:"]
+        for c in e.conflicts:
+            if c['status'] == SeatStatus.RESERVED:
+                status_text = "Резерв"
+                detail = c['note'] or "без комментария"
+            else:
+                status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
+                try:
+                    res_seats = db.get_reservation_seats(c['reservation_id'])
+                    detail = f"бронь #{c['reservation_id']}, всего мест: {len(res_seats)}"
+                except Exception:
+                    detail = f"бронь #{c['reservation_id']}"
+            error_lines.append(f"• Ряд {c['row']}, место {c['seat']} — {status_text} ({detail})")
+        error_lines.append("\nПопробуйте другие места:")
+        await message.answer("\n".join(error_lines))
     except db.DatabaseError as e:
         logger.error(f"Error adding seats: {e}")
         await message.answer(

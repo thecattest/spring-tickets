@@ -174,6 +174,25 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             vk_message_ts=None,
         )
 
+    elif text.startswith("/"):
+        # Command entered — clear state and dispatch to command handler
+        await storage.delete(message.from_id)
+        if text == "/cancel":
+            from bot.handlers.commands import cancel_handler
+            await cancel_handler(message, storage)
+        elif text == "/debtors":
+            from bot.handlers.debtors import _show_debtors
+            await _show_debtors(message)
+        elif text == "/reserve":
+            from bot.handlers.reserve import reserve_command_handler
+            await reserve_command_handler(message, storage)
+        elif text == "/help":
+            from bot.handlers.commands import help_handler
+            await help_handler(message)
+        elif text == "/start":
+            from bot.handlers.commands import start_handler
+            await start_handler(message)
+
     else:
         # Unknown text - re-show keyboard
         await message.answer(
