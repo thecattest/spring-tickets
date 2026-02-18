@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 4 in progress (Plan 01 complete, Plan 02 next)
+**Current phase:** Phase 4 COMPLETE (Plan 01 + Plan 02 done)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 4 Plan 01 COMPLETE. Plan 02 (reserve handler) next
+**Current focus:** Phase 4 COMPLETE. Ready for Phase 5 (reminders) or Phase 6 (reporting)
 
 ---
 
@@ -136,6 +136,21 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ release_reserve: releases RESERVED seats, returns previous notes, audit log
 - ✅ All functions follow established pattern (SessionLocal, try/except/rollback, audit logging)
 
+✅ **Phase 4 Plan 02: Reserve Handler** — ЗАВЕРШЕНА (3 минуты)
+- ✅ /reserve command with admin check and non-admin rejection
+- ✅ Add reserve flow: row -> seats -> comment -> db.add_reserve with SeatOccupiedError handling
+- ✅ Remove reserve flow: row -> seats -> confirmation -> db.release_reserve with previous notes display
+- ✅ 8 handler registrations (1 command + 7 FSM states) following deletion.py pattern
+- ✅ Reserve handlers registered in bot startup (bot/main.py)
+- ✅ /reserve documented in /help command
+
+✅ **Phase 4: Admin Reserve Management** — ЗАВЕРШЕНА (9 минут total)
+- ✅ All 2 plans complete (04-01, 04-02)
+- ✅ Complete admin reserve management via /reserve command
+- ✅ Add and remove reserves with mandatory comments
+- ✅ Audit logging for reserve_added and reserve_removed
+- ✅ Admin identity resolved at entry and preserved throughout flow
+
 ### User Setup Required (Before Running Bot)
 
 ⚠️ **Manual configuration needed:**
@@ -160,26 +175,23 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ## Next Steps
 
-### Phase 2 Execution
+### Phase 5: Reminders
 
-**Ready to start:** Main menu и управление местами
+**Ready to plan:** Automated reminders for unpaid bookings
 
 **Tasks:**
-1. Main menu после forwarded message (если активная бронь существует)
-2. View reservation: показать все места текущей брони
-3. Delete seats flow: выбор ряда → выбор мест → удаление
-4. Cancel reservation: подтверждение → отмена всей брони
-5. Keyboard navigation для всех операций
+- Cron-based reminder scheduling
+- Message templates for reminders
+- Configurable reminder timing (via .env)
 
-**Estimated:** 8-12 hours
+### Phase 6: Reporting
 
-### Phase 3 Planning
+**Ready to plan:** Admin reporting and statistics
 
-После Phase 2:
-- Payment recording (частичная/полная оплата)
-- Payment amount calculation и validation
-- Seat status updates (booked → paid)
-- Payment history viewing
+**Tasks:**
+- Seat occupancy reports
+- Payment summary reports
+- Audit log viewing
 
 ---
 
@@ -207,6 +219,9 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-02-18 | 04-01 | Reserve seats use reservation_id=None | Reserves are admin-only hold seats not tied to any customer reservation | Distinguishes reserves from bookings in SeatAssignment table |
 | 2026-02-18 | 04-01 | get_app_user_by_vk_id bridges VK user ID to AppUser.id | created_by_user_id must be AppUser.id (internal), not VK user ID | Handler calls this at entry to resolve admin identity before any DB write |
 | 2026-02-18 | 04-01 | release_reserve returns previous notes list | Handler can show what was in the note field before clearing for audit display | Collected before modifying rows to ensure consistent snapshot |
+| 2026-02-18 | 04-02 | SeatOccupiedError on add transitions back to RESERVE_ADDING_SEATS | Admin can re-enter seats without restarting the entire flow | Better UX: only seat input re-prompted, not row selection |
+| 2026-02-18 | 04-02 | Previous notes filter out None/empty before display | Avoid blank bullet points in removal confirmation message | Clean output only shows meaningful notes |
+| 2026-02-18 | 04-02 | On return to RESERVE_ACTION, only admin_user_id preserved | Row/seats context no longer needed after operation completes | Clean state prevents stale context from affecting next operation |
 
 ---
 
@@ -239,10 +254,10 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 ### Codebase
 - **Models:** 7 файлов (base, user, vk_user, reservation, seat_assignment, payment, audit)
-- **Bot:** 16 файлов (main, config, handlers, FSM, utils, keyboards, messages)
+- **Bot:** 17 файлов (main, config, handlers, FSM, utils, keyboards, messages)
 - **Tests:** 3 файла (test_db.py, test_seat_parser.py, test_db_integration.py)
 - **Documentation:** 5 файлов (BOT_SPEC.md, PROJECT.md, ROADMAP.md, CONCERNS.md, phase summaries)
-- **Total lines:** ~4700 (models + bot + tests + docs)
+- **Total lines:** ~5100 (models + bot + tests + docs)
 
 ### Planning
 - **Phases defined:** 6
@@ -255,15 +270,27 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Bot foundation:** 100% complete (Phase 1 ✅)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
-- **Overall project:** ██████████ 100% MVP (Phase 0, 1, 2, 3 complete, gap closure done)
+- **Phase 4:** 100% complete (Phase 4, all 2 plans done)
+- **Overall project:** ██████████ 100% MVP + Phase 4 (Phase 0, 1, 2, 3, 4 complete)
 
-**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 Plan 01 = 6 min, highly efficient execution
+**Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 = 9 min total (Plans: 6min + 3min), highly efficient execution
 
 ---
 
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 4 PLAN 02 COMPLETE** (3 minutes) - Reserve handler
+- Executed 2 tasks atomically
+- 2 commits: both feature (c986880, a782b10)
+- 1 file created (bot/handlers/reserve.py - 407 lines), 2 modified (bot/main.py, bot/handlers/commands.py)
+- /reserve command with admin check, add reserve flow, remove reserve flow
+- 8 handler registrations (1 command + 7 FSM states)
+- /reserve documented in /help command
+- Created 04-02-SUMMARY.md
+- Updated STATE.md
+- ✅ **PHASE 4 COMPLETE** - Full admin reserve management operational
 
 - ✅ **PHASE 4 PLAN 01 COMPLETE** (6 minutes) - Admin reserve foundation
 - Executed 2 tasks atomically
