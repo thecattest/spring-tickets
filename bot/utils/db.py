@@ -1043,3 +1043,41 @@ def get_all_active_sellers() -> List[AppUser]:
         except Exception as e:
             logger.error(f"Failed to get active sellers: {e}")
             raise DatabaseError(f"Failed to get active sellers: {e}")
+
+
+def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
+    """
+    Record an audit log entry for a sent debtor reminder.
+
+    Called by the cron script after each successful VK message send.
+
+    Args:
+        seller_id: AppUser.id of the seller who received the reminder
+        debtor_count: Number of debtors included in the reminder
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            audit = AuditLog(
+                actor_type=ActorType.SYSTEM,
+                actor_user_id=seller_id,
+                action_type="debtors_notification_sent",
+                entity_type="reminder",
+                payload={
+                    "seller_id": seller_id,
+                    "debtor_count": debtor_count,
+                },
+            )
+            session.add(audit)
+            session.commit()
+
+            logger.info(
+                f"log_reminder_sent: seller_id={seller_id}, debtor_count={debtor_count}"
+            )
+
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to log reminder sent for seller {seller_id}: {e}")
+            raise DatabaseError(f"Failed to log reminder sent: {e}")
