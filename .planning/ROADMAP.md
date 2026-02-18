@@ -2,7 +2,7 @@
 
 **Created:** 2026-01-24
 **Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Phase 3 Complete, Phase 4 Planning Complete
+**Status:** Phase 4 Complete
 
 ---
 
@@ -289,13 +289,15 @@ Plans:
 
 **Goal:** Админы могут создавать/удалять резервы с комментариями.
 
+**Status:** ✅ COMPLETE (2026-02-18)
 **Estimated effort:** ~8-10 hours
+**Actual effort:** ~9 minutes (AI-assisted)
 
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Reserve foundation: FSM states, keyboard, DB functions (add_reserve, release_reserve, get_app_user_by_vk_id)
-- [ ] 04-02-PLAN.md — Reserve handler: /reserve command, add/remove flows, bot registration
+- [x] 04-01-PLAN.md — Reserve foundation: FSM states, keyboard, DB functions (add_reserve, release_reserve, get_app_user_by_vk_id) (6 min)
+- [x] 04-02-PLAN.md — Reserve handler: /reserve command, add/remove flows, bot registration (3 min)
 
 ### Requirements
 
@@ -529,3 +531,4 @@ Plans:
 *Phase 3 planned: 2026-02-17*
 *Phase 3 gap closure: 2026-02-18*
 *Phase 4 planned: 2026-02-18*
+*Phase 4 complete: 2026-02-18*
