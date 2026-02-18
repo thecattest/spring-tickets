@@ -352,6 +352,12 @@ Plans:
 
 **Estimated effort:** ~6-8 hours
 
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md — /debtors command: DB query, keyboard, formatters, handler, registration
+- [ ] 05-02-PLAN.md — Cron reminder script: standalone async script with VK API sends and audit logging
+
 ### Requirements
 
 1. **Команда /debtors**
@@ -365,7 +371,7 @@ Plans:
 
 3. **Cron скрипт для автоматических напоминаний**
    - Python скрипт: send_debtors_reminders.py
-   - Выполнение каждые 3 дня в [время TBD]
+   - Выполнение каждые 3 дня в 20:00 МСК
    - Формирование списка должников
    - Отправка сообщений билетерам через VK Bot API
 
@@ -532,3 +538,4 @@ Plans:
 *Phase 3 gap closure: 2026-02-18*
 *Phase 4 planned: 2026-02-18*
 *Phase 4 complete: 2026-02-18*
+*Phase 5 planned: 2026-02-18*
