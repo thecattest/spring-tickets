@@ -1,7 +1,7 @@
 # Project State
 
 **Last updated:** 2026-02-18
-**Current phase:** Phase 5 IN PROGRESS (Plan 01 of 02 done)
+**Current phase:** Phase 5 COMPLETE (both plans done)
 
 ---
 
@@ -10,7 +10,7 @@
 See: `.planning/PROJECT.md` (updated 2026-01-24)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** Phase 5 Plan 01 COMPLETE. Next: Phase 5 Plan 02 (cron reminder script)
+**Current focus:** Phase 5 COMPLETE. Phase 6 (Reporting) is next.
 
 ---
 
@@ -154,12 +154,31 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - ✅ Handler registered in bot/main.py
 - ✅ /debtors documented in /help command
 
+✅ **Phase 5 Plan 02: Cron Reminder Script** — ЗАВЕРШЕНА (~2 минуты)
+- ✅ scripts/send_debtors_reminders.py: 115-line standalone asyncio cron script
+- ✅ Per-seller debtor query: get_debtors(seller_id=seller.id) — each seller sees only their own
+- ✅ Sellers without debtors silently skipped (skipped_count)
+- ✅ VKAPIError and Exception caught per-seller; batch never aborted by one failure
+- ✅ log_reminder_sent() called after each successful VK send
+- ✅ Summary log: sent/skipped/error counts
+- ✅ Crontab entry documented in header (every 3 days, 20:00 MSK, TZ=Europe/Moscow)
+- ✅ log_reminder_sent(seller_id, debtor_count) added to bot/utils/db.py
+- ✅ Audit log: actor_type=SYSTEM, action_type=debtors_notification_sent
+
 ✅ **Phase 4: Admin Reserve Management** — ЗАВЕРШЕНА (9 минут total)
 - ✅ All 2 plans complete (04-01, 04-02)
 - ✅ Complete admin reserve management via /reserve command
 - ✅ Add and remove reserves with mandatory comments
 - ✅ Audit logging for reserve_added and reserve_removed
 - ✅ Admin identity resolved at entry and preserved throughout flow
+
+✅ **Phase 5: Debtors & Reminders** — ЗАВЕРШЕНА (~4 минуты total)
+- ✅ All 2 plans complete (05-01, 05-02)
+- ✅ /debtors command with admin/seller filtering
+- ✅ Обновить button refresh handler (stateless)
+- ✅ Standalone cron script for automated debtor reminders
+- ✅ Per-seller VK messages with personalized debtor lists
+- ✅ Audit logging for debtors_notification_sent
 
 ### User Setup Required (Before Running Bot)
 
@@ -236,6 +255,9 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 | 2026-02-18 | 05-01 | Correlated subquery for BOOKED seat count per reservation | Cleaner than GROUP BY; enables simple WHERE booked_count > 0 filter | Readable query that correctly excludes reservations with zero BOOKED seats |
 | 2026-02-18 | 05-01 | /debtors and Обновить are stateless handlers (no FSM) | Read-only view requires no multi-step flow; follows commands.py stateless pattern | No state pollution; both /debtors and Обновить work from any FSM state |
 | 2026-02-18 | 05-01 | format_reminder() takes same dict list as format_debtors_list | Cron script passes get_debtors() result directly; no transform needed | Single return type from get_debtors() serves both bot handler and cron script |
+| 2026-02-18 | 05-02 | Per-seller try/except: VKAPIError and Exception both caught | One failure must not abort the batch; sellers later in list must still be processed | error_count tracks failures; loop always continues |
+| 2026-02-18 | 05-02 | log_reminder_sent() called only after successful VK send | Audit log must reflect actual sends, not attempts | Failed sends are logged as errors but not recorded in audit log |
+| 2026-02-18 | 05-02 | sys.path.insert(0, project_root) before all bot.* imports | Crontab runs from arbitrary working directory; path setup ensures all imports resolve | Script is truly standalone and runnable from any directory |
 
 ---
 
@@ -285,8 +307,8 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 - **Phase 2:** 100% complete (Phase 2 ✅, all 4 plans done including gap closure)
 - **Planning:** 100% complete
 - **Phase 4:** 100% complete (Phase 4, all 2 plans done)
-- **Phase 5:** 50% complete (Plan 01 done, Plan 02 pending)
-- **Overall project:** ██████████ MVP + Phase 4 + Phase 5 Plan 01 (Phase 0, 1, 2, 3, 4 complete, Phase 5 in progress)
+- **Phase 5:** 100% complete (both plans done)
+- **Overall project:** ████████████ MVP + Phase 4 + Phase 5 (Phase 0, 1, 2, 3, 4, 5 complete, Phase 6 pending)
 
 **Velocity:** Phase 1 = 8 min, Phase 2 = 15 min total (Plans: 2min + 4min + 6min + 3min gap closure), Phase 3 = 7 min total (Plans: 4min + 3min), Phase 4 = 9 min total (Plans: 6min + 3min), Phase 5 Plan 01 = 2 min, highly efficient execution
 
@@ -295,6 +317,16 @@ See: `.planning/PROJECT.md` (updated 2026-01-24)
 ## Recent Activity
 
 **2026-02-18:**
+
+- ✅ **PHASE 5 PLAN 02 COMPLETE** (~2 minutes) - Cron reminder script
+- Executed 1 task atomically (checkpoint task pending user verification)
+- 1 commit: feat (8a38436)
+- 1 file created (scripts/send_debtors_reminders.py - 115 lines), 1 modified (bot/utils/db.py)
+- scripts/send_debtors_reminders.py: per-seller VK send, per-failure resilience, batch counters
+- log_reminder_sent(): ActorType.SYSTEM audit log for debtors_notification_sent
+- Created 05-02-SUMMARY.md
+- Updated STATE.md
+- ✅ **PHASE 5 COMPLETE** — Full debtors + automated reminders operational
 
 - ✅ **PHASE 5 PLAN 01 COMPLETE** (2 minutes) - Debtors command
 - Executed 2 tasks atomically
