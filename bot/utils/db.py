@@ -10,10 +10,10 @@ Provides high-level functions for:
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional, List
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -934,3 +934,112 @@ def release_reserve(row: int, seats: List[int], user_id: int) -> List[dict]:
             session.rollback()
             logger.error(f"Failed to release reserve: {e}")
             raise DatabaseError(f"Failed to release reserve: {e}")
+
+
+def get_debtors(seller_id: Optional[int] = None) -> List[dict]:
+    """
+    Get list of debtors: reservations with BOOKED seats and no activity for 7+ days.
+
+    A debtor is a reservation that:
+    - Is ACTIVE state
+    - Has last_activity_at <= (now - 7 days)
+    - Has at least one unreleased BOOKED seat (released_at IS NULL, status=BOOKED)
+
+    Args:
+        seller_id: If provided, filter to reservations by this seller (AppUser.id).
+                   If None, returns all debtors across all sellers (admin view).
+
+    Returns:
+        List of dicts: {
+            'reservation_id': int,
+            'buyer_display_name': str,
+            'booked_seat_count': int,
+            'debt_amount': Decimal,
+            'days_since_activity': int,
+            'last_activity_at': datetime,
+        }
+        Sorted by last_activity_at ASC (oldest first).
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            threshold = datetime.utcnow() - timedelta(days=7)
+
+            # Correlated subquery: count BOOKED unreleased seats per reservation
+            booked_count_subq = (
+                select(func.count(SeatAssignment.id))
+                .where(SeatAssignment.reservation_id == Reservation.id)
+                .where(SeatAssignment.released_at.is_(None))
+                .where(SeatAssignment.status == SeatStatus.BOOKED)
+                .scalar_subquery()
+            )
+
+            # Main query: active reservations older than threshold with booked seats
+            stmt = (
+                select(Reservation, VkUser, booked_count_subq.label("booked_count"))
+                .join(VkUser, Reservation.buyer_vk_user_id == VkUser.id)
+                .where(Reservation.state == ReservationState.ACTIVE)
+                .where(Reservation.last_activity_at <= threshold)
+                .where(booked_count_subq > 0)
+                .order_by(Reservation.last_activity_at.asc())
+            )
+
+            if seller_id is not None:
+                stmt = stmt.where(Reservation.sold_by_user_id == seller_id)
+
+            rows = session.execute(stmt).all()
+
+            now = datetime.utcnow()
+            result = []
+            for reservation, vk_user, booked_count in rows:
+                days_since = (now - reservation.last_activity_at).days
+                debt_amount = Decimal(booked_count) * Decimal(SEAT_PRICE)
+                result.append({
+                    'reservation_id': reservation.id,
+                    'buyer_display_name': vk_user.display_name,
+                    'booked_seat_count': booked_count,
+                    'debt_amount': debt_amount,
+                    'days_since_activity': days_since,
+                    'last_activity_at': reservation.last_activity_at,
+                })
+
+            logger.info(
+                f"get_debtors(seller_id={seller_id}): found {len(result)} debtors"
+            )
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to get debtors: {e}")
+            raise DatabaseError(f"Failed to get debtors: {e}")
+
+
+def get_all_active_sellers() -> List[AppUser]:
+    """
+    Get all active sellers (AppUsers with vk_user_id set).
+
+    Used by the cron reminder script to enumerate sellers who should receive
+    debtor reminders. Returns AppUser objects so the cron can call
+    get_debtors(seller_id=user.id) for each.
+
+    Returns:
+        List of AppUser objects where is_active=True and vk_user_id IS NOT NULL
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            stmt = (
+                select(AppUser)
+                .where(AppUser.is_active == True)
+                .where(AppUser.vk_user_id.isnot(None))
+            )
+            users = list(session.execute(stmt).scalars().all())
+            logger.info(f"get_all_active_sellers(): found {len(users)} active sellers")
+            return users
+
+        except Exception as e:
+            logger.error(f"Failed to get active sellers: {e}")
+            raise DatabaseError(f"Failed to get active sellers: {e}")

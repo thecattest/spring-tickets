@@ -169,6 +169,58 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
     return "\n".join(lines)
 
 
+def format_debtors_list(debtors: list) -> str:
+    """
+    Format debtor list for /debtors command display.
+
+    Args:
+        debtors: List of debtor dicts from db.get_debtors()
+                 Each dict has: buyer_display_name, booked_seat_count,
+                 debt_amount, days_since_activity
+
+    Returns:
+        Formatted multi-line string with header and per-debtor details
+    """
+    count = len(debtors)
+    lines = [f"Должники ({count}):", ""]
+
+    for debtor in debtors:
+        lines.append(debtor['buyer_display_name'])
+        lines.append(
+            f"  Мест: {debtor['booked_seat_count']} | "
+            f"Долг: {debtor['debt_amount']} руб. | "
+            f"Дней: {debtor['days_since_activity']}"
+        )
+
+    return "\n".join(lines)
+
+
+def format_reminder(debtors: list) -> str:
+    """
+    Format compact debtor list for VK reminder messages sent to sellers.
+
+    Args:
+        debtors: List of debtor dicts from db.get_debtors()
+                 Each dict has: buyer_display_name, booked_seat_count,
+                 debt_amount, days_since_activity
+
+    Returns:
+        Formatted multi-line string with header and compact per-debtor entries
+    """
+    count = len(debtors)
+    lines = [f"Напоминание о должниках ({count}):", ""]
+
+    for debtor in debtors:
+        lines.append(
+            f"{debtor['buyer_display_name']} -- "
+            f"{debtor['booked_seat_count']} мест, "
+            f"{debtor['debt_amount']} руб., "
+            f"{debtor['days_since_activity']} дн. без активности"
+        )
+
+    return "\n".join(lines)
+
+
 def format_payment_confirmation(
     paid_seats: List[SeatAssignment],
     remaining_seats: List[SeatAssignment],

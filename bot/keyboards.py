@@ -149,3 +149,18 @@ def reserve_action_keyboard() -> str:
     keyboard.add(Text("Добавить резерв"), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Text("Удалить резерв"), color=KeyboardButtonColor.NEGATIVE)
     return keyboard.get_json()
+
+
+def debtors_keyboard() -> str:
+    """
+    Keyboard for the /debtors command view.
+
+    Layout:
+    [Обновить]
+
+    Returns:
+        Keyboard JSON
+    """
+    keyboard = Keyboard(one_time=False, inline=True)
+    keyboard.add(Text("Обновить"), color=KeyboardButtonColor.PRIMARY)
+    return keyboard.get_json()
