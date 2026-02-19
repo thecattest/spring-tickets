@@ -65,7 +65,7 @@ Plans:
 - [x] **Phase 7: Bug Fix** — Исправить контекстный баг восстановления состояния
 - [x] **Phase 8: Foundation** — Создать constants.py, texts.py, обновить keyboards.py
 - [x] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
-- [ ] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
+- [x] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
 - [ ] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
 - [ ] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
 
@@ -142,8 +142,8 @@ Plans:
 Plans:
 - [x] 10-01-PLAN.md — Create bot/router.py (Router class, register_all() with enforced ordering)
 - [x] 10-02-PLAN.md — Wire router into bot/main.py, replace 7 register_handlers() calls
-- [ ] 10-03-PLAN.md — Gap closure: Add /exit command handler and register in router
-- [ ] 10-04-PLAN.md — Gap closure: Integrate FSM_CONFIG into router and add auth guard enforcement
+- [x] 10-03-PLAN.md — Gap closure: Add /exit command handler and register in router
+- [x] 10-04-PLAN.md — Gap closure: Integrate FSM_CONFIG into router and add auth guard enforcement
 
 ---
 
@@ -203,10 +203,10 @@ Plans:
 | 7. Bug Fix | v0.2 | 1/1 | Complete | 2026-02-19 |
 | 8. Foundation | v0.2 | 3/3 | Complete | 2026-02-19 |
 | 9. FSM Config + Steps | v0.2 | 2/2 | Complete | 2026-02-19 |
-| 10. Router | v0.2 | 2/4 | Gap closure | — |
+| 10. Router | v0.2 | 4/4 | Complete | 2026-02-19 |
 | 11. Handler Migration | v0.2 | 0/8 | Not started | — |
 | 12. Navigation UX | v0.2 | 0/2 | Not started | — |
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 10 gap closure plans added (10-03, 10-04)*
+*Roadmap updated: 2026-02-19 — Phase 10 complete (4/4 plans, gap closure done)*

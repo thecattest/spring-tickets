@@ -30,9 +30,9 @@
 
 ### Router
 
-- [ ] **RTR-01**: Create `bot/router.py` with `Router` class that reads FSM config to auto-register handlers with automatic storage injection and auth guards
-- [ ] **RTR-02**: Universal command interceptor — commands (`/start`, `/help`, `/cancel`, `/exit`) intercepted and handled from any FSM state, not just MAIN_MENU and RESERVE_ACTION
-- [ ] **RTR-03**: `register_all()` enforces handler registration order: forwarded-message handler first, then command handlers, then state handlers
+- [x] **RTR-01**: Create `bot/router.py` with `Router` class that reads FSM config to auto-register handlers with automatic storage injection and auth guards
+- [x] **RTR-02**: Universal command interceptor — commands (`/start`, `/help`, `/cancel`, `/exit`) intercepted and handled from any FSM state, not just MAIN_MENU and RESERVE_ACTION
+- [x] **RTR-03**: `register_all()` enforces handler registration order: forwarded-message handler first, then command handlers, then state handlers
 
 ### Handler Migration
 
@@ -82,9 +82,9 @@
 | STEP-01 | Phase 9 | Complete |
 | STEP-02 | Phase 9 | Complete |
 | STEP-03 | Phase 9 | Complete |
-| RTR-01 | Phase 10 | Pending |
-| RTR-02 | Phase 10 | Pending |
-| RTR-03 | Phase 10 | Pending |
+| RTR-01 | Phase 10 | Complete |
+| RTR-02 | Phase 10 | Complete |
+| RTR-03 | Phase 10 | Complete |
 | MIG-01 | Phase 11 | Pending |
 | MIG-02 | Phase 11 | Pending |
 | MIG-03 | Phase 11 | Pending |
