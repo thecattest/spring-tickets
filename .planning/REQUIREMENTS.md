@@ -10,7 +10,7 @@
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Fix context switch state restoration — `BotState(original_state)` instead of raw string in `context_switch_handler` (menu.py:325)
+- [x] **BUG-01**: Fix context switch state restoration — `BotState(original_state)` instead of raw string in `context_switch_handler` (menu.py:325)
 
 ### Constants & Texts
 
@@ -74,7 +74,7 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| BUG-01 | Phase 7 | Pending |
+| BUG-01 | Phase 7 | Complete |
 | CONST-01 | Phase 8 | Pending |
 | CONST-02 | Phase 8 | Pending |
 | TEXT-01 | Phase 8 | Pending |

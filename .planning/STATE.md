@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 7: Bug Fix
+**Current focus:** v0.2 — Phase 8: Foundation
 
 ## Current Position
 
-Phase: 7 of 12 (Bug Fix — BotState enum restoration)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-02-19 — Completed 07-01-PLAN.md (BUG-01 fix)
+Phase: 8 of 12 (Foundation — constants.py, texts.py, keyboards.py)
+Plan: 0 of 3 in current phase
+Status: Ready to plan
+Last activity: 2026-02-19 — Phase 7 verified and complete
 
 Progress: [█████████░░░░░░░░░░░] 43% (v0.1 complete, v0.2 phase 7 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13 (all v0.1)
+- Total plans completed: 14 (13 v0.1 + 1 v0.2)
 - Average duration: ~5 min
 - Total execution time: ~1.1 hours
 
@@ -61,6 +61,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T15:39:55Z
-Stopped at: Completed 07-01-PLAN.md — BUG-01 fixed, Phase 7 complete
+Last session: 2026-02-19
+Stopped at: Phase 7 complete and verified. Ready to plan Phase 8.
 Resume file: None

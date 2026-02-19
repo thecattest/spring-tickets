@@ -62,7 +62,7 @@ Plans:
 
 **Milestone Goal:** Устранить ~335+ строк дублированного кода в хендлерах, создать переиспользуемые абстракции (constants, router, steps, texts), улучшить UX навигации.
 
-- [ ] **Phase 7: Bug Fix** — Исправить контекстный баг восстановления состояния
+- [x] **Phase 7: Bug Fix** — Исправить контекстный баг восстановления состояния
 - [ ] **Phase 8: Foundation** — Создать constants.py, texts.py, обновить keyboards.py
 - [ ] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
 - [ ] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
@@ -84,7 +84,7 @@ Plans:
 **Plans:** 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md — Fix BotState enum restoration in context_switch_handler (menu.py:325)
+- [x] 07-01-PLAN.md — Fix BotState enum restoration in context_switch_handler (menu.py:325)
 
 ---
 
@@ -195,7 +195,7 @@ Plans:
 | 4. Резервы | v0.1 | 2/2 | Complete | 2026-02-18 |
 | 5. Должники | v0.1 | 2/2 | Complete | 2026-02-18 |
 | 6. Статистика | v0.1 | — | Deferred | — |
-| 7. Bug Fix | v0.2 | 0/1 | Not started | — |
+| 7. Bug Fix | v0.2 | 1/1 | Complete | 2026-02-19 |
 | 8. Foundation | v0.2 | 0/3 | Not started | — |
 | 9. FSM Config + Steps | v0.2 | 0/2 | Not started | — |
 | 10. Router | v0.2 | 0/2 | Not started | — |
@@ -204,4 +204,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — v0.2 phases 7-12 added*
+*Roadmap updated: 2026-02-19 — Phase 7 complete*
