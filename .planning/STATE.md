@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 11 of 12 (Handler Migration) — In progress
-Plan: 4 of 8 in current phase
-Status: In progress — 11-04 complete (commands.py migrated)
-Last activity: 2026-02-19 — Completed 11-04-PLAN.md (commands.py migration, MSG_EXIT_FULL added to texts.py)
+Plan: 6 of 8 in current phase
+Status: In progress — 11-06 complete (payment.py migrated)
+Last activity: 2026-02-19 — Completed 11-06-PLAN.md (payment.py migration: register_handlers removed, Btn + texts wired)
 
-Progress: [████████████████░░░░] 75% (v0.1 complete, v0.2 phases 7-11 in progress)
+Progress: [█████████████████░░░] 78% (v0.1 complete, v0.2 phases 7-11 in progress)
 
 ## Performance Metrics
 
@@ -82,6 +82,7 @@ Progress: [████████████████░░░░] 75% (v0
 - [11-02] handle_seat_input(mode="membership") covers both not-in-reservation and paid-seat checks in deleting_seats_handler
 - [11-02] Steps imports in deletion.py kept lazy inside function bodies — consistent with 09-steps circular-import avoidance pattern
 - [11-04] MSG_EXIT_FULL added to texts.py (not kept inline in commands.py) — mirrors MSG_CANCEL_FULL pattern, all user-facing strings in one place
+- [11-06] text[len(Btn.PAY_ALL_PREFIX):] preferred over text[4:] — self-documents prefix boundary, avoids magic number
 
 ### Pending Todos
 
@@ -94,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:11:02Z
-Stopped at: Completed 11-04-PLAN.md. commands.py migrated — register_handlers() and cancel_with_storage closure removed, Bot import removed, texts.WELCOME/HELP/MSG_CANCEL_FULL/MSG_EXIT_FULL wired in. MSG_EXIT_FULL and MSG_EXIT_SHORT added to texts.py.
+Last session: 2026-02-19T20:11:47Z
+Stopped at: Completed 11-06-PLAN.md. payment.py migrated — register_handlers() and payment_quantity_with_storage closure removed, Bot import removed, Btn.CANCEL + Btn.PAY_ALL_PREFIX + 9 texts.* constants wired in.
 Resume file: None
