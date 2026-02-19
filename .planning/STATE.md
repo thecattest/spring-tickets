@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 8 of 12 (Foundation — constants.py, texts.py, keyboards.py)
-Plan: 0 of 3 in current phase
-Status: Ready to plan
-Last activity: 2026-02-19 — Phase 7 verified and complete
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-02-19 — Completed 08-01-PLAN.md (constants.py)
 
-Progress: [█████████░░░░░░░░░░░] 43% (v0.1 complete, v0.2 phase 7 done)
+Progress: [█████████░░░░░░░░░░░] 44% (v0.1 complete, v0.2 phase 8 plan 1 done)
 
 ## Performance Metrics
 
@@ -49,6 +49,8 @@ Progress: [█████████░░░░░░░░░░░] 43% (v0
 - [v0.2 arch] Каждый файл хендлера мигрируется атомарным коммитом (new decorators + remove old + main.py update)
 - [07-bug-fix] BotState restoration: BotState(stored_string.split(':')[-1]) handles both "BotState:value" and plain "value" formats
 - [07-bug-fix] Idle guard checks raw string against "idle" — modern "BotState:idle" passes guard, but extracted value is still "idle", giving correct BotState.IDLE
+- [08-01] PAY_ALL_PREFIX = "Все " (trailing space) in Btn for startswith(); dynamic button label stays as f-string in keyboards.py
+- [08-01] ALL_COMMANDS = frozenset(Cmd) — auto-derived, no manual sync needed
 
 ### Pending Todos
 
@@ -61,6 +63,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Phase 7 complete and verified. Ready to plan Phase 8.
+Last session: 2026-02-19 17:55 UTC
+Stopped at: Completed 08-01-PLAN.md (bot/constants.py — Btn/Cmd StrEnum, ALL_COMMANDS)
 Resume file: None
