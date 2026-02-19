@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 10: Router
+**Current focus:** v0.2 — Phase 10: Router (complete), next: Phase 11
 
 ## Current Position
 
-Phase: 10 of 12 (Router)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-19 — Completed 10-01-PLAN.md (Router class created)
+Phase: 10 of 12 (Router) — COMPLETE
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-19 — Completed 10-02-PLAN.md (Router wired into bot/main.py)
 
-Progress: [████████████░░░░░░░░] 60% (v0.1 complete, v0.2 phases 7-10-01 done)
+Progress: [█████████████░░░░░░░] 65% (v0.1 complete, v0.2 phases 7-10 done)
 
 ## Performance Metrics
 
@@ -35,6 +35,7 @@ Progress: [████████████░░░░░░░░] 60% (v0
 | Phase 8 | 3 | ~7 min | ~2 min |
 | Phase 9 | 2 | ~3 min | ~1.5 min |
 | Phase 10 plan 01 | 1 | ~2 min | 2 min |
+| Phase 10 plan 02 | 1 | ~1 min | 1 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -68,6 +69,8 @@ Progress: [████████████░░░░░░░░] 60% (v0
 - [10-router] Router uses self.labeler (BotLabeler) NOT bot.on — wired to bot in 10-02 via bot.labeler.load(router.labeler)
 - [10-router] start_handler/help_handler registered directly (no _wrap) — only take (message,); debtors handlers same
 - [10-router] All bot.handlers.* imports lazy (inside _register_* methods) — prevents circular imports
+- [10-02] Router(storage=redis_storage) uses local variable directly — more explicit than bot.state_dispenser
+- [10-02] BaseStateGroup import removed from main.py — was unused after handler module imports removed
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T18:59:17Z
-Stopped at: Completed 10-01-PLAN.md. Router class in bot/router.py with 24 registered handlers.
+Last session: 2026-02-19T19:02:23Z
+Stopped at: Completed 10-02-PLAN.md. Phase 10 (Router) complete. bot/main.py uses Router for all registration.
 Resume file: None
