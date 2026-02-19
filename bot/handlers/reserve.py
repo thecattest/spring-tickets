@@ -10,13 +10,12 @@ Reserves are SeatAssignment rows with status=RESERVED, reservation_id=None, and 
 """
 
 import logging
-from vkbottle.bot import Bot, Message
+from vkbottle.bot import Message
 
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
 from bot.utils import db
-from bot.utils.seat_parser import parse_seats, SeatParseError
-from bot.utils.layout import is_valid_row, is_valid_seat, get_seat_count, get_row_range
+from bot.utils.layout import get_seat_count
 from bot.keyboards import (
     reserve_action_keyboard,
     confirmation_keyboard,
@@ -24,6 +23,8 @@ from bot.keyboards import (
 )
 from bot.messages import format_reserves_list
 from bot.utils.formatting import format_seat_ranges
+from bot.constants import Btn
+from bot import texts
 from models.base import SeatStatus
 
 logger = logging.getLogger(__name__)
@@ -38,20 +39,20 @@ async def reserve_command_handler(message: Message, storage: RedisStorage):
     is_admin = db.is_user_admin(message.from_id)
 
     if not is_admin:
-        await message.answer("Управление резервами доступно только администраторам.")
+        await message.answer(texts.ERR_RESERVE_ADMIN_ONLY)
         return
 
     # Resolve admin's AppUser.id for DB writes
     app_user = db.get_app_user_by_vk_id(message.from_id)
     if not app_user:
-        await message.answer("Ошибка: ваш аккаунт не найден в системе.")
+        await message.answer(texts.ERR_ACCOUNT_NOT_FOUND)
         return
 
     reserves = db.get_active_reserves()
     reserves_text = format_reserves_list(reserves)
 
     await message.answer(
-        f"{reserves_text}\n\nУправление резервами:",
+        texts.MSG_RESERVE_ACTION_HEADER.format(reserves=reserves_text),
         keyboard=reserve_action_keyboard()
     )
     await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=app_user.id)
@@ -66,42 +67,23 @@ async def reserve_action_handler(message: Message, storage: RedisStorage):
     text = message.text.strip()
     context = await storage.get_context(message.from_id)
 
-    if text == "Добавить":
+    if text == Btn.ADD:
         await message.answer(
-            "Введите номер ряда:",
+            texts.PROMPT_ENTER_ROW,
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ADDING_ROW, **context)
 
-    elif text == "Удалить":
+    elif text == Btn.DELETE:
         await message.answer(
-            "Введите номер ряда:",
+            texts.PROMPT_ENTER_ROW,
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_REMOVING_ROW, **context)
 
-    elif text.startswith("/"):
-        # Command entered — clear state and let command handlers process
-        await storage.delete(message.from_id)
-        # Re-dispatch: manually call the command since state handler consumed the message
-        if text in ("/cancel", "/Отмена"):
-            from bot.handlers.commands import cancel_handler
-            await cancel_handler(message, storage)
-        elif text in ("/debtors", "/Должники"):
-            from bot.handlers.debtors import _show_debtors
-            await _show_debtors(message)
-        elif text in ("/reserve", "/Резерв"):
-            await reserve_command_handler(message, storage)
-        elif text in ("/help", "/Справка"):
-            from bot.handlers.commands import help_handler
-            await help_handler(message)
-        elif text == "/start":
-            from bot.handlers.commands import start_handler
-            await start_handler(message)
-
     else:
         await message.answer(
-            "Выберите действие:",
+            texts.PROMPT_SELECT_ACTION,
             keyboard=reserve_action_keyboard()
         )
 
@@ -110,24 +92,13 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
     """
     Handle row number input during add reserve (RESERVE_ADDING_ROW state).
     """
-    text = message.text.strip()
+    from bot.steps import handle_row_input
 
-    # Validate row number
-    try:
-        row = int(text)
-    except ValueError:
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный формат. Введите номер ряда ({min_row}-{max_row}):"
-        )
+    result = handle_row_input(message.text)
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    if not is_valid_row(row):
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный ряд. Допустимые значения: {min_row}-{max_row}. Введите ряд:"
-        )
-        return
+    row = result.row
 
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)
@@ -135,7 +106,7 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
 
     seat_count = get_seat_count(row)
     await message.answer(
-        f"Введите номера мест для резерва (ряд {row}, мест: {seat_count}):"
+        texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count)
     )
     await storage.set(message.from_id, BotState.RESERVE_ADDING_SEATS, **context)
 
@@ -144,37 +115,25 @@ async def reserve_adding_seats_handler(message: Message, storage: RedisStorage):
     """
     Handle seat numbers input during add reserve (RESERVE_ADDING_SEATS state).
     """
-    text = message.text.strip()
+    from bot.steps import handle_seat_input
+
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
     if not row:
-        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
+        await message.answer(texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.delete(message.from_id)
         return
 
-    # Parse seats
-    try:
-        seats = parse_seats(text)
-    except SeatParseError as e:
-        await message.answer(f"Ошибка ввода: {e}\n\nПопробуйте снова:")
+    result = handle_seat_input(message.text, row=row, mode="layout_only")
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    # Validate seat numbers for this row
-    seat_count = get_seat_count(row)
-    invalid_seats = [s for s in seats if not is_valid_seat(row, s)]
-
-    if invalid_seats:
-        await message.answer(
-            f"Недопустимые номера мест: {', '.join(map(str, invalid_seats))}.\n"
-            f"Для ряда {row} доступны места 1-{seat_count}.\n\n"
-            f"Введите другие места:"
-        )
-        return
+    seats = result.seats
 
     # Store seats and prompt for comment
     context['reserve_seats'] = seats
-    await message.answer("Введите комментарий для резерва:")
+    await message.answer(texts.PROMPT_ENTER_COMMENT)
     await storage.set(message.from_id, BotState.RESERVE_COMMENT, **context)
 
 
@@ -185,7 +144,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
     comment = message.text.strip()
 
     if not comment:
-        await message.answer("Комментарий обязателен. Введите комментарий:")
+        await message.answer(texts.PROMPT_COMMENT_REQUIRED)
         return
 
     context = await storage.get_context(message.from_id)
@@ -194,7 +153,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
     admin_user_id = context.get("admin_user_id")
 
     if not all([row, seats, admin_user_id]):
-        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
+        await message.answer(texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.delete(message.from_id)
         return
 
@@ -203,9 +162,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
 
         seats_str = format_seat_ranges(sorted(seats))
         await message.answer(
-            f"Резерв создан:\n"
-            f"Ряд {row}, места: {seats_str}\n"
-            f"Комментарий: {comment}",
+            texts.MSG_RESERVE_CREATED.format(row=row, seats=seats_str, comment=comment),
             keyboard=reserve_action_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
@@ -236,7 +193,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
     except db.DatabaseError as e:
         logger.error(f"Error adding reserve: {e}")
         await message.answer(
-            f"Ошибка при создании резерва: {e}",
+            texts.ERR_RESERVE_CREATE.format(error=e),
             keyboard=reserve_action_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
@@ -246,24 +203,13 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
     """
     Handle row number input during remove reserve (RESERVE_REMOVING_ROW state).
     """
-    text = message.text.strip()
+    from bot.steps import handle_row_input
 
-    # Validate row number
-    try:
-        row = int(text)
-    except ValueError:
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный формат. Введите номер ряда ({min_row}-{max_row}):"
-        )
+    result = handle_row_input(message.text)
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    if not is_valid_row(row):
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный ряд. Допустимые значения: {min_row}-{max_row}. Введите ряд:"
-        )
-        return
+    row = result.row
 
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)
@@ -271,7 +217,7 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
 
     seat_count = get_seat_count(row)
     await message.answer(
-        f"Введите номера мест для снятия резерва (ряд {row}, мест: {seat_count}):"
+        texts.MSG_ENTER_SEATS_UNRESERVE.format(row=row, seat_count=seat_count)
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVING_SEATS, **context)
 
@@ -280,42 +226,28 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
     """
     Handle seat numbers input during remove reserve (RESERVE_REMOVING_SEATS state).
     """
-    text = message.text.strip()
+    from bot.steps import handle_seat_input
+
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
     if not row:
-        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
+        await message.answer(texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.delete(message.from_id)
         return
 
-    # Parse seats
-    try:
-        seats = parse_seats(text)
-    except SeatParseError as e:
-        await message.answer(f"Ошибка ввода: {e}\n\nПопробуйте снова:")
+    result = handle_seat_input(message.text, row=row, mode="layout_only")
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    # Validate seat numbers for this row
-    seat_count = get_seat_count(row)
-    invalid_seats = [s for s in seats if not is_valid_seat(row, s)]
-
-    if invalid_seats:
-        await message.answer(
-            f"Недопустимые номера мест: {', '.join(map(str, invalid_seats))}.\n"
-            f"Для ряда {row} доступны места 1-{seat_count}.\n\n"
-            f"Введите другие места:"
-        )
-        return
+    seats = result.seats
 
     # Store seats and show confirmation
     context['reserve_seats_to_remove'] = seats
     seats_str = format_seat_ranges(sorted(seats))
 
     await message.answer(
-        f"Снять резерв:\n"
-        f"Ряд {row}: {seats_str}\n\n"
-        f"Подтвердить?",
+        texts.MSG_CONFIRM_UNRESERVE.format(row=row, seats=seats_str),
         keyboard=confirmation_keyboard()
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVE_CONFIRM, **context)
@@ -325,7 +257,8 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
     """
     Handle remove reserve confirmation (RESERVE_REMOVE_CONFIRM state).
     """
-    text = message.text.strip()
+    from bot.steps import handle_confirmation
+
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
@@ -333,11 +266,12 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
     admin_user_id = context.get("admin_user_id")
 
     if not all([row, seats, admin_user_id]):
-        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
+        await message.answer(texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.delete(message.from_id)
         return
 
-    if text == "Подтвердить":
+    confirmed = handle_confirmation(message.text)
+    if confirmed is True:
         try:
             previous_notes = db.release_reserve(row, seats, admin_user_id)
 
@@ -360,14 +294,14 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
         except db.DatabaseError as e:
             logger.error(f"Error releasing reserve: {e}")
             await message.answer(
-                f"Ошибка при снятии резерва: {e}",
+                texts.ERR_RESERVE_REMOVE.format(error=e),
                 keyboard=reserve_action_keyboard()
             )
             await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
-    elif text == "Отмена":
+    elif confirmed is False:
         await message.answer(
-            "Отменено.",
+            texts.MSG_CANCELLED_BRIEF,
             keyboard=reserve_action_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
@@ -375,56 +309,6 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
     else:
         # Unknown input - re-show keyboard
         await message.answer(
-            "Выберите действие:",
+            texts.PROMPT_SELECT_ACTION,
             keyboard=confirmation_keyboard()
         )
-
-
-def register_handlers(bot: Bot):
-    """
-    Register reserve handlers with the bot.
-
-    Args:
-        bot: VKBottle Bot instance
-    """
-    # Get storage reference from bot
-    storage = bot.state_dispenser
-
-    # Wrap handlers with storage access
-    async def reserve_command_with_storage(message: Message):
-        await reserve_command_handler(message, storage)
-
-    async def reserve_action_with_storage(message: Message):
-        await reserve_action_handler(message, storage)
-
-    async def reserve_adding_row_with_storage(message: Message):
-        await reserve_adding_row_handler(message, storage)
-
-    async def reserve_adding_seats_with_storage(message: Message):
-        await reserve_adding_seats_handler(message, storage)
-
-    async def reserve_comment_with_storage(message: Message):
-        await reserve_comment_handler(message, storage)
-
-    async def reserve_removing_row_with_storage(message: Message):
-        await reserve_removing_row_handler(message, storage)
-
-    async def reserve_removing_seats_with_storage(message: Message):
-        await reserve_removing_seats_handler(message, storage)
-
-    async def reserve_remove_confirm_with_storage(message: Message):
-        await reserve_remove_confirm_handler(message, storage)
-
-    # Command handler
-    bot.on.message(text=["/reserve", "/Резерв"])(reserve_command_with_storage)
-
-    # State-specific handlers
-    bot.on.message(state=BotState.RESERVE_ACTION)(reserve_action_with_storage)
-    bot.on.message(state=BotState.RESERVE_ADDING_ROW)(reserve_adding_row_with_storage)
-    bot.on.message(state=BotState.RESERVE_ADDING_SEATS)(reserve_adding_seats_with_storage)
-    bot.on.message(state=BotState.RESERVE_COMMENT)(reserve_comment_with_storage)
-    bot.on.message(state=BotState.RESERVE_REMOVING_ROW)(reserve_removing_row_with_storage)
-    bot.on.message(state=BotState.RESERVE_REMOVING_SEATS)(reserve_removing_seats_with_storage)
-    bot.on.message(state=BotState.RESERVE_REMOVE_CONFIRM)(reserve_remove_confirm_with_storage)
-
-    logger.info("Reserve handlers registered")
