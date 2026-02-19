@@ -322,7 +322,8 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
     elif text == "Нет":
         # Restore previous state and context
         if original_state and original_state != "idle":
-            await storage.set(message.from_id, original_state, **original_context)
+            restored_state = BotState(original_state.split(":")[-1])
+            await storage.set(message.from_id, restored_state, **original_context)
             await message.answer(
                 f"Продолжаем работу с {original_context.get('buyer_display_name', 'предыдущим клиентом')}."
             )
