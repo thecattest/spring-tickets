@@ -8,8 +8,10 @@ Handles:
 """
 
 import logging
-from vkbottle.bot import Bot, Message
+from vkbottle.bot import Message
 
+from bot.constants import Btn
+from bot import texts
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
 from bot.utils import db
@@ -67,9 +69,7 @@ async def show_main_menu(
 
     except db.DatabaseError as e:
         logger.error(f"Error displaying main menu: {e}")
-        await message.answer(
-            "Ошибка при загрузке брони. Попробуйте позже."
-        )
+        await message.answer(texts.ERR_DB_LOAD_BOOKING)
 
 
 async def main_menu_handler(message: Message, storage: RedisStorage):
@@ -92,33 +92,33 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
     buyer_display_name = context.get("buyer_display_name")
 
     if not reservation_id:
-        await message.answer("Ошибка: потерян контекст. Начните заново.")
+        await message.answer(texts.ERR_CONTEXT_LOST)
         await storage.delete(message.from_id)
         return
 
-    if text == "Добавить":
+    if text == Btn.ADD:
         # Transition to AWAITING_ROW (preserve context including from_main_menu=True)
         await message.answer(
-            "Введите номер ряда:",
+            texts.PROMPT_ENTER_ROW,
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
-    elif text == "Удалить":
+    elif text == Btn.DELETE:
         # Check if reservation has any seats
         try:
             seats = db.get_reservation_seats(reservation_id)
 
             if not seats:
                 await message.answer(
-                    "В брони нет мест для удаления.",
+                    texts.ERR_NO_SEATS_TO_DELETE,
                     keyboard=main_menu_keyboard()
                 )
                 return
 
             # Transition to DELETING_ROW
             await message.answer(
-                "Введите номер ряда для удаления:",
+                texts.PROMPT_ENTER_ROW_DELETE,
                 keyboard=get_empty_keyboard()
             )
             await storage.set(message.from_id, BotState.DELETING_ROW, **context)
@@ -126,18 +126,18 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
         except db.DatabaseError as e:
             logger.error(f"Error checking seats for deletion: {e}")
             await message.answer(
-                "Ошибка при проверке мест. Попробуйте позже.",
+                texts.ERR_DB_CHECK_SEATS,
                 keyboard=main_menu_keyboard()
             )
 
-    elif text == "Удалить все":
+    elif text == Btn.DELETE_ALL:
         # Check if reservation has any seats
         try:
             seats = db.get_reservation_seats(reservation_id)
 
             if not seats:
                 await message.answer(
-                    "В брони нет мест.",
+                    texts.ERR_NO_SEATS,
                     keyboard=main_menu_keyboard()
                 )
                 return
@@ -161,11 +161,11 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
         except db.DatabaseError as e:
             logger.error(f"Error checking seats for cancellation: {e}")
             await message.answer(
-                "Ошибка при проверке мест. Попробуйте позже.",
+                texts.ERR_DB_CHECK_SEATS,
                 keyboard=main_menu_keyboard()
             )
 
-    elif text == "Оплата":
+    elif text == Btn.PAYMENT:
         # Local import to avoid circular dependency (payment.py uses local import for show_main_menu)
         from bot.handlers.payment import start_payment_flow
         await start_payment_flow(
@@ -174,29 +174,10 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             vk_message_ts=None,
         )
 
-    elif text.startswith("/"):
-        # Command entered — clear state and dispatch to command handler
-        await storage.delete(message.from_id)
-        if text in ("/cancel", "/Отмена"):
-            from bot.handlers.commands import cancel_handler
-            await cancel_handler(message, storage)
-        elif text in ("/debtors", "/Должники"):
-            from bot.handlers.debtors import _show_debtors
-            await _show_debtors(message)
-        elif text in ("/reserve", "/Резерв"):
-            from bot.handlers.reserve import reserve_command_handler
-            await reserve_command_handler(message, storage)
-        elif text in ("/help", "/Справка"):
-            from bot.handlers.commands import help_handler
-            await help_handler(message)
-        elif text == "/start":
-            from bot.handlers.commands import start_handler
-            await start_handler(message)
-
     else:
         # Unknown text - re-show keyboard
         await message.answer(
-            "Выберите действие:",
+            texts.PROMPT_SELECT_ACTION,
             keyboard=main_menu_keyboard()
         )
 
@@ -223,7 +204,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
     original_state = context.get("original_state")
     original_context = context.get("original_context", {})
 
-    if text == "Да":
+    if text == Btn.YES:
         # Clear FSM and switch to new client
         await storage.delete(message.from_id)
 
@@ -275,9 +256,10 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(
-                        f"У {pending_buyer_display_name} нет активной брони.\n"
-                        f"Создана новая бронь (ID: {reservation.id}).\n\n"
-                        f"Введите номер ряда:",
+                        texts.MSG_NEW_BOOKING_NO_RES.format(
+                            name=pending_buyer_display_name,
+                            id=reservation.id,
+                        ),
                         keyboard=get_empty_keyboard()
                     )
 
@@ -291,7 +273,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     )
                 except db.DatabaseError as e:
                     logger.error(f"Error creating reservation on context switch: {e}")
-                    await message.answer("Ошибка при создании брони. Попробуйте позже.")
+                    await message.answer(texts.ERR_DB_CREATE_BOOKING_SHORT)
             else:
                 # Normal switch with no reservation -> create new reservation
                 try:
@@ -299,8 +281,10 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(
-                        f"Создана новая бронь для {pending_buyer_display_name} (ID: {reservation.id}).\n\n"
-                        f"Введите номер ряда:",
+                        texts.MSG_NEW_BOOKING_CREATED.format(
+                            name=pending_buyer_display_name,
+                            id=reservation.id,
+                        ),
                         keyboard=get_empty_keyboard()
                     )
 
@@ -315,50 +299,27 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
 
                 except db.DatabaseError as e:
                     logger.error(f"Error creating reservation on context switch: {e}")
-                    await message.answer(
-                        "Ошибка при создании брони. Попробуйте позже."
-                    )
+                    await message.answer(texts.ERR_DB_CREATE_BOOKING_SHORT)
 
-    elif text == "Нет":
+    elif text == Btn.NO:
         # Restore previous state and context
         if original_state and original_state != "idle":
             restored_state = BotState(original_state.split(":")[-1])
             await storage.set(message.from_id, restored_state, **original_context)
             await message.answer(
-                f"Продолжаем работу с {original_context.get('buyer_display_name', 'предыдущим клиентом')}."
+                texts.MSG_CONTINUE_WITH.format(
+                    name=original_context.get("buyer_display_name", "предыдущим клиентом")
+                )
             )
         else:
             # No original state to restore - just clear
             await storage.delete(message.from_id)
-            await message.answer("Операция отменена.")
+            await message.answer(texts.MSG_CANCELLED)
 
     else:
         # Unknown response - re-show options
         await message.answer(
-            "Выберите действие:",
+            texts.PROMPT_SELECT_ACTION,
             keyboard=context_switch_keyboard()
         )
 
-
-def register_handlers(bot: Bot):
-    """
-    Register menu handlers with the bot.
-
-    Args:
-        bot: VKBottle Bot instance
-    """
-    # Get storage reference from bot
-    storage = bot.state_dispenser
-
-    # Wrap handlers with storage access
-    async def main_menu_with_storage(message: Message):
-        await main_menu_handler(message, storage)
-
-    async def context_switch_with_storage(message: Message):
-        await context_switch_handler(message, storage)
-
-    # State-specific handlers
-    bot.on.message(state=BotState.MAIN_MENU)(main_menu_with_storage)
-    bot.on.message(state=BotState.CONTEXT_SWITCH_CONFIRM)(context_switch_with_storage)
-
-    logger.info("Menu handlers registered")
