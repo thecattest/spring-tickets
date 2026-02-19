@@ -113,6 +113,34 @@ async def cancel_handler(message: Message, storage):
         await message.answer("Операция отменена.")
 
 
+async def exit_handler(message: Message, storage):
+    """
+    /exit command handler.
+
+    Hard-resets FSM to IDLE from any state. Unlike /cancel which will later
+    support "back one step" navigation (Phase 12), /exit always returns the
+    user to the initial idle state regardless of where they are.
+
+    Args:
+        message: VK message
+        storage: State dispenser instance
+    """
+    logger.info(f"User {message.from_id} sent /exit")
+
+    try:
+        # Clear FSM state (hard reset to IDLE)
+        await storage.delete(message.from_id)
+
+        await message.answer(
+            "Сессия завершена. Состояние сброшено.\n\n"
+            "Чтобы начать заново, перешлите сообщение клиента.",
+            keyboard=commands_keyboard(),
+        )
+    except Exception as e:
+        logger.error(f"Error in /exit: {e}")
+        await message.answer("Сессия завершена.")
+
+
 def register_handlers(bot: Bot):
     """
     Register command handlers with the bot.

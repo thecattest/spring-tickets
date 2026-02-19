@@ -121,7 +121,7 @@ class Router:
           debtors_command_handler(message)  — stateless, no storage
           refresh_debtors_handler(message)  — stateless, no storage
         """
-        from bot.handlers.commands import start_handler, help_handler, cancel_handler
+        from bot.handlers.commands import start_handler, help_handler, cancel_handler, exit_handler
         from bot.handlers.reserve import reserve_command_handler
         from bot.handlers.debtors import debtors_command_handler, refresh_debtors_handler
 
@@ -133,6 +133,9 @@ class Router:
 
         # /cancel and /Отмена — needs storage to clear FSM state
         self.labeler.message(text=["/cancel", "/Отмена"])(self._wrap(cancel_handler))
+
+        # /exit and /Выход — hard reset to IDLE from any state
+        self.labeler.message(text=["/exit", "/Выход"])(self._wrap(exit_handler))
 
         # /reserve and /Резерв — needs storage to set RESERVE_ACTION state
         self.labeler.message(text=["/reserve", "/Резерв"])(self._wrap(reserve_command_handler))
