@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 7 of 12 (Bug Fix — BotState enum restoration)
-Plan: 0 of 1 in current phase
-Status: Ready to plan
-Last activity: 2026-02-19 — v0.2 roadmap created, phases 7-12 defined
+Plan: 1 of 1 in current phase
+Status: Phase complete
+Last activity: 2026-02-19 — Completed 07-01-PLAN.md (BUG-01 fix)
 
-Progress: [████████░░░░░░░░░░░░] 38% (v0.1 complete, v0.2 not started)
+Progress: [█████████░░░░░░░░░░░] 43% (v0.1 complete, v0.2 phase 7 done)
 
 ## Performance Metrics
 
@@ -47,6 +47,8 @@ Progress: [████████░░░░░░░░░░░░] 38% (v0
 - [v0.2 scoping] Ранняя валидация ряда: проверять наличие мест до запроса номеров мест
 - [v0.2 arch] Router читает FSM config для авто-регистрации хендлеров (FSM-01 is the config, RTR-01 reads it)
 - [v0.2 arch] Каждый файл хендлера мигрируется атомарным коммитом (new decorators + remove old + main.py update)
+- [07-bug-fix] BotState restoration: BotState(stored_string.split(':')[-1]) handles both "BotState:value" and plain "value" formats
+- [07-bug-fix] Idle guard checks raw string against "idle" — modern "BotState:idle" passes guard, but extracted value is still "idle", giving correct BotState.IDLE
 
 ### Pending Todos
 
@@ -59,6 +61,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Roadmap created for v0.2. Ready to plan Phase 7.
+Last session: 2026-02-19T15:39:55Z
+Stopped at: Completed 07-01-PLAN.md — BUG-01 fixed, Phase 7 complete
 Resume file: None
