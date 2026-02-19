@@ -67,7 +67,7 @@ Plans:
 - [x] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
 - [x] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
 - [x] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
-- [ ] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
+- [x] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
 
 ---
 
@@ -183,11 +183,12 @@ Plans:
   2. Билетер нажимает /exit из любого состояния — FSM сбрасывается в IDLE с подтверждающим сообщением
   3. Билетер вводит ряд без доступных мест для текущей операции — бот сразу сообщает об этом и не запрашивает номера мест
   4. Весь BACK_MAP для всех 16 состояний определён до начала реализации — нет состояний с неопределённым поведением /cancel
+**Status:** Complete (2026-02-19)
 **Plans:** 2 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Rewrite cancel_handler for FSM_CONFIG back-step navigation (NAV-01)
-- [ ] 12-02-PLAN.md — Add early row validation to 4 row-input handlers (NAV-03)
+- [x] 12-01-PLAN.md — Rewrite cancel_handler for FSM_CONFIG back-step navigation (NAV-01)
+- [x] 12-02-PLAN.md — Add early row validation to 4 row-input handlers (NAV-03)
 
 ---
 
@@ -207,8 +208,8 @@ Plans:
 | 9. FSM Config + Steps | v0.2 | 2/2 | Complete | 2026-02-19 |
 | 10. Router | v0.2 | 4/4 | Complete | 2026-02-19 |
 | 11. Handler Migration | v0.2 | 8/8 | Complete | 2026-02-19 |
-| 12. Navigation UX | v0.2 | 0/2 | Not started | — |
+| 12. Navigation UX | v0.2 | 2/2 | Complete | 2026-02-19 |
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 12 planned (2 plans, 2 waves)*
+*Roadmap updated: 2026-02-19 — Phase 12 complete (2/2 plans, v0.2 milestone complete)*

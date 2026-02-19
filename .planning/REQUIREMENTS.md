@@ -48,9 +48,9 @@
 
 ### Navigation UX
 
-- [ ] **NAV-01**: `/cancel` command navigates back one state via back-state defined in FSM config (not to IDLE)
-- [ ] **NAV-02**: New `/exit` command fully resets FSM state to IDLE (current `/cancel` behavior)
-- [ ] **NAV-03**: Early row validation — when user enters a row number, immediately check if that row has relevant seats for the current operation (e.g., no booked seats for deletion, no reserved seats for reserve removal) before prompting for seat numbers
+- [x] **NAV-01**: `/cancel` command navigates back one state via back-state defined in FSM config (not to IDLE)
+- [x] **NAV-02**: New `/exit` command fully resets FSM state to IDLE (current `/cancel` behavior)
+- [x] **NAV-03**: Early row validation — when user enters a row number, immediately check if that row has relevant seats for the current operation (e.g., no booked seats for deletion, no reserved seats for reserve removal) before prompting for seat numbers
 
 ---
 
@@ -94,9 +94,9 @@
 | MIG-07 | Phase 11 | Complete |
 | MIG-08 | Phase 11 | Complete |
 | MIG-09 | Phase 11 | Complete |
-| NAV-01 | Phase 12 | Pending |
-| NAV-02 | Phase 12 | Pending |
-| NAV-03 | Phase 12 | Pending |
+| NAV-01 | Phase 12 | Complete |
+| NAV-02 | Phase 12 | Complete |
+| NAV-03 | Phase 12 | Complete |
 
 ---
 
