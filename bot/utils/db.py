@@ -530,6 +530,7 @@ def release_seats(
             now = datetime.utcnow()
             for assignment in assignments:
                 assignment.released_at = now
+                assignment.released_by_user_id = user_id
 
             # Update reservation last_activity_at
             reservation_stmt = select(Reservation).where(Reservation.id == reservation_id)
@@ -615,6 +616,7 @@ def cancel_reservation(
             now = datetime.utcnow()
             for seat in seats:
                 seat.released_at = now
+                seat.released_by_user_id = user_id
 
             # Update reservation state
             reservation.state = ReservationState.CANCELLED
