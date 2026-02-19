@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 11: Handler Migration (next), Phase 10: Router complete
+**Current focus:** v0.2 — Phase 11: Handler Migration (in progress)
 
 ## Current Position
 
-Phase: 10 of 12 (Router) — Phase complete
-Plan: 4 of 4 in current phase (all gap closure plans done)
-Status: Phase 10 complete — ready for Phase 11
-Last activity: 2026-02-19 — Completed 10-04-PLAN.md (FSM_CONFIG-driven router with auth guards)
+Phase: 11 of 12 (Handler Migration) — In progress
+Plan: 2 of 8 in current phase
+Status: In progress — 11-02 complete (deletion.py migrated)
+Last activity: 2026-02-19 — Completed 11-02-PLAN.md (deletion.py migration)
 
-Progress: [██████████████░░░░░░] 70% (v0.1 complete, v0.2 phases 7-10 complete)
+Progress: [███████████████░░░░░] 73% (v0.1 complete, v0.2 phases 7-11 in progress)
 
 ## Performance Metrics
 
@@ -79,6 +79,8 @@ Progress: [██████████████░░░░░░] 70% (v0
 - [10-04] _with_auth_guard() imports get_user_role lazily inside the method — consistent with existing lazy import pattern
 - [10-04] Auth failure clears FSM state via storage.delete() — prevents user from getting stuck in an unauthorized state
 - [10-04] _register_states() iterates FSM_CONFIG (not handler_map) — FSM_CONFIG is the canonical iteration source per RTR-01
+- [11-02] handle_seat_input(mode="membership") covers both not-in-reservation and paid-seat checks in deleting_seats_handler
+- [11-02] Steps imports in deletion.py kept lazy inside function bodies — consistent with 09-steps circular-import avoidance pattern
 
 ### Pending Todos
 
@@ -91,6 +93,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T19:32:00Z
-Stopped at: Completed 10-04-PLAN.md. FSM_CONFIG-driven router with auth guards. Both gaps from 10-VERIFICATION.md closed. Phase 10 complete.
+Last session: 2026-02-19T20:10:50Z
+Stopped at: Completed 11-02-PLAN.md. deletion.py migrated — register_handlers() and 4 closures removed, handle_row_input/handle_seat_input(mode="membership")/handle_confirmation wired in, texts.* constants used throughout.
 Resume file: None
