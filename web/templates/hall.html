@@ -62,7 +62,7 @@
     .row-label {
       width: 28px;
       text-align: right;
-      font-size: 11px;
+      font-size: 13px;
       color: #999;
       flex-shrink: 0;
       margin-right: 4px;
@@ -71,7 +71,7 @@
     .row-label-right {
       width: 28px;
       text-align: left;
-      font-size: 11px;
+      font-size: 13px;
       color: #999;
       flex-shrink: 0;
       margin-left: 4px;
@@ -84,7 +84,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       color: rgba(255, 255, 255, 0.85);
       cursor: default;
@@ -99,10 +99,19 @@
 
     .seat.free {
       background: #4CAF50;
+      cursor: pointer;
     }
 
     .seat.occupied {
       background: #E53935;
+      pointer-events: none;
+      /* opacity: 0.6; */
+    }
+
+    .seat.selected {
+      background: #2196F3;
+      transform: scale(1.2);
+      z-index: 1;
     }
 
     .aisle-v {
@@ -175,6 +184,25 @@
       font-size: 13px;
       color: #aaa;
     }
+
+    .tooltip {
+      position: fixed;
+      background: #16213e;
+      color: #eee;
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 13px;
+      pointer-events: none;
+      z-index: 100;
+      white-space: nowrap;
+      border: 1px solid #555;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .tooltip.visible {
+      opacity: 1;
+    }
   </style>
 </head>
 
@@ -184,40 +212,36 @@
 
   <div class="hall-scroll">
     <div class="hall">
-      {% set max_seats = 28 %}
-      {% set aisle_before = [21, 7] %}
+      {% set max_seats = layout_meta.max_seat_count %}
+      {% set entrance_after = layout_meta.horizontalEntranceAfterRow %}
+      {% set aisle_seats = layout_meta.aisle_seats %}
+      {% set aisle_row_start = layout_meta.aisle_row_start %}
 
-      {# --- Rows 1-9 (no vertical aisles, one fewer spacer) --- #}
-      {% for row in rows[:9] %}
-      {% set pad = (max_seats - 1 - row.seats|length) // 2 %}
-      <div class="row">
-        <div class="row-label">{{ row.row_number }}</div>
-        {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
-        {% for seat in row.seats|reverse %}
-        <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
-          title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
-        {% endfor %}
-        {% for _ in range(max_seats - 1 - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
-        <div class="row-label-right">{{ row.row_number }}</div>
-      </div>
-      {% endfor %}
-
-      {# --- Horizontal entrance --- #}
+      {% for row in rows %}
+      {% if row.row_number == entrance_after + 1 %}
       <div class="entrance"><span>вход</span></div>
-
-      {# --- Rows 10-24 --- #}
-      {% for row in rows[9:] %}
+      {% endif %}
       <div class="row">
         <div class="row-label">{{ row.row_number }}</div>
-        {% for seat in row.seats|reverse %}
-        {% if seat.number in aisle_before %}<div class="aisle-v"></div>{% endif %}
-        <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
-          title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
-        {% endfor %}
-        <div class="row-label-right">{{ row.row_number }}</div>
-      </div>
+        {% if row.row_number < aisle_row_start %} {% set pad=(max_seats - 1 - row.seats|length) // 2 %} {% for _ in
+          range(pad) %}<div class="spacer">
+      </div>{% endfor %}
+      {% for seat in row.seats|reverse %}
+      <div class="seat {{ 'occupied' if seat.occupied else 'free' }}" data-row="{{ row.row_number }}"
+        data-seat="{{ seat.number }}">{{ seat.number }}</div>
       {% endfor %}
+      {% for _ in range(max_seats - 1 - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
+      {% else %}
+      {% for seat in row.seats|reverse %}
+      {% if seat.number in aisle_seats %}<div class="aisle-v"></div>{% endif %}
+      <div class="seat {{ 'occupied' if seat.occupied else 'free' }}" data-row="{{ row.row_number }}"
+        data-seat="{{ seat.number }}">{{ seat.number }}</div>
+      {% endfor %}
+      {% endif %}
+      <div class="row-label-right">{{ row.row_number }}</div>
     </div>
+    {% endfor %}
+  </div>
   </div>
 
   <div class="legend">
@@ -229,10 +253,53 @@
         <div class="legend-swatch" style="background:#E53935"></div> Занято
       </div>
     </div>
-    <div class="stats">
-      Свободно: {{ total_free }} / Занято: {{ total_occupied }} / Всего: {{ total_seats }}
-    </div>
   </div>
+
+  <div class="tooltip" id="tooltip"></div>
+
+  <script>
+    const tip = document.getElementById('tooltip');
+    let hideTimer;
+
+    function showTip(el, x, y) {
+      const row = el.dataset.row;
+      const seat = el.dataset.seat;
+      if (!row) return;
+      tip.textContent = 'Ряд ' + row + ', Место ' + seat;
+      tip.classList.add('visible');
+      const rect = tip.getBoundingClientRect();
+      const left = Math.min(x - rect.width / 2, window.innerWidth - rect.width - 8);
+      tip.style.left = Math.max(8, left) + 'px';
+      tip.style.top = (y - rect.height - 10) + 'px';
+    }
+
+    function hideTip() {
+      tip.classList.remove('visible');
+    }
+
+    let selected = null;
+
+    document.querySelector('.hall').addEventListener('click', function (e) {
+      const seat = e.target.closest('.seat');
+      if (!seat || seat.classList.contains('occupied')) { return; }
+      clearTimeout(hideTimer);
+      if (selected) selected.classList.remove('selected');
+      if (selected === seat) { selected = null; hideTip(); return; }
+      seat.classList.add('selected');
+      selected = seat;
+      const r = seat.getBoundingClientRect();
+      showTip(seat, r.left + r.width / 2, r.top);
+      hideTimer = setTimeout(hideTip, 2000);
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.seat') && !e.target.closest('.tooltip')) {
+        if (selected) selected.classList.remove('selected');
+        selected = null;
+        hideTip();
+      }
+    });
+  </script>
 
 </body>
 

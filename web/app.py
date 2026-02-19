@@ -74,11 +74,12 @@ def hall(request: Request):
         )
     occupied_set = {(r, s) for r, s in occupied_rows}
 
+    row_count = len(layout["rows"])
     rows_data = []
     total_seats = 0
     total_occupied = 0
 
-    for row_num in range(1, 25):
+    for row_num in range(1, row_count + 1):
         seat_count = layout["rows"][str(row_num)]["seatCount"]
         seats = []
         for seat_num in range(1, seat_count + 1):
@@ -89,10 +90,25 @@ def hall(request: Request):
                 total_occupied += 1
         rows_data.append({"row_number": row_num, "seats": seats})
 
+    # Derive template-friendly layout meta from config
+    layout_meta = layout["layout"]
+    max_seat_count = max(r["seatCount"] for r in layout["rows"].values())
+    aisle_seats = [a["afterSeat"] for a in layout_meta.get("verticalAisles", [])]
+    # Parse aisle row range (e.g. "10-24") to get start row
+    aisle_row_start = row_count + 1  # default: no aisles
+    for a in layout_meta.get("verticalAisles", []):
+        start = int(a["rows"].split("-")[0])
+        aisle_row_start = min(aisle_row_start, start)
+
     return templates.TemplateResponse("hall.html", {
         "request": request,
         "rows": rows_data,
-        "layout_meta": layout["layout"],
+        "layout_meta": {
+            **layout_meta,
+            "max_seat_count": max_seat_count,
+            "aisle_seats": aisle_seats,
+            "aisle_row_start": aisle_row_start,
+        },
         "total_seats": total_seats,
         "total_occupied": total_occupied,
         "total_free": total_seats - total_occupied,
@@ -208,7 +224,7 @@ def payments_page(request: Request):
 
     # Money stats
     total_paid_decimal = Decimal(str(total_paid)) if total_paid else Decimal("0")
-    projected = total_paid_decimal + Decimal(str(booked_count * SEAT_PRICE))
+    projected = Decimal(str(booked_count * SEAT_PRICE))
     money_stats = {
         "paid": float(total_paid_decimal),
         "projected": float(projected),
@@ -266,12 +282,15 @@ def payments_page(request: Request):
             "payments": section_payments,
         })
 
+    has_new_payments = len(new_payments) > 0
+
     return templates.TemplateResponse("payments.html", {
         "request": request,
         "sections": sections,
         "seat_stats": seat_stats,
         "money_stats": money_stats,
         "seat_price": SEAT_PRICE,
+        "has_new_payments": has_new_payments,
     })
 
 
@@ -285,6 +304,20 @@ def create_checkpoint(request: Request):
         return RedirectResponse("/payments/login", status_code=303)
 
     with get_session() as session:
+        # Check there are payments after the latest checkpoint
+        latest_cp = (
+            session.query(ReconcileCheckpoint.checked_at)
+            .order_by(ReconcileCheckpoint.checked_at.desc())
+            .first()
+        )
+        query = session.query(func.count()).select_from(Payment)
+        if latest_cp:
+            query = query.filter(Payment.recorded_at > latest_cp.checked_at)
+        new_count = query.scalar()
+
+        if not new_count:
+            return RedirectResponse("/payments", status_code=303)
+
         checkpoint = ReconcileCheckpoint(
             checked_by_user_id=None,
             checked_at=datetime.utcnow(),

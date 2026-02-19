@@ -78,11 +78,11 @@
     "verticalAisles": [
       {
         "rows": "10-24",
-        "afterSeat": 6
+        "afterSeat": 7
       },
       {
         "rows": "10-24",
-        "afterSeat": 20
+        "afterSeat": 21
       }
     ]
   }
