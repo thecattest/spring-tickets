@@ -158,7 +158,7 @@
 <div class="hall-scroll">
 <div class="hall">
   {% set max_seats = 28 %}
-  {% set aisle_after = [7, 21] %}
+  {% set aisle_before = [22, 8] %}
 
   {# --- Rows 1-9 (no vertical aisles, one fewer spacer) --- #}
   {% for row in rows[:9] %}
@@ -166,7 +166,7 @@
     <div class="row">
       <div class="row-label">{{ row.row_number }}</div>
       {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
-      {% for seat in row.seats %}
+      {% for seat in row.seats|reverse %}
         <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
              title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
       {% endfor %}
@@ -182,10 +182,10 @@
   {% for row in rows[9:] %}
     <div class="row">
       <div class="row-label">{{ row.row_number }}</div>
-      {% for seat in row.seats %}
+      {% for seat in row.seats|reverse %}
+        {% if seat.number in aisle_before %}<div class="aisle-v"></div>{% endif %}
         <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
              title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
-        {% if seat.number in aisle_after %}<div class="aisle-v"></div>{% endif %}
       {% endfor %}
       <div class="row-label-right">{{ row.row_number }}</div>
     </div>
