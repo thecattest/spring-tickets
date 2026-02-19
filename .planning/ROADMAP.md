@@ -81,10 +81,10 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Билетер нажимает "Нет" в диалоге смены контекста — бот возвращает его в то состояние, в котором он был до пересылки
   2. Все 16 FSM-состояний корректно восстанавливаются через `BotState(original_state)` без KeyError
-**Plans:** TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 07-01: Fix BotState enum restoration in context_switch_handler (menu.py:325)
+- [ ] 07-01-PLAN.md — Fix BotState enum restoration in context_switch_handler (menu.py:325)
 
 ---
 
