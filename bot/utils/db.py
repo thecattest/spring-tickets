@@ -446,6 +446,22 @@ def is_user_admin(vk_user_id: int) -> bool:
         return user is not None and user.role == UserRole.ADMIN
 
 
+def get_user_role(vk_user_id: int) -> Optional[UserRole]:
+    """
+    Get the role of a VK user.
+
+    Returns:
+        UserRole enum member, or None if user not found/inactive.
+    """
+    with SessionLocal() as session:
+        stmt = (
+            select(AppUser.role)
+            .where(AppUser.vk_user_id == vk_user_id)
+            .where(AppUser.is_active == True)
+        )
+        return session.execute(stmt).scalar_one_or_none()
+
+
 def get_reservation_with_seats(reservation_id: int) -> tuple[Optional[Reservation], List[SeatAssignment]]:
     """
     Get reservation and its active seats.
