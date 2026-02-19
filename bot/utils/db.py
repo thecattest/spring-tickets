@@ -1168,3 +1168,53 @@ def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
             session.rollback()
             logger.error(f"Failed to log reminder sent for seller {seller_id}: {e}")
             raise DatabaseError(f"Failed to log reminder sent: {e}")
+
+
+def get_available_seats_in_row(row: int) -> list[int]:
+    """Return seat numbers in the row that are currently unoccupied (free).
+
+    Used for early row validation in booking and reserve-add flows.
+    """
+    from bot.utils.layout import get_seat_count
+
+    with SessionLocal() as session:
+        seat_count = get_seat_count(row)
+        occupied_stmt = (
+            select(SeatAssignment.seat_number)
+            .where(SeatAssignment.row_number == row)
+            .where(SeatAssignment.released_at.is_(None))
+        )
+        occupied = {r[0] for r in session.execute(occupied_stmt).all()}
+        return [s for s in range(1, seat_count + 1) if s not in occupied]
+
+
+def get_reservation_booked_seats_in_row(reservation_id: int, row: int) -> list[int]:
+    """Return seat numbers belonging to this reservation in this row (active, any status).
+
+    Used for early row validation in deletion flow — checks if there are
+    seats to delete for the given reservation in the given row.
+    """
+    with SessionLocal() as session:
+        stmt = (
+            select(SeatAssignment.seat_number)
+            .where(SeatAssignment.reservation_id == reservation_id)
+            .where(SeatAssignment.row_number == row)
+            .where(SeatAssignment.released_at.is_(None))
+        )
+        return [r[0] for r in session.execute(stmt).all()]
+
+
+def get_reserved_seats_in_row(row: int) -> list[int]:
+    """Return seat numbers with RESERVED status in this row (no reservation_id).
+
+    Used for early row validation in reserve-remove flow.
+    """
+    with SessionLocal() as session:
+        stmt = (
+            select(SeatAssignment.seat_number)
+            .where(SeatAssignment.row_number == row)
+            .where(SeatAssignment.status == SeatStatus.RESERVED)
+            .where(SeatAssignment.released_at.is_(None))
+            .where(SeatAssignment.reservation_id.is_(None))
+        )
+        return [r[0] for r in session.execute(stmt).all()]
