@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 10: Router (complete), next: Phase 11
+**Current focus:** v0.2 — Phase 10: Router (gap closure), next: Phase 11
 
 ## Current Position
 
-Phase: 10 of 12 (Router) — COMPLETE
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-02-19 — Completed 10-02-PLAN.md (Router wired into bot/main.py)
+Phase: 10 of 12 (Router) — Gap closure in progress
+Plan: 3 of 4 in current phase (gap closure plans)
+Status: In progress
+Last activity: 2026-02-19 — Completed 10-03-PLAN.md (/exit command handler added and registered)
 
-Progress: [█████████████░░░░░░░] 65% (v0.1 complete, v0.2 phases 7-10 done)
+Progress: [█████████████░░░░░░░] 65% (v0.1 complete, v0.2 phases 7-10 core done)
 
 ## Performance Metrics
 
@@ -36,6 +36,7 @@ Progress: [█████████████░░░░░░░] 65% (v0
 | Phase 9 | 2 | ~3 min | ~1.5 min |
 | Phase 10 plan 01 | 1 | ~2 min | 2 min |
 | Phase 10 plan 02 | 1 | ~1 min | 1 min |
+| Phase 10 plan 03 | 1 | ~1 min | 1 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -71,6 +72,8 @@ Progress: [█████████████░░░░░░░] 65% (v0
 - [10-router] All bot.handlers.* imports lazy (inside _register_* methods) — prevents circular imports
 - [10-02] Router(storage=redis_storage) uses local variable directly — more explicit than bot.state_dispenser
 - [10-02] BaseStateGroup import removed from main.py — was unused after handler module imports removed
+- [10-03] exit_handler message "Сессия завершена" distinct from cancel_handler "Операция отменена" — Phase 12 uses this to differentiate hard reset vs back-navigation
+- [10-03] exit_handler NOT added to legacy register_handlers() — it will be removed atomically in Phase 11
 
 ### Pending Todos
 
@@ -83,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T19:02:23Z
-Stopped at: Completed 10-02-PLAN.md. Phase 10 (Router) complete. bot/main.py uses Router for all registration.
+Last session: 2026-02-19T19:27:31Z
+Stopped at: Completed 10-03-PLAN.md. /exit handler added and registered in router. Gap 1 from 10-VERIFICATION.md closed.
 Resume file: None
