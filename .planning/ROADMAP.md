@@ -149,7 +149,7 @@ Plans:
 
 ### Phase 11: Handler Migration
 
-**Goal:** Все 7 файлов хендлеров используют @router декораторы и shared steps; все register_handlers() функции и closure-обёртки удалены.
+**Goal:** Удалить мёртвый код (register_handlers, closure-обёртки, ручной command dispatch) из всех 7 файлов хендлеров и подключить shared infrastructure (steps.py, texts.py, constants.py).
 **Depends on:** Phase 10
 **Requirements:** MIG-01, MIG-02, MIG-03, MIG-04, MIG-05, MIG-06, MIG-07, MIG-08, MIG-09
 **Success Criteria** (what must be TRUE):
@@ -157,17 +157,17 @@ Plans:
   2. В кодовой базе нет ни одной функции `register_handlers()` и ни одной closure-обёртки для инъекции storage
   3. bot/main.py содержит только импорты модулей хендлеров (для срабатывания декораторов) и один вызов `bot.labeler.load(router.labeler)`
   4. Каждый файл хендлера мигрирован атомарно: в одном коммите новые декораторы + удаление старой регистрации + обновление main.py
-**Plans:** TBD
+**Plans:** 8 plans
 
 Plans:
-- [ ] 11-01: Migrate bot/handlers/reservation.py (atomic commit)
-- [ ] 11-02: Migrate bot/handlers/deletion.py (atomic commit)
-- [ ] 11-03: Migrate bot/handlers/reserve.py (atomic commit)
-- [ ] 11-04: Migrate bot/handlers/commands.py (atomic commit)
-- [ ] 11-05: Migrate bot/handlers/menu.py — remove command dispatch elif block (atomic commit)
-- [ ] 11-06: Migrate bot/handlers/payment.py (atomic commit)
-- [ ] 11-07: Migrate bot/handlers/debtors.py — read file first, verify "Обновить" handling (atomic commit)
-- [ ] 11-08: Remove all register_handlers() and closure wrappers, update main.py
+- [ ] 11-01-PLAN.md — Migrate reservation.py: remove dead code, wire steps.py/texts.py/Btn
+- [ ] 11-02-PLAN.md — Migrate deletion.py: remove dead code, wire steps.py/texts.py/Btn
+- [ ] 11-03-PLAN.md — Migrate reserve.py: remove dead code + command dispatch, wire steps.py/texts.py/Btn
+- [ ] 11-04-PLAN.md — Migrate commands.py: remove dead code, wire texts.py, add MSG_EXIT_FULL
+- [ ] 11-05-PLAN.md — Migrate menu.py: remove dead code + command dispatch, wire Btn/texts.py
+- [ ] 11-06-PLAN.md — Migrate payment.py: remove dead code, wire Btn/texts.py
+- [ ] 11-07-PLAN.md — Migrate debtors.py: remove dead code, wire texts.py, verify "Обновить"
+- [ ] 11-08-PLAN.md — Verification pass: confirm zero dead code remains across bot/
 
 ---
 
@@ -209,4 +209,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 10 complete (4/4 plans, gap closure done)*
+*Roadmap updated: 2026-02-19 — Phase 11 planned (8 plans in 2 waves)*
