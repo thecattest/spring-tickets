@@ -1,541 +1,207 @@
 # Roadmap: VK бот для продажи билетов
 
-**Created:** 2026-01-24
-**Current Milestone:** v0.1 - VK Bot MVP
-**Status:** Phase 4 Complete
+## Milestones
 
----
+- ✅ **v0.1 MVP** — Phases 0-5 (complete 2026-02-18)
+- 🚧 **v0.2 Рефакторинг архитектуры бота** — Phases 7-12 (in progress)
+- 📋 **v0.3 Статистика** — Phase 6 deferred (planned post-refactoring)
 
-## Overview
+## Phases
 
-Разработка VK бота для команды билетеров. Валидация БД + 6 фаз разработки, от базовой функциональности до полной автоматизации с напоминаниями и статистикой.
+<details>
+<summary>✅ v0.1 VK Bot MVP (Phases 0-5) — COMPLETE 2026-02-18</summary>
 
-**Estimated timeline:** ~63-80 hours total (включая Phase 0)
-**Phase 0:** ~2-3 hours (валидация БД)
-**Priority phases for MVP:** 1-3 (~37-47 hours)
+### Phase 0: Валидация архитектуры БД
+**Goal:** Убедиться, что архитектура БД покрывает все сценарии бота.
+**Status:** Complete
 
----
-
-## Phase 0: Валидация архитектуры БД
-
-**Goal:** Убедиться, что существующая архитектура БД полностью покрывает требования VK бота.
-
-**Status:** ✅ COMPLETE
-
-**Estimated effort:** ~2-3 hours
-
-### Requirements
-
-1. **Проверка покрытия сценариев бота**
-   - Создание брони: VKUser, Reservation, SeatAssignment
-   - Добавление/удаление мест: SeatAssignment.released_at
-   - Регистрация оплаты: Payment, PaymentSeat
-   - Управление резервами: SeatAssignment с reservation_id=NULL, note
-   - Должники: Reservation.last_activity_at
-
-2. **Проверка недостающих полей/связей**
-   - AppUser: есть ли vk_user_id для связи билетера с VK?
-   - VKUser: достаточно ли полей (first_name, last_name, vk_id)?
-   - Reservation: нужны ли дополнительные поля для бота?
-   - SeatAssignment.note: используется только для резервов (подтвердить)
-
-3. **Проверка индексов для ботовых запросов**
-   - Поиск активной брони по buyer_vk_user_id — индекс есть?
-   - Поиск мест брони по reservation_id — индекс есть?
-   - Проверка занятости места (row, seat, released_at IS NULL) — индекс есть?
-   - Должники по sold_by_user_id + last_activity_at — индекс есть?
-
-4. **Проверка ограничений и валидаций**
-   - Partial index для уникальности занятости — достаточен?
-   - CHECK constraints для row/seat — согласуются с layout.json?
-   - Cascade deletes — корректны для ботовых сценариев?
-
-5. **Проверка audit log**
-   - Покрывает ли текущая схема все action_type из BOT_SPEC.md?
-   - Payload JSON поддерживает все нужные поля?
-
-6. **Выявление gap'ов**
-   - Недостающие поля
-   - Недостающие индексы
-   - Недостающие constraints
-   - Потенциальные проблемы с concurrency
-
-### Success Criteria
-
-- ✅ Все сценарии из BOT_SPEC.md покрыты существующими таблицами
-- ✅ Все необходимые индексы для ботовых запросов присутствуют или задокументированы для добавления
-- ✅ Выявлены все gap'ы (если есть)
-- ✅ Создан список изменений БД (если требуется)
-- ✅ Обновлен CONCERNS.md с найденными проблемами (если есть)
-
-### Deliverables
-
-- Документ `.planning/DB_VALIDATION.md` с результатами проверки
-- Список изменений БД (если требуется): миграция или обновление моделей
-- Обновленный STATE.md со статусом валидации
-
-### Dependencies
-
-- models/* (существующие)
-- BOT_SPEC.md (все сценарии)
-- DB_SCHEMA.md (документация схемы)
-
----
-
-## Phase 1: Основа бота и создание броней
-
+### Phase 1: Основа бота и создание броней
 **Goal:** Минимальный рабочий бот для создания броней и добавления мест.
+**Status:** Complete (2026-01-24)
 
-**Status:** ✅ COMPLETE (2026-01-24)
-**Estimated effort:** ~15-20 hours
-**Actual effort:** ~8 minutes (AI-assisted)
-
-### Requirements
-
-1. **VKBottle проект с FSM на Redis**
-   - Инициализация VK Bot API с токеном
-   - Подключение Redis для permanent FSM storage
-   - Загрузка конфигурации из .env (токен, база данных, Redis)
-
-2. **Базовые команды**
-   - `/start` — приветствие с кратким описанием
-   - `/help` — справка по всем командам и форматам ввода
-   - `/cancel` — сброс FSM состояния в IDLE
-
-3. **Создание новой брони**
-   - Обработчик пересылки сообщения от клиента
-   - FSM states: `IDLE` → `AWAITING_ROW` → `AWAITING_SEATS` → `SEAT_ADDITION_MENU`
-   - Создание записи VKUser (если новый клиент)
-   - Создание записи Reservation с buyer_vk_user_id
-
-4. **Добавление мест**
-   - Парсер ввода мест: пробелы, запятые, диапазоны (seat_parser.py)
-   - Валидация: ряд 1-24, места 1-{seatCount} (переменное по layout.json)
-   - Проверка занятости через `SELECT ... WHERE released_at IS NULL`
-   - Атомарная транзакция для всех мест
-   - Создание SeatAssignment записей с status=BOOKED
-
-5. **Генерация скрипта**
-   - Шаблон с плейсхолдерами: имя, места, сумма
-   - Отправка после кнопки [Готово]
-   - Очистка FSM state → IDLE
-
-6. **Загрузка макета зала**
-   - Парсинг layout.json при старте бота
-   - Валидация координат мест по макету
-   - Кеширование в памяти
-
-7. **Базовая обработка ошибок**
-   - Неверный формат ввода (ряд/места)
-   - Места уже заняты (с указанием: Бронь/Резерв + комментарий)
-   - Общие исключения (БД, Redis)
-
-### Success Criteria
-
-- ✅ Билетер может переслать сообщение клиента и создать бронь
-- ✅ Можно добавить места (ряд + номера в любом формате)
-- ✅ Проверка занятости работает корректно
-- ✅ Если хотя бы одно место занято — отклоняются все (атомарность)
-- ✅ Ошибки ввода обрабатываются понятными сообщениями
-- ✅ FSM состояние сохраняется в Redis permanent
-- ✅ Скрипт генерируется и отправляется при [Готово]
-
-### Technical Notes
-
-- Redis keys: `bot:fsm:{vk_user_id}` → JSON state
-- DB transaction: `with db.begin()` для add_seats_to_reservation()
-- Audit log: `seat_added`, `reservation_created`
-- **Валидация мест**: CHECK constraint в БД (1-28) — общая граница; точная валидация по layout.json на уровне приложения
-
-### Dependencies
-
-- models/* (уже существуют)
-- Redis instance
-- VK Bot API token
-- layout.json
-
----
-
-## Phase 2: Главное меню и удаление мест
-
+### Phase 2: Главное меню и удаление мест
 **Goal:** Полноценная работа с бронью через главное меню.
-
-**Status:** ✅ COMPLETE (2026-01-24)
-**Estimated effort:** ~10-12 hours
-**Actual effort:** ~15 minutes (AI-assisted)
-
-**Plans:** 4 plans
+**Status:** Complete (2026-01-24)
 
 Plans:
-- [x] 02-01-PLAN.md — FSM states, formatting utilities, keyboards (2 min)
-- [x] 02-02-PLAN.md — Main menu display, context switching (4 min)
-- [x] 02-03-PLAN.md — Seat deletion and reservation cancellation (6 min)
-- [x] 02-04-PLAN.md — Gap closure: Fix same-client detection bug (3 min)
+- [x] 02-01-PLAN.md — FSM states, formatting utilities, keyboards
+- [x] 02-02-PLAN.md — Main menu display, context switching
+- [x] 02-03-PLAN.md — Seat deletion and reservation cancellation
+- [x] 02-04-PLAN.md — Gap closure: Fix same-client detection bug
 
-### Requirements
-
-1. **Главное меню для существующей брони**
-   - Обработчик пересылки: проверка наличия активной брони
-   - Отображение всех мест с группировкой по рядам
-   - Разбивка по статусам: Бронь / Оплачено / Резерв
-   - Кнопки: [Добавить] [Удалить] [Удалить все] [Оплата]
-
-2. **Защита от конфликта контекста**
-   - Проверка FSM state при пересылке
-   - Сообщение: "Сейчас вы работаете с другим клиентом. Завершите операцию или /cancel"
-
-3. **Удаление мест**
-   - FSM states: `DELETING_ROW` → `DELETING_SEATS` → `DELETION_MENU`
-   - Парсер мест (аналогично добавлению)
-   - Валидация: места принадлежат брони И status=BOOKED (не PAID)
-   - Установка released_at = NOW()
-   - Обновление Reservation.last_activity_at
-
-4. **Удаление всех мест (отмена брони)**
-   - Проверка прав: если есть PAID места И пользователь НЕ админ → ошибка
-   - Подтверждение: [Подтверждаю] [Отмена]
-   - Освобождение всех мест (включая PAID для админа)
-   - Reservation.state = CANCELLED
-
-### Success Criteria
-
-- ✅ Пересылка от клиента с бронью открывает главное меню
-- ✅ Можно добавлять места через меню (переиспользование Phase 1 логики)
-- ✅ Можно удалять места (только BOOKED, не PAID)
-- ✅ Можно отменить всю бронь
-- ✅ Админ может отменить бронь с оплаченными местами
-- ✅ Обычный пользователь не может отменить бронь с оплаченными местами
-- ✅ Конфликт контекста обрабатывается корректно
-
-### Technical Notes
-
-- Проверка админа: `AppUser.role == UserRole.ADMIN` via `AppUser.vk_user_id`
-- Audit log: `seats_removed`, `reservation_cancelled`
-- После удаления — вернуться в главное меню с обновленным списком
-
-### Dependencies
-
-- Phase 1
-- AppUser.vk_user_id поле (существует)
-
----
-
-## Phase 3: Регистрация оплаты и скрипт
-
-**Goal:** Полный цикл: бронь -> оплата -> скрипт для клиента.
-
-**Status:** ✅ COMPLETE (2026-02-18), gap closure complete
-
-**Estimated effort:** ~12-15 hours
-**Actual effort:** ~7 minutes (AI-assisted)
-
-**Plans:** 3 plans
+### Phase 3: Регистрация оплаты
+**Goal:** Полный цикл: бронь → оплата → скрипт для клиента.
+**Status:** Complete (2026-02-18)
 
 Plans:
-- [x] 03-01-PLAN.md — Payment foundation: model fix, FSM state, keyboard, DB function, message formatter (4 min)
-- [x] 03-02-PLAN.md — Payment handlers: payment.py, receipt forwarding, menu wiring, registration (3 min)
-- [x] 03-03-PLAN.md — Gap closure: Fix receipt forwarding (state comparison bug, attachment detection, context switch)
+- [x] 03-01-PLAN.md — Payment foundation
+- [x] 03-02-PLAN.md — Payment handlers
+- [x] 03-03-PLAN.md — Gap closure: Fix receipt forwarding
 
-### Requirements
-
-1. **Регистрация оплаты по пересылке чека**
-   - Определение клиента по автору пересланного сообщения
-   - Проверка наличия активной брони
-   - FSM state: `PAYMENT_QUANTITY`
-   - Кнопки: [1] [2] ... [Все N]
-
-2. **Детерминированный выбор мест**
-   - Сортировка: `row_number ASC, seat_number ASC`
-   - Взятие первых N мест со status=BOOKED
-   - Обновление status → PAID
-   - Создание Payment + PaymentSeat записей
-
-3. **Регистрация оплаты через кнопку [Оплата]**
-   - Аналогичный флоу без пересылки чека
-   - Запрос количества через кнопки
-
-4. **Обработка частичной оплаты**
-   - Корректное отображение остатка неоплаченных мест
-   - Возможность повторной оплаты оставшихся мест
-
-5. **Валидация количества**
-   - Количество не должно превышать доступные BOOKED места
-   - Ошибка: "Введено количество X, но доступно только Y мест для оплаты"
-
-### Success Criteria
-
-- ✅ Можно зарегистрировать оплату по пересылке чека
-- ✅ Можно зарегистрировать оплату через меню
-- ✅ Детерминированный выбор мест работает корректно (row ASC, seat ASC)
-- ✅ Частичная оплата поддерживается
-- ✅ Повторная оплата оставшихся мест работает
-- ✅ Скрипт после брони уже реализован в Phase 1
-- ✅ Audit log фиксирует все платежи с payload
-
-### Technical Notes
-
-- Audit log: `payment_recorded` с payload: `{payment_id, seat_ids, amount, partial: bool}`
-- Payment.payment_amount — как вычислять? (seat_count * SEAT_PRICE из .env)
-- Обновление Reservation.last_activity_at
-
-### Dependencies
-
-- Phase 1, Phase 2
-- SEAT_PRICE в .env конфигурации
-
----
-
-## Phase 4: Управление резервами (админ)
-
+### Phase 4: Управление резервами (админ)
 **Goal:** Админы могут создавать/удалять резервы с комментариями.
-
-**Status:** ✅ COMPLETE (2026-02-18)
-**Estimated effort:** ~8-10 hours
-**Actual effort:** ~9 minutes (AI-assisted)
-
-**Plans:** 2 plans
+**Status:** Complete (2026-02-18)
 
 Plans:
-- [x] 04-01-PLAN.md — Reserve foundation: FSM states, keyboard, DB functions (add_reserve, release_reserve, get_app_user_by_vk_id) (6 min)
-- [x] 04-02-PLAN.md — Reserve handler: /reserve command, add/remove flows, bot registration (3 min)
+- [x] 04-01-PLAN.md — Reserve foundation
+- [x] 04-02-PLAN.md — Reserve handler
 
-### Requirements
-
-1. **Команда /reserve для админов**
-   - Проверка AppUser.role == UserRole.ADMIN via db.is_user_admin()
-   - Если не админ → "Управление резервами доступно только администраторам"
-   - FSM state: `RESERVE_ACTION`
-
-2. **Добавление резерва**
-   - FSM states: `RESERVE_ADDING_ROW` → `RESERVE_ADDING_SEATS` → `RESERVE_COMMENT`
-   - Парсер мест (переиспользование parse_seats)
-   - Обязательный ввод комментария
-   - Создание SeatAssignment: status=RESERVED, reservation_id=NULL, note=<комментарий>
-
-3. **Удаление резерва**
-   - Ввод ряда и мест
-   - Валидация: места должны быть в status=RESERVED
-   - Установка released_at = NOW()
-   - Сохранение previous_note в audit log
-
-4. **Отображение резервов при проверке занятости**
-   - При ошибке "Места уже заняты" показывать:
-     - "Ряд X место Y (Резерв: комментарий)"
-   - NOTE: Already implemented in reservation.py awaiting_seats_handler
-
-### Success Criteria
-
-- Админы видят и могут использовать /reserve
-- Не-админы не могут использовать /reserve
-- Можно создать резерв с обязательным комментарием
-- Можно удалить резерв
-- Резервы отображаются при проверке занятости мест
-- Комментарий сохраняется в SeatAssignment.note
-- При удалении комментарий логируется в audit
-
-### Technical Notes
-
-- AppUser.role == UserRole.ADMIN — db.is_user_admin() exists
-- Audit log: `reserve_added`, `reserve_removed`
-- Резервы НЕ привязаны к Reservation (reservation_id=NULL)
-
-### Dependencies
-
-- Phase 1, Phase 2 (both complete)
-- AppUser.role field (exists)
-
----
-
-## Phase 5: Просмотр должников и напоминания
-
+### Phase 5: Просмотр должников и напоминания
 **Goal:** Билетеры видят список должников, автоматические напоминания работают.
-
-**Estimated effort:** ~6-8 hours
-
-**Plans:** 2 plans
+**Status:** Complete (2026-02-18)
 
 Plans:
-- [ ] 05-01-PLAN.md — /debtors command: DB query, keyboard, formatters, handler, registration
-- [ ] 05-02-PLAN.md — Cron reminder script: standalone async script with VK API sends and audit logging
+- [x] 05-01-PLAN.md — /debtors command
+- [x] 05-02-PLAN.md — Cron reminder script
 
-### Requirements
-
-1. **Команда /debtors**
-   - Запрос к БД: брони с last_activity_at >= 7 дней назад AND status=BOOKED
-   - Отображение списка: имя, количество мест, дата брони, последняя активность
-   - Кнопки: [Обновить] [Закрыть]
-
-2. **Фильтрация по билетеру**
-   - Каждый билетер видит только свои брони (sold_by_user_id)
-   - Админы видят всех должников
-
-3. **Cron скрипт для автоматических напоминаний**
-   - Python скрипт: send_debtors_reminders.py
-   - Выполнение каждые 3 дня в 20:00 МСК
-   - Формирование списка должников
-   - Отправка сообщений билетерам через VK Bot API
-
-4. **Настройка cron**
-   - Добавить в crontab: `0 20 */3 * * /path/to/script`
-   - Логирование результатов
-
-### Success Criteria
-
-- ✅ Команда /debtors работает корректно
-- ✅ Каждый билетер видит только своих должников
-- ✅ Админы видят всех должников
-- ✅ Cron скрипт отправляет напоминания
-- ✅ Напоминания логируются в audit log
-
-### Technical Notes
-
-- SQL запрос:
-  ```sql
-  WHERE r.state = 'active'
-    AND r.last_activity_at <= NOW() - INTERVAL '7 days'
-    AND (r.sold_by_user_id = <user> OR <user_is_admin>)
-  ```
-- Audit log: `debtors_notification_sent`
-
-### Dependencies
-
-- Phase 1-4
-- Cron доступ на сервере
-- VK Bot API для отправки сообщений вне webhook
+</details>
 
 ---
 
-## Phase 6: Статистика и полировка
+### 🚧 v0.2 Рефакторинг архитектуры бота (In Progress)
 
-**Goal:** Дополнительные функции для удобства + финальная доработка.
+**Milestone Goal:** Устранить ~335+ строк дублированного кода в хендлерах, создать переиспользуемые абстракции (constants, router, steps, texts), улучшить UX навигации.
 
-**Estimated effort:** ~10-12 hours
-
-### Requirements
-
-1. **Команда /mystats для билетеров**
-   - Количество броней (активные/отмененные)
-   - Количество оплаченных мест
-   - Общая сумма продаж
-   - За текущий месяц + за все время
-
-2. **Админ-статистика**
-   - Общая статистика по всем билетерам
-   - Топ-продавцов (по количеству мест / по сумме)
-   - Процент оплаты (оплачено / забронировано)
-
-3. **Улучшение сообщений об ошибках**
-   - Более детальные объяснения
-   - Примеры корректного ввода в каждой ошибке
-
-4. **Логирование**
-   - Настроить логирование всех действий бота
-   - Уровни: DEBUG, INFO, WARNING, ERROR
-   - Ротация логов (по размеру или дате)
-
-5. **Мониторинг Redis**
-   - Проверка подключения при старте
-   - Автоматический реконнект при потере соединения
-
-6. **Тестирование**
-   - Unit-тесты для критичных функций:
-     - seat_parser (парсинг мест)
-     - is_seat_available
-     - add_seats_to_reservation
-     - record_payment
-   - Интеграционные тесты для сценариев (создание брони → добавление → оплата)
-   - Нагрузочное тестирование (10 одновременных операций)
-
-7. **Документация**
-   - README.md для развертывания (requirements, .env, запуск)
-   - Инструкция для билетеров (как пользоваться ботом)
-   - Инструкция для админов (дополнительные команды)
-
-### Success Criteria
-
-- ✅ Статистика работает корректно
-- ✅ Логи записываются и ротируются
-- ✅ Тесты покрывают основные сценарии (>70% coverage)
-- ✅ Документация актуальна и понятна
-- ✅ Бот стабильно работает под нагрузкой (10 параллельных пользователей)
-
-### Technical Notes
-
-- Логирование: Python logging module, RotatingFileHandler
-- Тесты: pytest + pytest-asyncio для async handlers
-- Нагрузочное тестирование: pytest-xdist или locust
-
-### Dependencies
-
-- Phase 1-5
-- pytest, pytest-asyncio, pytest-cov
+- [ ] **Phase 7: Bug Fix** — Исправить контекстный баг восстановления состояния
+- [ ] **Phase 8: Foundation** — Создать constants.py, texts.py, обновить keyboards.py
+- [ ] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
+- [ ] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
+- [ ] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
+- [ ] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
 
 ---
 
-## MVP Definition
+## Phase Details
 
-**Phases 1-3** составляют минимальный продукт:
-- Создание броней
-- Добавление/удаление мест
-- Регистрация оплаты
-- Генерация скриптов
-- Основные команды
+### Phase 7: Bug Fix
 
-**Estimated MVP timeline:** ~37-47 hours
+**Goal:** Устранить производственный баг: после нажатия "Нет" в context_switch_handler пользователь застревает в некорректном состоянии.
+**Depends on:** Nothing (first phase of v0.2)
+**Requirements:** BUG-01
+**Success Criteria** (what must be TRUE):
+  1. Билетер нажимает "Нет" в диалоге смены контекста — бот возвращает его в то состояние, в котором он был до пересылки
+  2. Все 16 FSM-состояний корректно восстанавливаются через `BotState(original_state)` без KeyError
+**Plans:** TBD
 
-**Phases 4-6** — расширенная функциональность:
-- Резервы (админы)
-- Должники и напоминания
-- Статистика и полировка
-
-**Estimated full timeline:** ~61-77 hours total
+Plans:
+- [ ] 07-01: Fix BotState enum restoration in context_switch_handler (menu.py:325)
 
 ---
 
-## Success Metrics
+### Phase 8: Foundation
 
-**Phase 1-3 (MVP):**
-- Билетер может создать бронь за <30 секунд
-- 0 конфликтов занятости мест (атомарность гарантирована)
-- Скрипт генерируется автоматически
+**Goal:** Единый источник правды для всех UI-строк: кнопки, команды и пользовательские сообщения вынесены в отдельные модули, keyboards.py не содержит raw strings.
+**Depends on:** Phase 7
+**Requirements:** CONST-01, CONST-02, TEXT-01
+**Success Criteria** (what must be TRUE):
+  1. Все строки кнопок в keyboards.py читаются из `Btn.*` — ни одного строкового литерала для кнопок
+  2. Все пользовательские сообщения (промпты, ошибки) содержатся в bot/texts.py с .format() плейсхолдерами
+  3. `Btn`, `Cmd`, `ALL_COMMANDS` импортируются из bot/constants.py и работают как обычные строки в vkbottle параметрах
+**Plans:** TBD
 
-**Phase 4-6 (Full):**
-- Админы управляют резервами без ошибок
-- Напоминания о должниках отправляются автоматически
-- Статистика доступна в реальном времени
-
-**Technical:**
-- Время отклика бота <2 секунды
-- 0 потерянных сообщений (Redis persistence)
-- Все критичные операции покрыты тестами
-
----
-
-## Risk Mitigation
-
-**Concurrency issues:**
-- Протестировать параллельные бронирования одних мест
-- Валидировать partial index работает корректно
-
-**Redis failure:**
-- Automatic reconnect
-- Graceful degradation (бот отключается, но БД не повреждается)
-
-**VK API rate limits:**
-- Implement exponential backoff
-- Queue для массовых рассылок (должники)
-
-**SQLite write lock:**
-- Миграция на PostgreSQL при >10 билетерах
-- Мониторинг времени выполнения транзакций
+Plans:
+- [ ] 08-01: Create bot/constants.py (Btn, Cmd StrEnums, ALL_COMMANDS frozenset)
+- [ ] 08-02: Create bot/texts.py (all user-facing strings consolidated)
+- [ ] 08-03: Update bot/keyboards.py to use Btn.* instead of raw string literals
 
 ---
 
-*Roadmap created: 2026-01-24*
-*Phase 2 planned: 2026-01-24*
-*Phase 2 gap closure: 2026-01-24*
-*Phase 3 planned: 2026-02-17*
-*Phase 3 gap closure: 2026-02-18*
-*Phase 4 planned: 2026-02-18*
-*Phase 4 complete: 2026-02-18*
-*Phase 5 planned: 2026-02-18*
+### Phase 9: FSM Config + Steps
+
+**Goal:** Декларативный конфиг FSM описывает все 16 состояний единым источником правды; три переиспользуемых примитива шагов заменяют 4+4+3 дублированных блока.
+**Depends on:** Phase 8
+**Requirements:** FSM-01, STEP-01, STEP-02, STEP-03
+**Success Criteria** (what must be TRUE):
+  1. Конфиг FSM описывает для каждого состояния: handler, input type, validators, auth guard, forward transitions, back state — всё в одном месте
+  2. `handle_row_input()` вызывается из reservation, deletion, reserve flows и возвращает типизированный `RowResult` без дублирования логики валидации
+  3. `handle_seat_input()` принимает строку ввода мест, валидирует по layout и availability, возвращает `SeatResult`
+  4. `handle_confirmation()` обрабатывает yes/no ввод и возвращает `Optional[bool]` — один код для всех подтверждений
+**Plans:** TBD
+
+Plans:
+- [ ] 09-01: Create FSM config (declarative per-state definitions in bot/fsm/ or bot/router.py)
+- [ ] 09-02: Create bot/steps.py with handle_row_input(), handle_seat_input(), handle_confirmation()
+
+---
+
+### Phase 10: Router
+
+**Goal:** Центральный роутер заменяет 7 функций register_handlers() и 14 closure-обёрток; команды перехватываются из любого FSM-состояния.
+**Depends on:** Phase 9
+**Requirements:** RTR-01, RTR-02, RTR-03
+**Success Criteria** (what must be TRUE):
+  1. Команды `/start`, `/help`, `/cancel`, `/exit` работают из любого из 16 FSM-состояний — не только из MAIN_MENU и RESERVE_ACTION
+  2. Router читает FSM config и автоматически регистрирует хендлеры с инъекцией storage и проверкой auth guard
+  3. `register_all()` гарантирует порядок: forwarded-message handler первый, затем command handlers, затем state handlers
+  4. bot/main.py использует `bot.labeler.load(router.labeler)` вместо цепочки register_handlers() вызовов
+**Plans:** TBD
+
+Plans:
+- [ ] 10-01: Create bot/router.py (Router class, decorators, register_all() with enforced ordering)
+- [ ] 10-02: Wire router into bot/main.py, verify universal command interception
+
+---
+
+### Phase 11: Handler Migration
+
+**Goal:** Все 7 файлов хендлеров используют @router декораторы и shared steps; все register_handlers() функции и closure-обёртки удалены.
+**Depends on:** Phase 10
+**Requirements:** MIG-01, MIG-02, MIG-03, MIG-04, MIG-05, MIG-06, MIG-07, MIG-08, MIG-09
+**Success Criteria** (what must be TRUE):
+  1. Все существующие боты-флоу (создание брони, удаление, оплата, резервы, должники) работают идентично — ни один сценарий не сломан
+  2. В кодовой базе нет ни одной функции `register_handlers()` и ни одной closure-обёртки для инъекции storage
+  3. bot/main.py содержит только импорты модулей хендлеров (для срабатывания декораторов) и один вызов `bot.labeler.load(router.labeler)`
+  4. Каждый файл хендлера мигрирован атомарно: в одном коммите новые декораторы + удаление старой регистрации + обновление main.py
+**Plans:** TBD
+
+Plans:
+- [ ] 11-01: Migrate bot/handlers/reservation.py (atomic commit)
+- [ ] 11-02: Migrate bot/handlers/deletion.py (atomic commit)
+- [ ] 11-03: Migrate bot/handlers/reserve.py (atomic commit)
+- [ ] 11-04: Migrate bot/handlers/commands.py (atomic commit)
+- [ ] 11-05: Migrate bot/handlers/menu.py — remove command dispatch elif block (atomic commit)
+- [ ] 11-06: Migrate bot/handlers/payment.py (atomic commit)
+- [ ] 11-07: Migrate bot/handlers/debtors.py — read file first, verify "Обновить" handling (atomic commit)
+- [ ] 11-08: Remove all register_handlers() and closure wrappers, update main.py
+
+---
+
+### Phase 12: Navigation UX
+
+**Goal:** Билетеры получают интуитивную навигацию: /cancel возвращает на предыдущий шаг, /exit сбрасывает в IDLE, ранняя валидация ряда предотвращает бесполезный ввод мест.
+**Depends on:** Phase 11
+**Requirements:** NAV-01, NAV-02, NAV-03
+**Success Criteria** (what must be TRUE):
+  1. Билетер в середине операции (например, вводит номера мест) нажимает /cancel — бот возвращает его к предыдущему шагу (ввод ряда), а не в IDLE
+  2. Билетер нажимает /exit из любого состояния — FSM сбрасывается в IDLE с подтверждающим сообщением
+  3. Билетер вводит ряд без доступных мест для текущей операции — бот сразу сообщает об этом и не запрашивает номера мест
+  4. Весь BACK_MAP для всех 16 состояний определён до начала реализации — нет состояний с неопределённым поведением /cancel
+**Plans:** TBD
+
+Plans:
+- [ ] 12-01: Define complete BACK_MAP covering all 16 states; implement NAV-01 (/cancel → back state)
+- [ ] 12-02: Implement NAV-02 (/exit → IDLE) and NAV-03 (early row validation)
+
+---
+
+## Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 0. Валидация БД | v0.1 | — | Complete | 2026-01-24 |
+| 1. Основа бота | v0.1 | 1/1 | Complete | 2026-01-24 |
+| 2. Меню и удаление | v0.1 | 4/4 | Complete | 2026-01-24 |
+| 3. Оплата | v0.1 | 3/3 | Complete | 2026-02-18 |
+| 4. Резервы | v0.1 | 2/2 | Complete | 2026-02-18 |
+| 5. Должники | v0.1 | 2/2 | Complete | 2026-02-18 |
+| 6. Статистика | v0.1 | — | Deferred | — |
+| 7. Bug Fix | v0.2 | 0/1 | Not started | — |
+| 8. Foundation | v0.2 | 0/3 | Not started | — |
+| 9. FSM Config + Steps | v0.2 | 0/2 | Not started | — |
+| 10. Router | v0.2 | 0/2 | Not started | — |
+| 11. Handler Migration | v0.2 | 0/8 | Not started | — |
+| 12. Navigation UX | v0.2 | 0/2 | Not started | — |
+
+---
+
+*Roadmap updated: 2026-02-19 — v0.2 phases 7-12 added*

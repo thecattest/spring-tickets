@@ -74,31 +74,32 @@
 
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
-| BUG-01 | — | Pending |
-| CONST-01 | — | Pending |
-| CONST-02 | — | Pending |
-| TEXT-01 | — | Pending |
-| FSM-01 | — | Pending |
-| STEP-01 | — | Pending |
-| STEP-02 | — | Pending |
-| STEP-03 | — | Pending |
-| RTR-01 | — | Pending |
-| RTR-02 | — | Pending |
-| RTR-03 | — | Pending |
-| MIG-01 | — | Pending |
-| MIG-02 | — | Pending |
-| MIG-03 | — | Pending |
-| MIG-04 | — | Pending |
-| MIG-05 | — | Pending |
-| MIG-06 | — | Pending |
-| MIG-07 | — | Pending |
-| MIG-08 | — | Pending |
-| MIG-09 | — | Pending |
-| NAV-01 | — | Pending |
-| NAV-02 | — | Pending |
-| NAV-03 | — | Pending |
+| BUG-01 | Phase 7 | Pending |
+| CONST-01 | Phase 8 | Pending |
+| CONST-02 | Phase 8 | Pending |
+| TEXT-01 | Phase 8 | Pending |
+| FSM-01 | Phase 9 | Pending |
+| STEP-01 | Phase 9 | Pending |
+| STEP-02 | Phase 9 | Pending |
+| STEP-03 | Phase 9 | Pending |
+| RTR-01 | Phase 10 | Pending |
+| RTR-02 | Phase 10 | Pending |
+| RTR-03 | Phase 10 | Pending |
+| MIG-01 | Phase 11 | Pending |
+| MIG-02 | Phase 11 | Pending |
+| MIG-03 | Phase 11 | Pending |
+| MIG-04 | Phase 11 | Pending |
+| MIG-05 | Phase 11 | Pending |
+| MIG-06 | Phase 11 | Pending |
+| MIG-07 | Phase 11 | Pending |
+| MIG-08 | Phase 11 | Pending |
+| MIG-09 | Phase 11 | Pending |
+| NAV-01 | Phase 12 | Pending |
+| NAV-02 | Phase 12 | Pending |
+| NAV-03 | Phase 12 | Pending |
 
 ---
 
-*19 requirements across 7 categories | 3 future | 5 out of scope*
+*23 requirements across 7 categories | 3 future | 5 out of scope*
 *Created: 2026-02-19*
+*Traceability updated: 2026-02-19 (phases 7-12 assigned)*
