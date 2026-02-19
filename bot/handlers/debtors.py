@@ -96,7 +96,7 @@ def register_handlers(bot: Bot):
     Args:
         bot: VKBottle Bot instance
     """
-    bot.on.message(text="/debtors")(debtors_command_handler)
+    bot.on.message(text=["/debtors", "/Должники"])(debtors_command_handler)
     bot.on.message(text="Обновить")(refresh_debtors_handler)
 
     logger.info("Debtors handlers registered")

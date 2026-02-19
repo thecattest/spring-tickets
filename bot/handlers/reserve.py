@@ -2,7 +2,7 @@
 Reserve management handlers (admin only).
 
 Handles:
-- /reserve command (entry point, admin check)
+- /Резерв command (entry point, admin check)
 - Add reserve flow (RESERVE_ACTION -> RESERVE_ADDING_ROW -> RESERVE_ADDING_SEATS -> RESERVE_COMMENT -> RESERVE_ACTION)
 - Remove reserve flow (RESERVE_ACTION -> RESERVE_REMOVING_ROW -> RESERVE_REMOVING_SEATS -> RESERVE_REMOVE_CONFIRM -> RESERVE_ACTION)
 
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 async def reserve_command_handler(message: Message, storage: RedisStorage):
     """
-    /reserve command handler.
+    /Резерв command handler.
 
     Checks admin status and shows reserve action keyboard or rejection.
     """
@@ -84,15 +84,15 @@ async def reserve_action_handler(message: Message, storage: RedisStorage):
         # Command entered — clear state and let command handlers process
         await storage.delete(message.from_id)
         # Re-dispatch: manually call the command since state handler consumed the message
-        if text == "/cancel":
+        if text in ("/cancel", "/Отмена"):
             from bot.handlers.commands import cancel_handler
             await cancel_handler(message, storage)
-        elif text == "/debtors":
+        elif text in ("/debtors", "/Должники"):
             from bot.handlers.debtors import _show_debtors
             await _show_debtors(message)
-        elif text == "/reserve":
+        elif text in ("/reserve", "/Резерв"):
             await reserve_command_handler(message, storage)
-        elif text == "/help":
+        elif text in ("/help", "/Справка"):
             from bot.handlers.commands import help_handler
             await help_handler(message)
         elif text == "/start":
@@ -149,7 +149,7 @@ async def reserve_adding_seats_handler(message: Message, storage: RedisStorage):
 
     row = context.get("current_row")
     if not row:
-        await message.answer("Ошибка: потерян контекст. Начните заново с /reserve.")
+        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
         await storage.delete(message.from_id)
         return
 
@@ -194,7 +194,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
     admin_user_id = context.get("admin_user_id")
 
     if not all([row, seats, admin_user_id]):
-        await message.answer("Ошибка: потерян контекст. Начните заново с /reserve.")
+        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
         await storage.delete(message.from_id)
         return
 
@@ -285,7 +285,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
 
     row = context.get("current_row")
     if not row:
-        await message.answer("Ошибка: потерян контекст. Начните заново с /reserve.")
+        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
         await storage.delete(message.from_id)
         return
 
@@ -333,7 +333,7 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
     admin_user_id = context.get("admin_user_id")
 
     if not all([row, seats, admin_user_id]):
-        await message.answer("Ошибка: потерян контекст. Начните заново с /reserve.")
+        await message.answer("Ошибка: потерян контекст. Начните заново с /Резерв.")
         await storage.delete(message.from_id)
         return
 
@@ -416,7 +416,7 @@ def register_handlers(bot: Bot):
         await reserve_remove_confirm_handler(message, storage)
 
     # Command handler
-    bot.on.message(text="/reserve")(reserve_command_with_storage)
+    bot.on.message(text=["/reserve", "/Резерв"])(reserve_command_with_storage)
 
     # State-specific handlers
     bot.on.message(state=BotState.RESERVE_ACTION)(reserve_action_with_storage)

@@ -27,8 +27,8 @@ async def start_handler(message: Message):
 Я помогу вам оформлять брони для клиентов.
 
 Основные команды:
-/help - подробная справка
-/cancel - отменить текущую операцию
+/Справка - подробная справка
+/Отмена - отменить текущую операцию
 
 Чтобы создать бронь:
 1. Перешлите мне сообщение клиента
@@ -77,10 +77,10 @@ async def help_handler(message: Message):
 
 КОМАНДЫ:
 /start - приветствие
-/help - эта справка
-/cancel - отменить текущую операцию
-/reserve - управление резервами (только для админов)
-/debtors - список должников
+/Справка - эта справка
+/Отмена - отменить текущую операцию
+/Резерв - управление резервами (только для админов)
+/Должники - список должников
 
 По вопросам обращайтесь к администратору."""
 
@@ -129,7 +129,7 @@ def register_handlers(bot: Bot):
 
     # Commands work in any state
     bot.on.message(text="/start")(start_handler)
-    bot.on.message(text="/help")(help_handler)
-    bot.on.message(text="/cancel")(cancel_with_storage)
+    bot.on.message(text=["/help", "/Справка"])(help_handler)
+    bot.on.message(text=["/cancel", "/Отмена"])(cancel_with_storage)
 
     logger.info("Command handlers registered")

@@ -20,11 +20,11 @@ def commands_keyboard() -> str:
     """
     keyboard = Keyboard(one_time=False, inline=False)
 
-    keyboard.add(Text("/cancel"), color=KeyboardButtonColor.NEGATIVE)
-    keyboard.add(Text("/help"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text("/Отмена"), color=KeyboardButtonColor.NEGATIVE)
+    keyboard.add(Text("/Справка"), color=KeyboardButtonColor.SECONDARY)
     keyboard.row()
-    keyboard.add(Text("/debtors"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("/reserve"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("/Должники"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text("/Резерв"), color=KeyboardButtonColor.POSITIVE)
 
     return keyboard.get_json()
 

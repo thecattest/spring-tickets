@@ -177,16 +177,16 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
     elif text.startswith("/"):
         # Command entered — clear state and dispatch to command handler
         await storage.delete(message.from_id)
-        if text == "/cancel":
+        if text in ("/cancel", "/Отмена"):
             from bot.handlers.commands import cancel_handler
             await cancel_handler(message, storage)
-        elif text == "/debtors":
+        elif text in ("/debtors", "/Должники"):
             from bot.handlers.debtors import _show_debtors
             await _show_debtors(message)
-        elif text == "/reserve":
+        elif text in ("/reserve", "/Резерв"):
             from bot.handlers.reserve import reserve_command_handler
             await reserve_command_handler(message, storage)
-        elif text == "/help":
+        elif text in ("/help", "/Справка"):
             from bot.handlers.commands import help_handler
             await help_handler(message)
         elif text == "/start":
