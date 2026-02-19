@@ -23,6 +23,7 @@ from vkbottle.bot import Message
 
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
+from bot.fsm.config import FSM_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,42 @@ class Router:
         wrapped.__name__ = handler_func.__name__ + "_wrapped"
         return wrapped
 
+    def _with_auth_guard(self, handler_func, state: BotState):
+        """Wrap handler with auth guard based on FSM_CONFIG[state].auth_guard."""
+        from bot.utils.db import get_user_role
+
+        config = FSM_CONFIG[state]
+        guard = config.auth_guard
+        storage = self.storage
+
+        if guard == "any":
+            # No auth check needed — just inject storage
+            async def wrapped(message: Message):
+                await handler_func(message, storage)
+            wrapped.__name__ = handler_func.__name__ + "_wrapped"
+            return wrapped
+
+        async def guarded(message: Message):
+            role = get_user_role(message.from_id)
+            if role is None:
+                await message.answer("У вас нет доступа к этой функции.")
+                await storage.delete(message.from_id)
+                return
+            # "seller" guard: seller or admin allowed
+            # "admin" guard: only admin allowed
+            if guard == "admin" and role != "admin":
+                await message.answer("Эта функция доступна только администраторам.")
+                await storage.delete(message.from_id)
+                return
+            if guard == "seller" and role not in ("seller", "admin"):
+                await message.answer("У вас нет доступа к этой функции.")
+                await storage.delete(message.from_id)
+                return
+            await handler_func(message, storage)
+
+        guarded.__name__ = handler_func.__name__ + "_guarded"
+        return guarded
+
     # ------------------------------------------------------------------
     # Registration groups
     # ------------------------------------------------------------------
@@ -150,9 +187,11 @@ class Router:
         """
         Register FSM state handlers.
 
-        All state handlers accept (message, storage) and are wrapped via _wrap().
-        States are listed in the order they appear in the BotState enum.
-        IDLE is handled by the forwarded message handler above.
+        Iterates FSM_CONFIG to determine which states need handlers and what
+        auth_guard applies. Each handler is wrapped via _with_auth_guard(),
+        which injects storage and enforces role-based access control.
+
+        IDLE is skipped — it is handled by the forwarded message handler above.
         """
         from bot.handlers.reservation import (
             awaiting_row_handler,
@@ -180,30 +219,31 @@ class Router:
             reserve_remove_confirm_handler,
         )
 
-        states = [
-            # Reservation creation flow
-            (BotState.AWAITING_ROW, awaiting_row_handler),
-            (BotState.AWAITING_SEATS, awaiting_seats_handler),
-            (BotState.SEAT_ADDITION_MENU, seat_addition_menu_handler),
-            # Main menu and navigation
-            (BotState.MAIN_MENU, main_menu_handler),
-            (BotState.CONTEXT_SWITCH_CONFIRM, context_switch_handler),
-            # Deletion flow
-            (BotState.DELETING_ROW, deleting_row_handler),
-            (BotState.DELETING_SEATS, deleting_seats_handler),
-            (BotState.DELETION_CONFIRM, deletion_confirm_handler),
-            (BotState.CANCEL_CONFIRM, cancel_confirm_handler),
-            # Payment flow
-            (BotState.PAYMENT_QUANTITY, payment_quantity_handler),
-            # Reserve flow (admin only)
-            (BotState.RESERVE_ACTION, reserve_action_handler),
-            (BotState.RESERVE_ADDING_ROW, reserve_adding_row_handler),
-            (BotState.RESERVE_ADDING_SEATS, reserve_adding_seats_handler),
-            (BotState.RESERVE_COMMENT, reserve_comment_handler),
-            (BotState.RESERVE_REMOVING_ROW, reserve_removing_row_handler),
-            (BotState.RESERVE_REMOVING_SEATS, reserve_removing_seats_handler),
-            (BotState.RESERVE_REMOVE_CONFIRM, reserve_remove_confirm_handler),
-        ]
+        # Handler lookup — maps BotState to handler function.
+        # IDLE has no state handler (it's handled by the forwarded-message handler).
+        handler_map = {
+            BotState.AWAITING_ROW: awaiting_row_handler,
+            BotState.AWAITING_SEATS: awaiting_seats_handler,
+            BotState.SEAT_ADDITION_MENU: seat_addition_menu_handler,
+            BotState.MAIN_MENU: main_menu_handler,
+            BotState.CONTEXT_SWITCH_CONFIRM: context_switch_handler,
+            BotState.DELETING_ROW: deleting_row_handler,
+            BotState.DELETING_SEATS: deleting_seats_handler,
+            BotState.DELETION_CONFIRM: deletion_confirm_handler,
+            BotState.CANCEL_CONFIRM: cancel_confirm_handler,
+            BotState.PAYMENT_QUANTITY: payment_quantity_handler,
+            BotState.RESERVE_ACTION: reserve_action_handler,
+            BotState.RESERVE_ADDING_ROW: reserve_adding_row_handler,
+            BotState.RESERVE_ADDING_SEATS: reserve_adding_seats_handler,
+            BotState.RESERVE_COMMENT: reserve_comment_handler,
+            BotState.RESERVE_REMOVING_ROW: reserve_removing_row_handler,
+            BotState.RESERVE_REMOVING_SEATS: reserve_removing_seats_handler,
+            BotState.RESERVE_REMOVE_CONFIRM: reserve_remove_confirm_handler,
+        }
 
-        for state, handler_func in states:
-            self.labeler.message(state=state)(self._wrap(handler_func))
+        for state, config in FSM_CONFIG.items():
+            if state not in handler_map:
+                continue  # IDLE — no state handler
+            handler_func = handler_map[state]
+            wrapped = self._with_auth_guard(handler_func, state)
+            self.labeler.message(state=state)(wrapped)
