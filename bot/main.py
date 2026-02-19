@@ -15,11 +15,10 @@ if __name__ == "__main__":
     sys.path.insert(0, str(project_root))
 
 from vkbottle.bot import Bot
-from vkbottle import BaseStateGroup
 
 from bot import config
 from bot.fsm.storage import RedisStorage
-from bot.handlers import commands, reservation, menu, deletion, payment, reserve, debtors
+from bot.router import Router
 
 
 # Setup logging
@@ -61,15 +60,10 @@ async def setup():
     # Initialize VKBottle bot with Redis state dispenser
     bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=redis_storage)
 
-    # Register handlers
-    logger.info("Registering handlers...")
-    commands.register_handlers(bot)
-    reservation.register_handlers(bot)
-    menu.register_handlers(bot)
-    deletion.register_handlers(bot)
-    payment.register_handlers(bot)
-    reserve.register_handlers(bot)
-    debtors.register_handlers(bot)
+    # Register all handlers via central Router
+    router = Router(storage=redis_storage)
+    router.register_all()
+    bot.labeler.load(router.labeler)
 
     # Initialize database
     from database import init_db
