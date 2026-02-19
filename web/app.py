@@ -5,7 +5,6 @@ Run:
     uvicorn web.app:app --host 0.0.0.0 --port 5000
 """
 
-import json
 import os
 from datetime import datetime
 from decimal import Decimal
@@ -18,6 +17,7 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import func
 
+from bot.utils.layout import get_layout
 from database import get_session
 from models.base import SeatStatus
 from models.payment import Payment
@@ -32,7 +32,6 @@ load_dotenv()
 app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
-LAYOUT_PATH = Path(__file__).parent.parent / "layout.json"
 PAYMENTS_PASSWORD = os.getenv("PAYMENTS_PASSWORD", "")
 SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
 COOKIE_SECRET = os.getenv("COOKIE_SECRET", PAYMENTS_PASSWORD + "_secret")
@@ -40,11 +39,6 @@ COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
 
 serializer = URLSafeTimedSerializer(COOKIE_SECRET)
 COOKIE_NAME = "payments_auth"
-
-
-def load_layout() -> dict:
-    with open(LAYOUT_PATH) as f:
-        return json.load(f)
 
 
 def is_authenticated(request: Request) -> bool:
@@ -64,7 +58,7 @@ def is_authenticated(request: Request) -> bool:
 
 @app.get("/")
 def hall(request: Request):
-    layout = load_layout()
+    layout = get_layout()
 
     with get_session() as session:
         occupied_rows = (
@@ -204,7 +198,7 @@ def payments_page(request: Request):
         )
 
     # Calculate total seats from layout
-    layout = load_layout()
+    layout = get_layout()
     total_seats = sum(row["seatCount"] for row in layout["rows"].values())
 
     # Process seat counts
