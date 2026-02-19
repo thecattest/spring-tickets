@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 10 of 12 (Router)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-19 — Phase 9 verified and complete
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-19 — Completed 10-01-PLAN.md (Router class created)
 
-Progress: [██████████░░░░░░░░░░] 55% (v0.1 complete, v0.2 phases 7-9 done)
+Progress: [████████████░░░░░░░░] 60% (v0.1 complete, v0.2 phases 7-10-01 done)
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress: [██████████░░░░░░░░░░] 55% (v0
 | Phase 5 | 2 | ~4 min | ~2 min |
 | Phase 8 | 3 | ~7 min | ~2 min |
 | Phase 9 | 2 | ~3 min | ~1.5 min |
+| Phase 10 plan 01 | 1 | ~2 min | 2 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -64,6 +65,9 @@ Progress: [██████████░░░░░░░░░░] 55% (v0
 - [09-steps] Lazy imports in handle_row_input/handle_seat_input/handle_confirmation — avoids circular imports at module level
 - [09-steps] availability mode builds dynamic error message inline — occupancy detail is too dynamic for a static texts.py constant
 - [09-steps] handle_confirmation is the canonical Btn.CONFIRM/CANCEL comparison location — handlers never compare raw strings directly
+- [10-router] Router uses self.labeler (BotLabeler) NOT bot.on — wired to bot in 10-02 via bot.labeler.load(router.labeler)
+- [10-router] start_handler/help_handler registered directly (no _wrap) — only take (message,); debtors handlers same
+- [10-router] All bot.handlers.* imports lazy (inside _register_* methods) — prevents circular imports
 
 ### Pending Todos
 
@@ -76,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Phase 9 complete and verified. Ready to plan Phase 10.
+Last session: 2026-02-19T18:59:17Z
+Stopped at: Completed 10-01-PLAN.md. Router class in bot/router.py with 24 registered handlers.
 Resume file: None
