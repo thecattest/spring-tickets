@@ -10,16 +10,16 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 9 of 12 (FSM Config + Steps)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-02-19 — Phase 8 verified and complete
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-19 — Completed 09-01-PLAN.md (FSM config)
 
-Progress: [██████████░░░░░░░░░░] 50% (v0.1 complete, v0.2 phases 7-8 done)
+Progress: [██████████░░░░░░░░░░] 50% (v0.1 complete, v0.2 phases 7-9/01 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 17 (13 v0.1 + 4 v0.2)
+- Total plans completed: 18 (13 v0.1 + 5 v0.2)
 - Average duration: ~5 min
 - Total execution time: ~1.3 hours
 
@@ -33,6 +33,7 @@ Progress: [██████████░░░░░░░░░░] 50% (v0
 | Phase 4 | 2 | ~9 min | ~5 min |
 | Phase 5 | 2 | ~4 min | ~2 min |
 | Phase 8 | 3 | ~7 min | ~2 min |
+| Phase 9 | 1 | ~1 min | ~1 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -56,6 +57,10 @@ Progress: [██████████░░░░░░░░░░] 50% (v0
 - [08-foundation] texts.py: 62 constants, ERR_*/PROMPT_*/MSG_* naming, .format() placeholders, zero imports/callables
 - [08-foundation] texts.py not yet wired into handlers — Phase 11 handles import wiring
 - [08-foundation] keyboards.py: 19 Btn.* usages, 0 raw strings in Text() calls
+- [09-fsm-config] FSM_CONFIG keyed by BotState enum member (not string) — type-safe access
+- [09-fsm-config] handler=None in Phase 9; Phase 10 Router wires real handlers to avoid premature coupling
+- [09-fsm-config] bot/fsm/config.py NOT exported from __init__.py — imported directly to prevent circular import risk
+- [09-fsm-config] auth_guard Literal "any"|"seller"|"admin" — no UserRole import needed in config layer
 
 ### Pending Todos
 
@@ -68,6 +73,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19
-Stopped at: Phase 8 complete and verified. Ready to plan Phase 9.
+Last session: 2026-02-19T18:28:21Z
+Stopped at: Completed 09-01-PLAN.md (FSM config). Ready to execute 09-02.
 Resume file: None
