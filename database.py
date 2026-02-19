@@ -2,31 +2,20 @@
 Database connection and session factory.
 
 Usage:
-    from database import get_session, engine
-    
-    # Using context manager (recommended)
-    with get_session() as session:
+    from database import SessionLocal, engine
+
+    with SessionLocal() as session:
         user = session.query(AppUser).filter_by(id=1).first()
         session.commit()
-    
-    # Or manually
-    session = SessionLocal()
-    try:
-        user = session.query(AppUser).filter_by(id=1).first()
-        session.commit()
-    finally:
-        session.close()
-    
+
     # Initialize database (create all tables)
-    from models.base import Base
-    Base.metadata.create_all(bind=engine)
+    from database import init_db
+    init_db()
 """
 
 import os
-from contextlib import contextmanager
-from typing import Generator
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 
 
 # Database URL from environment variable or default SQLite for MVP
@@ -59,29 +48,6 @@ SessionLocal = sessionmaker(
     autoflush=False,
     expire_on_commit=False,  # Don't expire objects after commit
 )
-
-
-@contextmanager
-def get_session() -> Generator[Session, None, None]:
-    """
-    Context manager for database sessions.
-    
-    Automatically handles commit/rollback and session cleanup.
-    
-    Example:
-        with get_session() as session:
-            user = session.query(AppUser).filter_by(id=1).first()
-            session.commit()
-    """
-    session = SessionLocal()
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 def init_db() -> None:

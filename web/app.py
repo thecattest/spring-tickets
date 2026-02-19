@@ -18,7 +18,7 @@ from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import func
 
 from bot.utils.layout import get_layout
-from database import get_session
+from database import SessionLocal
 from models.base import SeatStatus
 from models.payment import Payment
 from models.reconcile import ReconcileCheckpoint
@@ -60,7 +60,7 @@ def is_authenticated(request: Request) -> bool:
 def hall(request: Request):
     layout = get_layout()
 
-    with get_session() as session:
+    with SessionLocal() as session:
         occupied_rows = (
             session.query(SeatAssignment.row_number, SeatAssignment.seat_number)
             .filter(SeatAssignment.released_at.is_(None))
@@ -149,7 +149,7 @@ def payments_page(request: Request):
     if not is_authenticated(request):
         return RedirectResponse("/payments/login", status_code=303)
 
-    with get_session() as session:
+    with SessionLocal() as session:
         # Fetch all payments with joins
         payments_query = (
             session.query(
@@ -297,7 +297,7 @@ def create_checkpoint(request: Request):
     if not is_authenticated(request):
         return RedirectResponse("/payments/login", status_code=303)
 
-    with get_session() as session:
+    with SessionLocal() as session:
         # Check there are payments after the latest checkpoint
         latest_cp = (
             session.query(ReconcileCheckpoint.checked_at)
@@ -317,5 +317,6 @@ def create_checkpoint(request: Request):
             checked_at=datetime.utcnow(),
         )
         session.add(checkpoint)
+        session.commit()
 
     return RedirectResponse("/payments", status_code=303)

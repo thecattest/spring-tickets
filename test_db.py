@@ -4,7 +4,7 @@
 """
 
 from datetime import datetime
-from database import init_db, get_session
+from database import init_db, SessionLocal
 from models import (
     AppUser, VkUser, Reservation, SeatAssignment,
     Payment, PaymentSeat, ReconcileCheckpoint, AuditLog
@@ -27,7 +27,7 @@ def test_database():
     # 2. Создание тестовых данных
     print("\n2. Создание тестовых данных...")
     
-    with get_session() as session:
+    with SessionLocal() as session:
         # Админ
         admin = AppUser(
             role=UserRole.ADMIN,
@@ -137,7 +137,7 @@ def test_database():
     # 3. Проверка данных
     print("\n3. Проверка созданных данных...")
     
-    with get_session() as session:
+    with SessionLocal() as session:
         # Проверка пользователей
         users = session.query(AppUser).all()
         print(f"   - Пользователей: {len(users)}")
@@ -172,7 +172,7 @@ def test_database():
     print("\n4. Проверка уникальности активных мест...")
     
     try:
-        with get_session() as session:
+        with SessionLocal() as session:
             # Попытка создать дубликат активного места
             duplicate_seat = SeatAssignment(
                 row_number=10,
