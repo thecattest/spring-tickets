@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 12 of 12 (Back Navigation) — In progress
-Plan: 1 of 3 in current phase
-Status: In progress — 12-01 cancel back-navigation complete
-Last activity: 2026-02-19 — Completed 12-01-PLAN.md (cancel_handler rewritten with FSM_CONFIG back-step navigation)
+Plan: 2 of 3 in current phase
+Status: In progress — 12-02 early row validation complete
+Last activity: 2026-02-19 — Completed 12-02-PLAN.md (early row validation in all 4 row-input handlers, 3 new db.py helpers)
 
-Progress: [█████████████████████░░] 85% (v0.1 complete, v0.2 phases 7-11 complete, phase 12 plan 1/3 done)
+Progress: [██████████████████████░] 90% (v0.1 complete, v0.2 phases 7-11 complete, phase 12 plans 1-2/3 done)
 
 ## Performance Metrics
 
@@ -89,6 +89,9 @@ Progress: [█████████████████████░░
 - [12-01] AWAITING_ROW back-navigation: from_main_menu flag disambiguates MAIN_MENU vs IDLE — checked in step 6 before generic dispatch (step 7)
 - [12-01] CONTEXT_SWITCH_CONFIRM /cancel: restores original_state/original_context from payload; falls through to clear-IDLE if original_state missing
 - [12-01] RESERVE_ACTION back navigation re-fetches fresh reserves list (always current data, not stale payload)
+- [12-02] Row availability helpers return list[int] — handlers only need emptiness check, not ORM objects
+- [12-02] deleting_row_handler: context loaded early (before early validation) to get reservation_id; same context object updated with current_row later
+- [12-02] get_available_seats_in_row uses lazy import of get_seat_count inside function body — consistent with [09-steps] circular-import avoidance pattern
 
 ### Pending Todos
 
@@ -100,6 +103,6 @@ None — AWAITING_ROW ambiguity (formerly a concern) resolved via from_main_menu
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:50:15Z
-Stopped at: Completed 12-01-PLAN.md — cancel_handler rewritten with FSM_CONFIG back-step navigation. AWAITING_ROW ambiguity resolved via from_main_menu flag. CONTEXT_SWITCH_CONFIRM restores original state. Phase 12 plan 1/3 done.
+Last session: 2026-02-19T20:55:15Z
+Stopped at: Completed 12-02-PLAN.md — early row validation added to all 4 row-input handlers. 3 new db.py helpers (get_available_seats_in_row, get_reservation_booked_seats_in_row, get_reserved_seats_in_row). Phase 12 plan 2/3 done.
 Resume file: None
