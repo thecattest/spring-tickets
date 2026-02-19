@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 10: Router (gap closure), next: Phase 11
+**Current focus:** v0.2 — Phase 11: Handler Migration (next), Phase 10: Router complete
 
 ## Current Position
 
-Phase: 10 of 12 (Router) — Gap closure in progress
-Plan: 3 of 4 in current phase (gap closure plans)
-Status: In progress
-Last activity: 2026-02-19 — Completed 10-03-PLAN.md (/exit command handler added and registered)
+Phase: 10 of 12 (Router) — Phase complete
+Plan: 4 of 4 in current phase (all gap closure plans done)
+Status: Phase 10 complete — ready for Phase 11
+Last activity: 2026-02-19 — Completed 10-04-PLAN.md (FSM_CONFIG-driven router with auth guards)
 
-Progress: [█████████████░░░░░░░] 65% (v0.1 complete, v0.2 phases 7-10 core done)
+Progress: [██████████████░░░░░░] 70% (v0.1 complete, v0.2 phases 7-10 complete)
 
 ## Performance Metrics
 
@@ -37,6 +37,7 @@ Progress: [█████████████░░░░░░░] 65% (v0
 | Phase 10 plan 01 | 1 | ~2 min | 2 min |
 | Phase 10 plan 02 | 1 | ~1 min | 1 min |
 | Phase 10 plan 03 | 1 | ~1 min | 1 min |
+| Phase 10 plan 04 | 1 | ~2 min | 2 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -74,6 +75,10 @@ Progress: [█████████████░░░░░░░] 65% (v0
 - [10-02] BaseStateGroup import removed from main.py — was unused after handler module imports removed
 - [10-03] exit_handler message "Сессия завершена" distinct from cancel_handler "Операция отменена" — Phase 12 uses this to differentiate hard reset vs back-navigation
 - [10-03] exit_handler NOT added to legacy register_handlers() — it will be removed atomically in Phase 11
+- [10-04] get_user_role() returns Optional[UserRole] (not bool) — enables router to distinguish seller vs admin guard levels
+- [10-04] _with_auth_guard() imports get_user_role lazily inside the method — consistent with existing lazy import pattern
+- [10-04] Auth failure clears FSM state via storage.delete() — prevents user from getting stuck in an unauthorized state
+- [10-04] _register_states() iterates FSM_CONFIG (not handler_map) — FSM_CONFIG is the canonical iteration source per RTR-01
 
 ### Pending Todos
 
@@ -86,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T19:27:31Z
-Stopped at: Completed 10-03-PLAN.md. /exit handler added and registered in router. Gap 1 from 10-VERIFICATION.md closed.
+Last session: 2026-02-19T19:32:00Z
+Stopped at: Completed 10-04-PLAN.md. FSM_CONFIG-driven router with auth guards. Both gaps from 10-VERIFICATION.md closed. Phase 10 complete.
 Resume file: None
