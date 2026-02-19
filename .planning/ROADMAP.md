@@ -175,7 +175,7 @@ Plans:
 
 ### Phase 12: Navigation UX
 
-**Goal:** Билетеры получают интуитивную навигацию: /cancel возвращает на предыдущий шаг, /exit сбрасывает в IDLE, ранняя валидация ряда предотвращает бесполезный ввод мест.
+**Goal:** Билетеры получают интуитивную навигацию: /cancel возвращает на предыдущий шаг, /exit сбрасывается в IDLE, ранняя валидация ряда предотвращает бесполезный ввод мест.
 **Depends on:** Phase 11
 **Requirements:** NAV-01, NAV-02, NAV-03
 **Success Criteria** (what must be TRUE):
@@ -183,11 +183,11 @@ Plans:
   2. Билетер нажимает /exit из любого состояния — FSM сбрасывается в IDLE с подтверждающим сообщением
   3. Билетер вводит ряд без доступных мест для текущей операции — бот сразу сообщает об этом и не запрашивает номера мест
   4. Весь BACK_MAP для всех 16 состояний определён до начала реализации — нет состояний с неопределённым поведением /cancel
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 12-01: Define complete BACK_MAP covering all 16 states; implement NAV-01 (/cancel → back state)
-- [ ] 12-02: Implement NAV-02 (/exit → IDLE) and NAV-03 (early row validation)
+- [ ] 12-01-PLAN.md — Rewrite cancel_handler for FSM_CONFIG back-step navigation (NAV-01)
+- [ ] 12-02-PLAN.md — Add early row validation to 4 row-input handlers (NAV-03)
 
 ---
 
@@ -211,4 +211,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 11 complete (8 plans, 2 waves)*
+*Roadmap updated: 2026-02-19 — Phase 12 planned (2 plans, 2 waves)*
