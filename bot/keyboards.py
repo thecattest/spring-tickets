@@ -6,6 +6,8 @@ Provides inline keyboards for user interactions.
 
 from vkbottle import Keyboard, KeyboardButtonColor, Text
 
+from bot.constants import Btn
+
 
 def commands_keyboard() -> str:
     """
@@ -20,11 +22,11 @@ def commands_keyboard() -> str:
     """
     keyboard = Keyboard(one_time=False, inline=False)
 
-    keyboard.add(Text("/Отмена"), color=KeyboardButtonColor.NEGATIVE)
-    keyboard.add(Text("/Справка"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text(Btn.CANCEL_CMD), color=KeyboardButtonColor.NEGATIVE)
+    keyboard.add(Text(Btn.HELP_CMD), color=KeyboardButtonColor.SECONDARY)
     keyboard.row()
-    keyboard.add(Text("/Должники"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("/Резерв"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text(Btn.DEBTORS_CMD), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text(Btn.RESERVE_CMD), color=KeyboardButtonColor.POSITIVE)
 
     return keyboard.get_json()
 
@@ -39,8 +41,8 @@ def seat_addition_menu_keyboard() -> Keyboard:
     """
     keyboard = Keyboard(one_time=False, inline=True)
 
-    keyboard.add(Text("Добавить еще"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("Готово"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text(Btn.ADD_MORE), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text(Btn.DONE), color=KeyboardButtonColor.POSITIVE)
 
     return keyboard.get_json()
 
@@ -71,11 +73,11 @@ def main_menu_keyboard() -> str:
     """
     keyboard = Keyboard(one_time=False, inline=True)
 
-    keyboard.add(Text("Добавить"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("Удалить"), color=KeyboardButtonColor.NEGATIVE)
+    keyboard.add(Text(Btn.ADD), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text(Btn.DELETE), color=KeyboardButtonColor.NEGATIVE)
     keyboard.row()
-    keyboard.add(Text("Удалить все"), color=KeyboardButtonColor.NEGATIVE)
-    keyboard.add(Text("Оплата"), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text(Btn.DELETE_ALL), color=KeyboardButtonColor.NEGATIVE)
+    keyboard.add(Text(Btn.PAYMENT), color=KeyboardButtonColor.POSITIVE)
 
     return keyboard.get_json()
 
@@ -92,8 +94,8 @@ def confirmation_keyboard() -> str:
     """
     keyboard = Keyboard(one_time=False, inline=True)
 
-    keyboard.add(Text("Подтвердить"), color=KeyboardButtonColor.POSITIVE)
-    keyboard.add(Text("Отмена"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text(Btn.CONFIRM), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text(Btn.CANCEL), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -110,8 +112,8 @@ def context_switch_keyboard() -> str:
     """
     keyboard = Keyboard(one_time=False, inline=True)
 
-    keyboard.add(Text("Да"), color=KeyboardButtonColor.POSITIVE)
-    keyboard.add(Text("Нет"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text(Btn.YES), color=KeyboardButtonColor.POSITIVE)
+    keyboard.add(Text(Btn.NO), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -164,11 +166,11 @@ def payment_quantity_keyboard(booked_count: int) -> str:
 
     if show_all_button:
         keyboard.row()
-        keyboard.add(Text(f"Все {booked_count}"), color=KeyboardButtonColor.POSITIVE)
+        keyboard.add(Text(f"{Btn.PAY_ALL_PREFIX}{booked_count}"), color=KeyboardButtonColor.POSITIVE)
 
     # Отмена always on its own row
     keyboard.row()
-    keyboard.add(Text("Отмена"), color=KeyboardButtonColor.SECONDARY)
+    keyboard.add(Text(Btn.CANCEL), color=KeyboardButtonColor.SECONDARY)
 
     return keyboard.get_json()
 
@@ -184,8 +186,8 @@ def reserve_action_keyboard() -> str:
         Keyboard JSON
     """
     keyboard = Keyboard(one_time=False, inline=True)
-    keyboard.add(Text("Добавить"), color=KeyboardButtonColor.PRIMARY)
-    keyboard.add(Text("Удалить"), color=KeyboardButtonColor.NEGATIVE)
+    keyboard.add(Text(Btn.ADD), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text(Btn.DELETE), color=KeyboardButtonColor.NEGATIVE)
     return keyboard.get_json()
 
 
@@ -200,5 +202,5 @@ def debtors_keyboard() -> str:
         Keyboard JSON
     """
     keyboard = Keyboard(one_time=False, inline=True)
-    keyboard.add(Text("Обновить"), color=KeyboardButtonColor.PRIMARY)
+    keyboard.add(Text(Btn.REFRESH), color=KeyboardButtonColor.PRIMARY)
     return keyboard.get_json()
