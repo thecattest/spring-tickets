@@ -189,7 +189,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
     if text == "Подтвердить":
         # Release seats
         try:
-            seller_id = db.get_default_seller_id()
+            seller_id = db.get_seller_id(message.from_id)
             released_count = db.release_seats(reservation_id, row, seats, seller_id)
 
             await message.answer(
@@ -271,7 +271,7 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
         is_admin = db.is_user_admin(message.from_id)
 
         try:
-            seller_id = db.get_default_seller_id()
+            seller_id = db.get_seller_id(message.from_id)
             db.cancel_reservation(reservation_id, seller_id, is_admin)
 
             await message.answer(

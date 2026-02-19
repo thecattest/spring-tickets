@@ -182,7 +182,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
     # Record payment
     try:
-        seller_id = db.get_default_seller_id()
+        seller_id = db.get_seller_id(message.from_id)
 
         # Parse vk_message_ts from stored ISO string
         payment_vk_message_ts = None

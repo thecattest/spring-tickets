@@ -377,37 +377,53 @@ def get_reservation_seats(reservation_id: int) -> List[SeatAssignment]:
             raise DatabaseError(f"Failed to get reservation seats: {e}")
 
 
-def get_default_seller_id() -> int:
+def get_seller_id(vk_user_id: int) -> int:
     """
-    Get default seller ID (first active seller or admin).
+    Resolve seller's AppUser.id from their VK user ID.
 
-    This is a temporary solution for Phase 1.
-    In Phase 2+, we'll identify seller by VK ID.
+    Looks up the AppUser linked to this VK ID. If no AppUser exists,
+    creates one with SELLER role.
+
+    Args:
+        vk_user_id: VK user ID of the seller
 
     Returns:
         AppUser.id
 
     Raises:
-        DatabaseError: If no users exist
+        DatabaseError: If operation fails
     """
     with SessionLocal() as session:
         try:
             stmt = (
                 select(AppUser)
+                .where(AppUser.vk_user_id == vk_user_id)
                 .where(AppUser.is_active == True)
-                .order_by(AppUser.id)
-                .limit(1)
             )
             user = session.execute(stmt).scalar_one_or_none()
 
-            if not user:
-                raise DatabaseError("No active users found in database")
+            if user:
+                return user.id
 
+            # Auto-create seller for this VK ID
+            user = AppUser(
+                vk_user_id=vk_user_id,
+                role=UserRole.SELLER,
+                display_name=f"Seller {vk_user_id}",
+                is_active=True,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            logger.info(f"Auto-created seller AppUser for VK ID {vk_user_id}: id={user.id}")
             return user.id
 
+        except DatabaseError:
+            raise
         except Exception as e:
-            logger.error(f"Failed to get default seller: {e}")
-            raise DatabaseError(f"Failed to get default seller: {e}")
+            session.rollback()
+            logger.error(f"Failed to get seller for VK ID {vk_user_id}: {e}")
+            raise DatabaseError(f"Failed to get seller: {e}")
 
 
 def is_user_admin(vk_user_id: int) -> bool:

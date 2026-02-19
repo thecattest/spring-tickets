@@ -271,7 +271,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
             if pending_is_receipt:
                 # Receipt from client with no reservation — can't record payment, create reservation
                 try:
-                    seller_id = db.get_default_seller_id()
+                    seller_id = db.get_seller_id(message.from_id)
                     reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(
@@ -295,7 +295,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
             else:
                 # Normal switch with no reservation -> create new reservation
                 try:
-                    seller_id = db.get_default_seller_id()
+                    seller_id = db.get_seller_id(message.from_id)
                     reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(

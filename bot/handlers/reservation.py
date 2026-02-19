@@ -271,7 +271,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             return
 
         # Scenario 1: Create new reservation (always, regardless of receipt for IDLE + no reservation)
-        seller_id = db.get_default_seller_id()
+        seller_id = db.get_seller_id(message.from_id)
         reservation = db.create_reservation(vk_user.id, seller_id)
 
         # Transition to AWAITING_ROW with context
@@ -415,7 +415,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
 
     # All seats available - add them
     try:
-        seller_id = db.get_default_seller_id()
+        seller_id = db.get_seller_id(message.from_id)
         assignments = db.add_seats_to_reservation(reservation_id, row, seats, seller_id)
 
         # Get total seat count for reservation
