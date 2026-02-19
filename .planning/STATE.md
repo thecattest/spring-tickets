@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 11 of 12 (Handler Migration) — In progress
-Plan: 2 of 8 in current phase
-Status: In progress — 11-02 complete (deletion.py migrated)
-Last activity: 2026-02-19 — Completed 11-02-PLAN.md (deletion.py migration)
+Plan: 4 of 8 in current phase
+Status: In progress — 11-04 complete (commands.py migrated)
+Last activity: 2026-02-19 — Completed 11-04-PLAN.md (commands.py migration, MSG_EXIT_FULL added to texts.py)
 
-Progress: [███████████████░░░░░] 73% (v0.1 complete, v0.2 phases 7-11 in progress)
+Progress: [████████████████░░░░] 75% (v0.1 complete, v0.2 phases 7-11 in progress)
 
 ## Performance Metrics
 
@@ -81,6 +81,7 @@ Progress: [███████████████░░░░░] 73% (v0
 - [10-04] _register_states() iterates FSM_CONFIG (not handler_map) — FSM_CONFIG is the canonical iteration source per RTR-01
 - [11-02] handle_seat_input(mode="membership") covers both not-in-reservation and paid-seat checks in deleting_seats_handler
 - [11-02] Steps imports in deletion.py kept lazy inside function bodies — consistent with 09-steps circular-import avoidance pattern
+- [11-04] MSG_EXIT_FULL added to texts.py (not kept inline in commands.py) — mirrors MSG_CANCEL_FULL pattern, all user-facing strings in one place
 
 ### Pending Todos
 
@@ -93,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:10:50Z
-Stopped at: Completed 11-02-PLAN.md. deletion.py migrated — register_handlers() and 4 closures removed, handle_row_input/handle_seat_input(mode="membership")/handle_confirmation wired in, texts.* constants used throughout.
+Last session: 2026-02-19T20:11:02Z
+Stopped at: Completed 11-04-PLAN.md. commands.py migrated — register_handlers() and cancel_with_storage closure removed, Bot import removed, texts.WELCOME/HELP/MSG_CANCEL_FULL/MSG_EXIT_FULL wired in. MSG_EXIT_FULL and MSG_EXIT_SHORT added to texts.py.
 Resume file: None
