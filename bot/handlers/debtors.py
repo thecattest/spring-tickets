@@ -15,8 +15,9 @@ Debtor criteria:
 """
 
 import logging
-from vkbottle.bot import Bot, Message
+from vkbottle.bot import Message
 
+from bot import texts
 from bot.utils import db
 from bot.keyboards import debtors_keyboard
 from bot.messages import format_debtors_list
@@ -41,7 +42,7 @@ async def _show_debtors(message: Message):
     app_user = db.get_app_user_by_vk_id(message.from_id)
 
     if not app_user:
-        await message.answer("Вы не зарегистрированы в системе.")
+        await message.answer(texts.ERR_NOT_REGISTERED)
         return
 
     # Admin sees all debtors; seller sees only their own
@@ -54,11 +55,11 @@ async def _show_debtors(message: Message):
         debtors = db.get_debtors(seller_id=seller_id)
     except db.DatabaseError as e:
         logger.error(f"Error fetching debtors for user {message.from_id}: {e}")
-        await message.answer("Ошибка при получении списка должников.")
+        await message.answer(texts.ERR_DB_GET_DEBTORS)
         return
 
     if not debtors:
-        await message.answer("Должников нет.", keyboard=debtors_keyboard())
+        await message.answer(texts.MSG_NO_DEBTORS, keyboard=debtors_keyboard())
     else:
         await message.answer(
             format_debtors_list(debtors),
@@ -84,19 +85,3 @@ async def refresh_debtors_handler(message: Message):
     """
     logger.info(f"User {message.from_id} pressed Обновить (debtors)")
     await _show_debtors(message)
-
-
-def register_handlers(bot: Bot):
-    """
-    Register debtors handlers with the bot.
-
-    Both handlers are stateless -- no FSM state wrapping needed.
-    Follows the commands.py pattern (simple registration without storage).
-
-    Args:
-        bot: VKBottle Bot instance
-    """
-    bot.on.message(text=["/debtors", "/Должники"])(debtors_command_handler)
-    bot.on.message(text="Обновить")(refresh_debtors_handler)
-
-    logger.info("Debtors handlers registered")
