@@ -404,7 +404,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
                 try:
                     res_seats = db.get_reservation_seats(assignment.reservation_id)
                     detail = f"бронь #{assignment.reservation_id}, всего мест: {len(res_seats)}"
-                except:
+                except Exception:
                     detail = f"бронь #{assignment.reservation_id}"
 
             error_lines.append(f"• Ряд {row}, место {seat} — {status_text} ({detail})")
