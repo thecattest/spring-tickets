@@ -30,7 +30,20 @@
     text-align: center;
   }
 
-  .hall { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .hall-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hall {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: max-content;
+    padding: 0 10px;
+  }
 
   .row {
     display: flex;
@@ -150,6 +163,7 @@
 
 <div class="stage">Сцена</div>
 
+<div class="hall-scroll">
 <div class="hall">
   {% set max_seats = 28 %}
   {% set aisle_after = [7, 21] %}
@@ -203,6 +217,7 @@
       {% endfor %}
     </div>
   {% endfor %}
+</div>
 </div>
 
 <div class="legend">
