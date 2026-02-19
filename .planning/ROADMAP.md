@@ -117,11 +117,11 @@ Plans:
   2. `handle_row_input()` вызывается из reservation, deletion, reserve flows и возвращает типизированный `RowResult` без дублирования логики валидации
   3. `handle_seat_input()` принимает строку ввода мест, валидирует по layout и availability, возвращает `SeatResult`
   4. `handle_confirmation()` обрабатывает yes/no ввод и возвращает `Optional[bool]` — один код для всех подтверждений
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 09-01: Create FSM config (declarative per-state definitions in bot/fsm/ or bot/router.py)
-- [ ] 09-02: Create bot/steps.py with handle_row_input(), handle_seat_input(), handle_confirmation()
+- [ ] 09-01-PLAN.md — Create bot/fsm/config.py (StateConfig dataclass, FSM_CONFIG dict for all 16 states)
+- [ ] 09-02-PLAN.md — Create bot/steps.py (handle_row_input, handle_seat_input, handle_confirmation)
 
 ---
 
@@ -205,4 +205,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 8 complete*
+*Roadmap updated: 2026-02-19 — Phase 9 planned*
