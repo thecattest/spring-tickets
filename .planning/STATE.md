@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 11 of 12 (Handler Migration) — In progress
-Plan: 6 of 8 in current phase
-Status: In progress — 11-06 complete (payment.py migrated)
-Last activity: 2026-02-19 — Completed 11-06-PLAN.md (payment.py migration: register_handlers removed, Btn + texts wired)
+Plan: 7 of 8 in current phase
+Status: In progress — 11-07 complete (debtors.py migrated)
+Last activity: 2026-02-19 — Completed 11-07-PLAN.md (debtors.py: register_handlers removed, Bot import removed, 3 texts.* constants wired)
 
 Progress: [█████████████████░░░] 78% (v0.1 complete, v0.2 phases 7-11 in progress)
 
@@ -90,11 +90,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 11] debtors.py не полностью прочитан в ходе research — перед миграцией прочитать и проверить обработку кнопки "Обновить"
 - [Phase 12] BACK_MAP для AWAITING_ROW неоднозначен: состояние достигается из разных точек входа. Определить весь BACK_MAP до начала реализации.
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:11:47Z
-Stopped at: Completed 11-06-PLAN.md. payment.py migrated — register_handlers() and payment_quantity_with_storage closure removed, Bot import removed, Btn.CANCEL + Btn.PAY_ALL_PREFIX + 9 texts.* constants wired in.
+Last session: 2026-02-19T20:12:00Z
+Stopped at: Completed 11-07-PLAN.md. debtors.py migrated — register_handlers() dead code removed, Bot import removed, 3 texts.* constants (ERR_NOT_REGISTERED, ERR_DB_GET_DEBTORS, MSG_NO_DEBTORS) wired. "Обновить" button handling confirmed via Router. Phase 11 blocker resolved.
 Resume file: None
