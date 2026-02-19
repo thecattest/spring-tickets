@@ -42,6 +42,7 @@
     align-items: center;
     gap: 3px;
     min-width: max-content;
+    margin: 0 auto;
     padding: 0 10px;
   }
 
@@ -89,7 +90,7 @@
   .seat.occupied { background: #E53935; }
 
   .aisle-v {
-    width: 14px;
+    width: 28px;
     flex-shrink: 0;
   }
 
@@ -159,9 +160,9 @@
   {% set max_seats = 28 %}
   {% set aisle_after = [7, 21] %}
 
-  {# --- Rows 1-9 --- #}
+  {# --- Rows 1-9 (no vertical aisles, one fewer spacer) --- #}
   {% for row in rows[:9] %}
-    {% set pad = (max_seats - row.seats|length) // 2 %}
+    {% set pad = (max_seats - 1 - row.seats|length) // 2 %}
     <div class="row">
       <div class="row-label">{{ row.row_number }}</div>
       {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
@@ -169,7 +170,7 @@
         <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
              title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
       {% endfor %}
-      {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
+      {% for _ in range(max_seats - 1 - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
       <div class="row-label-right">{{ row.row_number }}</div>
     </div>
   {% endfor %}
