@@ -61,22 +61,13 @@
     margin-right: 4px;
   }
 
-  .seat-numbers-row {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 18px;
-    margin-bottom: 2px;
-  }
-  .seat-number-label {
+  .row-label-right {
     width: 28px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    color: #777;
+    text-align: left;
+    font-size: 11px;
+    color: #999;
     flex-shrink: 0;
+    margin-left: 4px;
   }
 
   .seat {
@@ -168,18 +159,6 @@
   {% set max_seats = 28 %}
   {% set aisle_after = [7, 21] %}
 
-  {# --- Seat number labels for rows 1-9 (no aisles, centered) --- #}
-  {% set first_row = rows[0] %}
-  {% set pad = (max_seats - first_row.seats|length) // 2 %}
-  <div class="seat-numbers-row">
-    <div class="row-label"></div>
-    {% for _ in range(pad) %}<div class="seat-number-label"></div>{% endfor %}
-    {% for seat in first_row.seats %}
-      <div class="seat-number-label">{{ seat.number }}</div>
-    {% endfor %}
-    {% for _ in range(pad) %}<div class="seat-number-label"></div>{% endfor %}
-  </div>
-
   {# --- Rows 1-9 --- #}
   {% for row in rows[:9] %}
     {% set pad = (max_seats - row.seats|length) // 2 %}
@@ -191,20 +170,12 @@
              title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
       {% endfor %}
       {% for _ in range(max_seats - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
+      <div class="row-label-right">{{ row.row_number }}</div>
     </div>
   {% endfor %}
 
   {# --- Horizontal entrance --- #}
   <div class="entrance"><span>вход</span></div>
-
-  {# --- Seat number labels for rows 10-24 (with aisles) --- #}
-  <div class="seat-numbers-row">
-    <div class="row-label"></div>
-    {% for s in range(1, max_seats + 1) %}
-      <div class="seat-number-label">{{ s }}</div>
-      {% if s in aisle_after %}<div class="aisle-v"></div>{% endif %}
-    {% endfor %}
-  </div>
 
   {# --- Rows 10-24 --- #}
   {% for row in rows[9:] %}
@@ -215,6 +186,7 @@
              title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
         {% if seat.number in aisle_after %}<div class="aisle-v"></div>{% endif %}
       {% endfor %}
+      <div class="row-label-right">{{ row.row_number }}</div>
     </div>
   {% endfor %}
 </div>
