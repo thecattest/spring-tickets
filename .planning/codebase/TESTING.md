@@ -1,426 +1,304 @@
 # Testing Patterns
 
-**Analysis Date:** 2026-01-24
+**Analysis Date:** 2026-02-19
 
 ## Test Framework
 
 **Runner:**
-- Not formally configured yet (MVP phase)
-- Planned: pytest (common Python standard) or unittest
-- Current: Manual test script approach
-
-**Current Test File:**
-- `test_db.py` at project root - manual integration test
+- pytest 7.0.0+
+- Config: No `pytest.ini` or explicit pytest configuration; uses pytest defaults from `requirements.txt`
 
 **Assertion Library:**
-- Python built-in `assert` statements (implicit)
-- Planned: pytest or unittest assertions
+- pytest built-in assertions
+- Custom assertions via `pytest.raises()` for exception testing
 
 **Run Commands:**
 ```bash
-python test_db.py                # Run database integration test (current)
-# Planned:
-pytest tests/                     # Run all tests (when pytest is added)
-pytest tests/ -v                  # Verbose output
-pytest tests/ --cov=src          # With coverage report
+pytest                                    # Run all tests
+pytest -v                                 # Verbose output
+pytest bot/tests/                         # Run specific directory
+pytest bot/tests/test_db_integration.py   # Run specific test file
+pytest -k "test_seat"                     # Run tests matching pattern
+pytest --tb=short                         # Short traceback format
+pytest --cov=bot --cov=models             # With coverage report
 ```
 
 ## Test File Organization
 
-**Current Location:**
-- `test_db.py` at project root (alongside source code)
-
-**Planned Structure:**
-- Dedicated `tests/` directory at project root
-- Test files mirror source structure: `tests/models/test_user.py` for `models/user.py`
-- Integration tests in `tests/integration/`
+**Location:**
+- Co-located within modules under `tests/` subdirectory
+- Main database test at root: `test_db.py` (integration test script)
+- Bot tests in: `bot/tests/test_*.py`
 
 **Naming:**
-- Current: `test_db.py` (integration test)
-- Planned: `test_*.py` or `*_test.py` per file (pytest convention: `test_*.py`)
+- Test files: `test_*.py` prefix (pytest convention)
+- Test classes: `Test*` PascalCase (e.g., `TestVkUserOperations`, `TestSeatOperations`)
+- Test methods: `test_*` lowercase with underscores (e.g., `test_create_vk_user()`, `test_seat_occupied()`)
 
-**Structure:**
+**Directory Structure:**
 ```
-tests/
-├── conftest.py                 # Shared fixtures and configuration
-├── unit/
-│   ├── models/
-│   │   ├── test_user.py
-│   │   ├── test_reservation.py
-│   │   └── test_seat_assignment.py
-│   └── test_database.py
-├── integration/
-│   ├── test_reservation_workflow.py
-│   ├── test_payment_workflow.py
-│   └── test_financial_reconciliation.py
-└── fixtures/
-    ├── users.py               # Test user factories
-    ├── reservations.py        # Test reservation factories
-    └── seat_data.py           # Test seat data
+project-root/
+├── test_db.py                      # Root-level database initialization test
+├── bot/
+│   ├── tests/
+│   │   ├── __init__.py
+│   │   ├── test_db_integration.py  # Integration tests for database operations
+│   │   ├── test_redis_fsm.py       # FSM state management tests
+│   │   └── test_seat_parser.py     # Seat parsing utility tests
 ```
 
 ## Test Structure
 
-**Current Pattern (from `test_db.py`):**
+**Suite Organization:**
+
+Pytest class-based organization with fixtures from `bot/tests/test_db_integration.py`:
 
 ```python
-def test_database():
-    """Тест создания БД и базовых операций."""
+@pytest.fixture(scope="function")
+def test_db():
+    """
+    Create a temporary test database.
 
-    print("=" * 60)
-    print("Тестирование SQLite базы данных")
-    print("=" * 60)
+    Yields:
+        Database engine
+    """
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
 
-    # 1. Инициализация БД
-    print("\n1. Инициализация БД...")
-    init_db()
-    print("✓ Таблицы созданы")
+    test_db_url = f"sqlite:///{db_path}"
+    os.environ["DATABASE_URL"] = test_db_url
 
-    # 2. Создание тестовых данных
-    print("\n2. Создание тестовых данных...")
-    with get_session() as session:
-        # Create test data
-        pass
+    from database import engine
+    Base.metadata.create_all(bind=engine)
 
-    # 3. Проверка данных
-    print("\n3. Проверка созданных данных...")
-    with get_session() as session:
-        # Query and verify
-        pass
+    yield engine
 
-    # 4. Проверка ограничений
-    print("\n4. Проверка уникальности активных мест...")
-    try:
-        with get_session() as session:
-            # Try to violate constraint
-            session.add(duplicate_seat)
-            session.commit()
-        print("✗ ОШИБКА: дубликат не был заблокирован!")
-    except Exception as e:
-        print(f"✓ Дубликат заблокирован (ожидаемо): {type(e).__name__}")
+    os.unlink(db_path)
 
-if __name__ == "__main__":
-    test_database()
+
+@pytest.fixture(scope="function")
+def test_seller(test_db):
+    """Create a test seller user."""
+    with SessionLocal() as session:
+        seller = AppUser(
+            role=UserRole.SELLER,
+            display_name="Test Seller",
+            is_active=True,
+        )
+        session.add(seller)
+        session.commit()
+        session.refresh(seller)
+        return seller
+
+
+class TestVkUserOperations:
+    """Test VK user database operations."""
+
+    def test_create_vk_user(self, test_db):
+        """Test creating new VK user."""
+        vk_user = db.get_or_create_vk_user(12345, "Test User")
+
+        assert vk_user.id is not None
+        assert vk_user.vk_user_id == 12345
+        assert vk_user.display_name == "Test User"
 ```
 
-**Planned Pytest Pattern:**
-
-```python
-import pytest
-from datetime import datetime
-from database import get_session
-from models import AppUser, VkUser, Reservation, SeatAssignment
-from models.base import UserRole, ReservationState, SeatStatus
-
-class TestReservationCreation:
-    """Tests for reservation creation workflow."""
-
-    @pytest.fixture
-    def seller(self):
-        """Create test seller user."""
-        with get_session() as session:
-            seller = AppUser(
-                role=UserRole.SELLER,
-                display_name="Test Seller"
-            )
-            session.add(seller)
-            return seller
-
-    def test_create_reservation_with_seats(self, seller):
-        """Test creating a reservation with multiple seats."""
-        with get_session() as session:
-            # Setup
-            buyer = VkUser(vk_user_id=123456, display_name="Buyer")
-            session.add(buyer)
-            session.flush()
-
-            # Action
-            reservation = Reservation(
-                buyer_vk_user_id=buyer.id,
-                sold_by_user_id=seller.id
-            )
-            session.add(reservation)
-            session.flush()
-
-            # Assert
-            assert reservation.id is not None
-            assert reservation.state == ReservationState.ACTIVE
-```
-
-**Patterns Observed:**
-- Setup/Action/Assert pattern implicit in test code
-- No teardown needed (tests use fresh database or per-test fixtures)
-- Integration tests work with actual SQLAlchemy ORM
-- Context manager ensures session cleanup
+**Patterns:**
+- Setup: Use pytest fixtures with `scope="function"` for test isolation
+- Teardown: Cleanup in fixture yield block or context managers
+- Test naming: `test_<action>_<expected_outcome>` (e.g., `test_add_seats_conflict()`)
+- Assertion: Simple assert statements with meaningful values
+- Grouping: Test classes group related functionality
 
 ## Mocking
 
-**Framework:** Not yet implemented
+**Framework:**
+- No explicit mocking library (no unittest.mock or pytest-mock detected)
+- Database isolation via temporary SQLite files (preferred over mocking)
+- Manual fixture creation for test data
 
-**Current Approach:**
-- No mocking in current tests - direct database interaction
-- Tests use real SQLite database (`tickets.db`)
+**Patterns:**
 
-**Planned Strategy:**
-- Mock external APIs (VK integration, payment webhooks)
-- Mock datetime for testing time-based logic (7-day debtors)
-- Real database sessions for ORM tests (no mocking database layer)
-
-**Planned Mocking Pattern:**
+Exception testing from `bot/tests/test_seat_parser.py`:
 ```python
-from unittest.mock import patch, MagicMock
+def test_empty_input(self):
+    """Test empty input raises error."""
+    with pytest.raises(SeatParseError, match="не может быть пустым"):
+        parse_seats("")
+```
 
-def test_vk_webhook_handling():
-    """Test incoming VK payment webhook."""
-    with patch('vk_client.send_message') as mock_send:
-        # Test code
-        pass
+From `bot/tests/test_db_integration.py`:
+```python
+def test_add_seats_conflict(self, test_db, test_seller):
+    """Test adding seats with conflict."""
+    vk_user1 = db.get_or_create_vk_user(12345, "User 1")
+    reservation1 = db.create_reservation(vk_user1.id, test_seller.id)
+    db.add_seats_to_reservation(reservation1.id, 1, [5], test_seller.id)
 
-def test_reminder_for_debtors(freezegun_datetime):
-    """Test 7-day reminder for unpaid reservations."""
-    # freezegun to control datetime
-    freezegun_datetime.move_to("2026-02-01")
-    # Test code expects different reservations based on date
+    vk_user2 = db.get_or_create_vk_user(67890, "User 2")
+    reservation2 = db.create_reservation(vk_user2.id, test_seller.id)
+
+    with pytest.raises(db.SeatOccupiedError) as exc_info:
+        db.add_seats_to_reservation(reservation2.id, 1, [5], test_seller.id)
+
+    assert len(exc_info.value.conflicts) == 1
+    assert exc_info.value.conflicts[0]['row'] == 1
+    assert exc_info.value.conflicts[0]['seat'] == 5
 ```
 
 **What to Mock:**
-- External API calls (VK API, payment services)
-- Datetime for time-sensitive logic
-- File system access (if reading layout.json)
+- External API calls (VK API) - currently not mocked but isolated in handlers
+- Time-dependent operations - fixtures use real datetime
 
 **What NOT to Mock:**
-- Database layer (test with real SQLite)
-- ORM models (use actual model classes)
-- Session management (use `get_session()` context manager)
-- Core business logic (test directly)
+- Database operations - use real temporary SQLite for testing
+- Business logic functions - test actual behavior
+- String parsing/formatting - test actual output
+- ORM models - test with actual model classes
 
 ## Fixtures and Factories
 
-**Test Data Pattern (from `test_db.py`):**
+**Test Data:**
 
+From `bot/tests/test_db_integration.py`:
 ```python
-def test_database():
-    # ... setup ...
-    with get_session() as session:
-        # Create admin
-        admin = AppUser(
-            role=UserRole.ADMIN,
-            display_name="Администратор",
-            is_active=True
-        )
-        session.add(admin)
+@pytest.fixture(scope="function")
+def test_db():
+    """Create a temporary test database."""
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
 
-        # Create seller
+    test_db_url = f"sqlite:///{db_path}"
+    os.environ["DATABASE_URL"] = test_db_url
+
+    from database import engine
+    Base.metadata.create_all(bind=engine)
+
+    yield engine
+
+    os.unlink(db_path)
+
+@pytest.fixture(scope="function")
+def test_seller(test_db):
+    """Create a test seller user fixture."""
+    with SessionLocal() as session:
         seller = AppUser(
             role=UserRole.SELLER,
-            display_name="Иван Иванов",
-            vk_user_id=123456
+            display_name="Test Seller",
+            is_active=True,
         )
         session.add(seller)
-        session.flush()  # Get IDs before using in FK
-
-        # Create buyer
-        buyer = VkUser(
-            vk_user_id=987654321,
-            display_name="Петр Петров"
-        )
-        session.add(buyer)
-        session.flush()
-```
-
-**Planned Factory Pattern:**
-
-```python
-# tests/fixtures/users.py
-from models import AppUser, VkUser
-from models.base import UserRole
-
-class UserFactory:
-    """Factory for creating test users."""
-
-    @staticmethod
-    def create_seller(session, **kwargs):
-        """Create test seller user."""
-        defaults = {
-            "role": UserRole.SELLER,
-            "display_name": "Test Seller",
-            "is_active": True
-        }
-        defaults.update(kwargs)
-        user = AppUser(**defaults)
-        session.add(user)
-        session.flush()
-        return user
-
-    @staticmethod
-    def create_vk_user(session, **kwargs):
-        """Create test VK user."""
-        defaults = {
-            "vk_user_id": 987654321,
-            "display_name": "Test Buyer"
-        }
-        defaults.update(kwargs)
-        user = VkUser(**defaults)
-        session.add(user)
-        session.flush()
-        return user
-
-# tests/conftest.py
-@pytest.fixture
-def seller(session):
-    """Provide a test seller."""
-    return UserFactory.create_seller(session)
-
-@pytest.fixture
-def buyer(session):
-    """Provide a test VK buyer."""
-    return UserFactory.create_vk_user(session)
+        session.commit()
+        session.refresh(seller)
+        return seller
 ```
 
 **Location:**
-- `tests/conftest.py` for shared fixtures (pytest convention)
-- `tests/fixtures/` directory for factory classes
-- Factories create test data with sensible defaults, allow overrides
+- Fixtures defined in test files themselves (no shared `conftest.py`)
+- Each test file is self-contained
+- Database fixture at function scope ensures isolation between tests
+
+**Fixture Dependencies:**
+Fixtures can depend on other fixtures for composition:
+```python
+def test_seller(test_db):  # Depends on test_db fixture
+    # Creates session using SessionLocal which uses injected DATABASE_URL
+```
 
 ## Coverage
 
-**Requirements:** Not enforced in MVP phase
+**Requirements:**
+- No coverage requirements enforced
+- No `.coveragerc` or coverage configuration file present
 
-**Planned Coverage Targets:**
-- Unit tests: Core business logic (>80%)
-- Integration tests: Database operations (>70%)
-- E2E tests: Critical workflows (reservation, payment, reconciliation)
-
-**View Coverage (Planned):**
+**View Coverage:**
 ```bash
-pytest --cov=src --cov=models --cov-report=html
-# Open htmlcov/index.html in browser
+pytest --cov=bot --cov=models --cov-report=html
+# View report in htmlcov/index.html
 ```
 
 ## Test Types
 
 **Unit Tests:**
-- Scope: Individual functions, business logic
-- Location: `tests/unit/`
-- Approach: Fast, isolated, mock external dependencies
-- Example: Testing validation logic for seat coordinates, date calculations for reminders
+- Individual function testing in isolation
+- Examples: `test_space_separated()`, `test_invalid_characters()`, `test_empty_input()`
+- Location: `bot/tests/test_seat_parser.py`
+- Focus: Parser logic, validation, error cases
 
 **Integration Tests:**
-- Scope: Multi-model workflows, database operations
-- Location: `tests/integration/`
-- Approach: Use real database (test SQLite), no mocking ORM layer
-- Example: Full reservation flow (create reservation → add seats → record payment → update statuses)
+- Database operation testing with real schema
+- Examples: `test_create_reservation()`, `test_add_seats_to_reservation()`, `test_seat_occupied()`
+- Location: `bot/tests/test_db_integration.py`
+- Uses: Temporary SQLite databases created per test for isolation
 
 **E2E Tests:**
-- Status: Not planned for MVP
-- Planned: HTTP endpoints + database (when API layer added)
-- Framework: Would use pytest + httpx or requests
+- Not present in current codebase
+- VK bot handlers not tested end-to-end (async handler testing would require different setup)
 
 ## Common Patterns
 
 **Async Testing:**
-- Not applicable: Current codebase is synchronous
-- Planned: If async SQLAlchemy added later, use `pytest-asyncio`
+No async tests currently; VK handlers use async but are not tested.
 
-**Error Testing (from `test_db.py`):**
+**Error Testing:**
 
+From `bot/tests/test_seat_parser.py`:
 ```python
-# Test that constraint violations raise exceptions
-try:
-    with get_session() as session:
-        # Try to violate unique constraint
-        duplicate_seat = SeatAssignment(
-            row_number=10,
-            seat_number=5,  # Already booked
-            status=SeatStatus.BOOKED,
-            created_by_user_id=1
-        )
-        session.add(duplicate_seat)
-        session.commit()
-    print("✗ ОШИБКА: дубликат не был заблокирован!")
-except Exception as e:
-    print(f"✓ Дубликат заблокирован (ожидаемо): {type(e).__name__}")
+def test_empty_input(self):
+    """Test empty input raises error."""
+    with pytest.raises(SeatParseError, match="не может быть пустым"):
+        parse_seats("")
+
+def test_reversed_range(self):
+    """Test reversed range raises error."""
+    with pytest.raises(SeatParseError, match="больше конца"):
+        parse_seats("7-5")
+
+def test_invalid_characters(self):
+    """Test invalid characters raise error."""
+    with pytest.raises(SeatParseError, match="Неверный формат"):
+        parse_seats("abc")
 ```
 
-**Planned Error Testing Pattern:**
-
+From `bot/tests/test_db_integration.py`:
 ```python
-def test_duplicate_seat_assignment_blocked():
-    """Test that duplicate active seat assignments are blocked."""
-    with get_session() as session:
-        # Create first seat assignment
-        seat1 = SeatAssignment(
-            row_number=5,
-            seat_number=10,
-            status=SeatStatus.BOOKED,
-            created_by_user_id=1
-        )
-        session.add(seat1)
-        session.commit()
+def test_add_seats_atomic(self, test_db, test_seller):
+    """Test that seat addition is atomic."""
+    # Create and add partial seats
+    vk_user1 = db.get_or_create_vk_user(12345, "User 1")
+    reservation1 = db.create_reservation(vk_user1.id, test_seller.id)
 
-        # Try to create duplicate
-        with pytest.raises(IntegrityError):
-            seat2 = SeatAssignment(
-                row_number=5,
-                seat_number=10,
-                status=SeatStatus.BOOKED,
-                created_by_user_id=1
-            )
-            session.add(seat2)
-            session.commit()
+    # Create second reservation
+    vk_user2 = db.get_or_create_vk_user(67890, "User 2")
+    reservation2 = db.create_reservation(vk_user2.id, test_seller.id)
 
-def test_released_seat_can_be_reassigned():
-    """Test that a released seat can be assigned to new reservation."""
-    with get_session() as session:
-        # Create and release first assignment
-        seat1 = SeatAssignment(
-            row_number=5,
-            seat_number=10,
-            status=SeatStatus.BOOKED,
-            created_by_user_id=1
-        )
-        session.add(seat1)
-        session.flush()
-        seat1.released_at = datetime.utcnow()
-
-        # Should allow new assignment to same seat
-        seat2 = SeatAssignment(
-            row_number=5,
-            seat_number=10,
-            status=SeatStatus.BOOKED,
-            created_by_user_id=1,
-            reservation_id=2
-        )
-        session.add(seat2)
-        session.commit()  # Should not raise
-
-        assert seat2.id is not None
+    # Try to add conflicting seats (should fail atomically)
+    with pytest.raises(db.SeatOccupiedError):
+        db.add_seats_to_reservation(reservation2.id, 1, [5, 6, 7], test_seller.id)
 ```
 
-**Database Fixture Pattern:**
+**Database Isolation:**
+- Each function-scoped fixture creates temporary SQLite file
+- Automatic cleanup via os.unlink() in fixture teardown
+- Prevents test pollution and race conditions
 
-```python
-@pytest.fixture
-def db_session(tmp_path):
-    """Provide clean database session for each test."""
-    # Create test database
-    test_db_path = str(tmp_path / "test.db")
-    test_engine = create_engine(f"sqlite:///{test_db_path}")
+**Class-based Test Organization:**
+Tests grouped by operation type:
+- `TestVkUserOperations` - user creation and retrieval
+- `TestReservationOperations` - reservation management
+- `TestSeatOperations` - seat availability and assignment
 
-    # Initialize schema
-    Base.metadata.create_all(bind=test_engine)
+**Test Method Naming Convention:**
 
-    # Create session
-    TestSessionLocal = sessionmaker(bind=test_engine)
-    session = TestSessionLocal()
+Pattern: `test_<subject>_<condition>` or `test_<subject>_<scenario>`
 
-    yield session
-
-    # Cleanup
-    session.close()
-    test_engine.dispose()
-```
+Examples:
+- `test_create_vk_user()` - action
+- `test_get_existing_vk_user()` - retrieval
+- `test_seat_occupied()` - state check
+- `test_add_seats_conflict()` - error condition
+- `test_add_seats_atomic()` - transaction behavior
 
 ---
 
-*Testing analysis: 2026-01-24*
+*Testing analysis: 2026-02-19*

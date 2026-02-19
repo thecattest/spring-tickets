@@ -1,194 +1,324 @@
 # Codebase Structure
 
-**Analysis Date:** 2026-01-24
+**Analysis Date:** 2026-02-19
 
 ## Directory Layout
 
 ```
 Tickets/
-├── .planning/               # GSD planning documentation
-│   ├── config.json         # GSD workflow configuration
-│   └── codebase/          # Generated architecture docs
-├── models/                 # SQLAlchemy ORM models
-│   ├── __init__.py        # Model exports
-│   ├── base.py            # Base class and ENUM types
-│   ├── user.py            # AppUser model
-│   ├── vk_user.py         # VkUser model
-│   ├── reservation.py     # Reservation model
-│   ├── seat_assignment.py # SeatAssignment model (unified occupancy)
-│   ├── payment.py         # Payment and PaymentSeat models
-│   ├── expense.py         # Expense model
-│   ├── reconcile.py       # ReconcileCheckpoint model
-│   └── audit.py           # AuditLog model
-├── database.py            # Engine, session factory, init
-├── test_db.py             # Database integration tests
-├── tickets.db             # SQLite database file (MVP)
-├── requirements.txt       # Python dependencies
-├── README_MODELS.md       # SQLAlchemy usage guide
-├── DB_SCHEMA.md          # Detailed schema with SQL and query examples
-├── SQLITE_MIGRATION.md   # SQLite to PostgreSQL migration path
-├── TZ.md                 # Technical requirements (Russian)
-└── TZ.md                 # Full specification with operations, flows, UI
-
+├── .planning/                      # GSD planning documentation
+│   ├── config.json                # GSD workflow config
+│   └── codebase/                  # Generated architecture docs (STACK.md, ARCHITECTURE.md, etc.)
+├── bot/                           # VK Bot implementation
+│   ├── __init__.py               # Package marker + version
+│   ├── __main__.py               # Entry point for `python -m bot`
+│   ├── main.py                   # Bot setup and polling loop
+│   ├── config.py                 # Configuration (VK token, Redis, DB, logging)
+│   ├── keyboards.py              # Keyboard JSON generators
+│   ├── messages.py               # Response templates and script generation
+│   ├── fsm/                      # Finite State Machine
+│   │   ├── __init__.py
+│   │   ├── states.py             # BotState enum (IDLE, AWAITING_ROW, MAIN_MENU, etc.)
+│   │   └── storage.py            # RedisStorage: Redis-backed FSM state dispenser
+│   ├── handlers/                 # Message handlers (async functions)
+│   │   ├── __init__.py           # Handler registration
+│   │   ├── commands.py           # /start, /help, /cancel handlers
+│   │   ├── reservation.py        # Forwarded message, row/seat input handlers
+│   │   ├── menu.py               # Main menu display and button handlers
+│   │   ├── deletion.py           # Seat deletion and deletion flow
+│   │   ├── payment.py            # Payment recording and quantity selection
+│   │   ├── reserve.py            # Admin reserve management (ADMIN-only)
+│   │   └── debtors.py            # Debtor reminder handlers
+│   ├── utils/                    # High-level utility functions
+│   │   ├── __init__.py
+│   │   ├── db.py                 # Database operations (CRUD, audit)
+│   │   ├── layout.py             # Hall layout loading and validation
+│   │   ├── seat_parser.py        # Seat input parser (format: "1-5,10,12-15")
+│   │   └── formatting.py         # Seat range formatting (1-5,10 to text)
+│   └── tests/                    # Bot integration tests
+│       ├── __init__.py
+│       ├── test_db_integration.py
+│       ├── test_redis_fsm.py
+│       └── test_seat_parser.py
+├── models/                       # SQLAlchemy ORM models
+│   ├── __init__.py              # Model exports
+│   ├── base.py                  # Base class + ENUM types (UserRole, SeatStatus, etc.)
+│   ├── user.py                  # AppUser (internal system user)
+│   ├── vk_user.py               # VkUser (external VK customer)
+│   ├── reservation.py           # Reservation (booking aggregate)
+│   ├── seat_assignment.py       # SeatAssignment (unified occupancy table)
+│   ├── payment.py               # Payment + PaymentSeat (join table)
+│   ├── audit.py                 # AuditLog (event trail)
+│   └── reconcile.py             # ReconcileCheckpoint (financial checkpoints)
+├── web/                         # FastAPI web interface
+│   ├── app.py                   # FastAPI routes (hall, payments, auth)
+│   └── templates/               # Jinja2 templates
+│       ├── hall.html            # Public hall map
+│       ├── payments.html        # Admin payments dashboard
+│       └── payments_login.html  # Auth form
+├── scripts/                     # Standalone scripts
+│   └── send_debtors_reminders.py # Scheduled debt reminder job
+├── database.py                  # Engine, session factory, init_db()
+├── layout.json                  # Hall layout (rows, seat counts, aisles)
+├── tickets.db                   # SQLite database (MVP, generated)
+├── requirements.txt             # Python dependencies
+├── test_db.py                   # Database initialization test
+├── .env.example                 # Example environment variables
+├── .gitignore                   # Git ignore rules
+├── CLAUDE.md                    # Claude-specific notes
+├── DB_SCHEMA.md                 # Detailed schema documentation
+├── README_MODELS.md             # SQLAlchemy usage guide
+├── SQLITE_MIGRATION.md          # Migration guide
+├── TZ.md                        # Full technical specification (Russian)
+└── .git/                        # Version control
 ```
 
 ## Directory Purposes
+
+**bot/:**
+- Purpose: VK bot implementation for seller-side interface
+- Contains: Stateful message handlers, FSM storage, utilities, keyboards, messages
+- Key patterns: Async handlers, FSM state transitions, context persistence in Redis
 
 **models/:**
 - Purpose: Domain model layer (SQLAlchemy ORM)
 - Contains: Entity classes with table definitions, indexes, constraints, ENUMs
 - Key files: `base.py` (foundation), individual model files (one per entity)
 
-**database.py:**
-- Purpose: Database connectivity and transaction management
-- Contains: Engine creation (SQLite default), SessionLocal factory, get_session context manager
-- Key configs: DATABASE_URL from env (defaults to sqlite:///tickets.db), SQL_ECHO for debugging
+**web/:**
+- Purpose: FastAPI web interface for public hall view and admin dashboard
+- Contains: HTTP routes, Jinja2 templates, authentication
+- Key files: `app.py` (all routes in one file)
 
-**Documentation (markdown):**
-- Purpose: Requirements, schema design, and implementation guides
-- Key files:
-  - `TZ.md`: Complete technical specification (38KB, operations, flows, role matrix, UI mockups)
-  - `DB_SCHEMA.md`: Entity relationship diagram (logical/SQL), examples, design decisions
-  - `README_MODELS.md`: SQLAlchemy usage patterns, session examples, common queries
-  - `SQLITE_MIGRATION.md`: MVP→production migration guide
+**bot/fsm/:**
+- Purpose: Conversation state management
+- Contains: BotState enum, RedisStorage class
+- Key pattern: StatePeer serialized to JSON in Redis
+
+**bot/handlers/:**
+- Purpose: Async message handlers for different conversation flows
+- Contains: One handler file per flow (reservation, menu, payment, deletion, etc.)
+- Key pattern: Each handler registered in `handlers/__init__.py` and called from `main.py`
+
+**bot/utils/:**
+- Purpose: High-level database operations and validation
+- Contains: DB CRUD functions, seat validation, message formatting
+- Key pattern: db.py is largest file; single responsibility for database operations
+
+**scripts/:**
+- Purpose: Standalone background jobs
+- Contains: Debt reminder script, future: cleanup, reconciliation
 
 ## Key File Locations
 
 **Entry Points:**
-- `database.py`: Run with `python database.py` to initialize DB
-- `models/__init__.py`: Imports all public models for `from models import *`
-- No main application entry point yet (bot/web layers not implemented)
+- Bot: `bot/main.py` (or `python -m bot`)
+- Web: `web/app.py` (run via uvicorn)
+- DB init: `database.py` (or called automatically)
 
 **Configuration:**
-- `database.py` (lines 32-36): DATABASE_URL environment variable
-- `database.py` (line 42): SQL_ECHO environment variable for query logging
-- No config files (.env, .json) yet (kept to code only)
+- Environment: `bot/config.py` (reads .env, validates)
+- Layout: `layout.json` (JSON, loaded once at startup)
+- Database: `database.py` (engine, URL from env)
 
-**Core Logic:**
-- `models/`: All business rules encoded in constraints (CHECK, UNIQUE, FK), indexes, and ENUM definitions
-- `models/base.py`: ENUM types (UserRole, ReservationState, SeatStatus, ActorType)
-- `models/seat_assignment.py`: Unified seat occupancy logic with partial unique index (released_at IS NULL)
-- `models/reservation.py`: Booking aggregate with last_activity_at for 7-day reminders
+**Core Business Logic:**
+- Database operations: `bot/utils/db.py` (largest file: ~1000 lines)
+- Seat validation: `bot/utils/layout.py`
+- Message handlers: `bot/handlers/*.py`
+- Models: `models/*.py` (constraints, indexes, relationships)
+
+**Presentation:**
+- Bot responses: `bot/messages.py` (script generation, formatting)
+- Bot UI: `bot/keyboards.py` (button layouts)
+- Web templates: `web/templates/*.html` (Jinja2)
 
 **Testing:**
-- `test_db.py`: Integration tests demonstrating model usage (creation, updates, queries, cascades)
-- No unit test framework configured yet (no pytest.ini or conftest.py)
+- Bot tests: `bot/tests/*.py`
+- DB test: `test_db.py`
 
 ## Naming Conventions
 
 **Files:**
-- Model files: `snake_case.py` matching entity name (e.g., `seat_assignment.py` for `SeatAssignment` class)
-- Test files: `test_*.py` (only test_db.py currently)
-- Documentation: `UPPERCASE.md` for technical docs (DB_SCHEMA.md, TZ.md, README_MODELS.md)
+- Model files: `snake_case.py` matching entity (e.g., `seat_assignment.py` → `SeatAssignment`)
+- Handler files: `{flow}.py` (e.g., `payment.py`, `deletion.py`)
+- Test files: `test_*.py`
+- Config files: `config.py`, `settings.py`
+- Template files: `{entity}.html` (e.g., `hall.html`, `payments.html`)
 
-**Classes:**
-- Domain models: `PascalCase` matching table purpose (e.g., `SeatAssignment`)
-- ENUM types in base.py: `PascalCase` with values in `UPPER_CASE` (e.g., `UserRole.ADMIN`)
+**Python:**
+- Classes: `PascalCase` (SeatAssignment, RedisStorage, BotState)
+- Functions/methods: `snake_case` (get_reservation_seats, assign_seats)
+- Constants: `UPPER_CASE` (SEAT_PRICE, VK_BOT_TOKEN)
+- ENUMs: `PascalCase` with `UPPER_CASE` values (UserRole.ADMIN, SeatStatus.BOOKED)
+- Private functions: `_snake_case` (e.g., `_make_key` in RedisStorage)
 
-**Database Tables:**
-- Snake_case (SQLAlchemy convention): `app_users`, `vk_users`, `reservations`, `seat_assignments`, `payments`, `payment_seats`, `expenses`, `reconcile_checkpoints`, `audit_log`
+**Database:**
+- Tables: `snake_case` plural (app_users, reservations, seat_assignments)
+- Columns: `snake_case` (vk_user_id, created_at, released_at)
+- Indexes: `{table}_{columns}_idx` or `{table}_{purpose}` (e.g., seat_assignments_one_active_per_seat)
+- Foreign keys: `{target_table}_id` (e.g., buyer_vk_user_id references vk_users.id)
 
-**Columns:**
-- Snake_case: `vk_user_id`, `sold_by_user_id`, `created_at`, `released_at`, `last_activity_at`, `vk_message_ts`
-
-**Indexes:**
-- Format: `{table}_{column(s)}_idx` or `{table}_{columns}_{purpose}` (e.g., `reservations_buyer_idx`, `seat_assignments_one_active_per_seat`)
+**VK/Web:**
+- Buttons: CyrilicCase (e.g., "Добавить еще", "Готово")
+- Routes: `/kebab-case` (e.g., `/payments/login`, `/payments/checkpoint`)
+- Cookie: `snake_case` (payments_auth)
 
 ## Where to Add New Code
 
-**New Model/Entity:**
-- Create file: `models/{entity_name}.py`
-- Import in: `models/__init__.py` (add to imports and __all__)
-- Define:
-  - Class inheriting `Base`
-  - `__tablename__ = "snake_case_name"`
-  - Mapped columns with type annotations
-  - Indexes/constraints in `__table_args__`
-  - `__repr__` for debugging
-- Example to follow: `models/seat_assignment.py` (most complex with partial indexes)
+**New Handler (Bot):**
+1. Create file: `bot/handlers/{flow_name}.py`
+2. Define async handler function: `async def {action}_handler(message: Message, storage: RedisStorage):`
+3. Register in `bot/handlers/__init__.py`: `from . import {flow_name}` and add to imports
+4. Register in `bot/main.py`: `{flow_name}.register_handlers(bot)`
+5. Define state(s) in `bot/fsm/states.py` if needed
+6. Use `bot/utils/db.py` for database operations
+7. Use `bot/messages.py` for formatted responses
+8. Use `bot/keyboards.py` for UI elements
 
-**New Query/Operation:**
-- Not yet structured (no service/query layer exists)
-- Will likely live in `services/` directory when created
-- Should use `from database import get_session` and models from `models/__init__.py`
-- Must create AuditLog entry for all state-changing operations
+**New Model:**
+1. Create file: `models/{entity_name}.py`
+2. Import in: `models/__init__.py` (add to imports and __all__)
+3. Define class:
+   - Inherit from `Base`
+   - Set `__tablename__ = "snake_case_name"`
+   - Define Mapped columns with type annotations
+   - Add indexes/constraints in `__table_args__`
+   - Define `__repr__` for debugging
+4. Example to follow: `models/seat_assignment.py` (most complex with partial indexes)
 
-**New Interface (Bot/Web):**
-- Create directory: `bot/` or `web/`
-- Depend on: `database`, `models`, and any service layer
-- Each interface layer should:
-  - Import models and session factory
-  - Use `with get_session() as session:` for all DB operations
-  - Create AuditLog entries with action_type and payload
-  - Validate inputs against JSON layout for seats
+**New Web Route:**
+1. Add function to `web/app.py`:
+   - Use `@app.get("/path")` or `@app.post("/path")`
+   - Parameter: `request: Request`
+   - Use `SessionLocal()` context manager
+   - Return `TemplateResponse` or `RedirectResponse`
+2. Create template in `web/templates/{entity}.html` if needed
+3. Authentication check: Use `is_authenticated(request)` helper
 
-**Utilities:**
-- Shared helpers: `utils/` directory (not yet created)
-- Examples: seat list parser (`parse_seats("1-3,5,8-10")`), availability query builders, audit log factory functions
+**New Database Operation:**
+1. Add function to `bot/utils/db.py`:
+   - Pattern: Open SessionLocal, execute query, close on exit
+   - Return: Model instances or primitives
+   - Raise: Custom DatabaseError subclass on failure
+   - Call: `record_audit_log()` after state-changing operations
+2. If complex, add helper in separate file under `bot/utils/`
+
+**New Background Script:**
+1. Create file: `scripts/{job_name}.py`
+2. Define main function: `def main():`
+3. Use `SessionLocal()` for database access
+4. Can be invoked via cron or CLI
+5. Example: `scripts/send_debtors_reminders.py`
+
+**New Test:**
+1. Create in `bot/tests/` for bot-specific tests
+2. Use `pytest` framework
+3. Import from `models`, `bot.utils.db`, etc.
+4. Use fixtures for SessionLocal, Redis storage
 
 ## Special Directories
 
 **`.planning/`:**
-- Purpose: GSD (Generative Specification Document) workflow directory
-- Generated: By GSD orchestrator; contains architecture docs
-- Committed: Yes (docs are source of truth for future development)
+- Purpose: GSD (Generative Specification Document) workflow
+- Contents: Architecture docs (STACK.md, ARCHITECTURE.md, STRUCTURE.md, TESTING.md, CONVENTIONS.md, CONCERNS.md, INTEGRATIONS.md)
+- Committed: Yes
 
 **`.git/`:**
 - Purpose: Version control
 - Committed: Yes
 
-**`.venv/`:**
-- Purpose: Python virtual environment
-- Generated: Yes (via `python -m venv .venv`)
-- Committed: No (should be in .gitignore)
+**`web/templates/`:**
+- Purpose: Jinja2 template files for web interface
+- Files: hall.html (public), payments.html (admin), payments_login.html (auth form)
+- Context: Each route passes dict to TemplateResponse
 
-**`__pycache__/`:**
-- Purpose: Python bytecode cache
-- Generated: Yes (by Python interpreter)
-- Committed: No
+**`migrations/`:**
+- Purpose: Database migration scripts (future use)
+- Current: Empty; schema managed by SQLAlchemy models
+- Usage: When migrating SQLite → PostgreSQL
+
+**`__pycache__/`, `.pytest_cache/`:**
+- Purpose: Generated caches (Python bytecode, pytest)
+- Generated: Yes (by Python/pytest)
+- Committed: No (in .gitignore)
 
 **`tickets.db`:**
-- Purpose: SQLite database file for MVP
-- Generated: Yes (by SQLAlchemy on first init_db() call)
-- Committed: No (should be in .gitignore; DB schema defined by models only)
+- Purpose: SQLite database file (MVP only)
+- Generated: Yes (by SQLAlchemy on init_db())
+- Committed: No (should be .gitignore)
+- Production: Replace with PostgreSQL via DATABASE_URL env var
 
-## Future Structure (Planned)
+## Key Files to Know
 
-Based on TZ.md requirements, anticipated additions:
+**`bot/config.py` (97 lines):**
+- Loads configuration from environment
+- Sets up logging
+- Validates required config (VK token, layout file)
+- Used by: All bot modules
 
-```
-Tickets/
-├── layout.json          # Hall seat layout (rows, seat counts, aisles)
-├── config/              # Configuration management
-│   └── settings.py     # Database URL, API endpoints, secrets
-├── bot/                 # VK bot implementation (Planned)
-│   ├── __init__.py
-│   ├── client.py       # VK API client wrapper
-│   ├── handlers.py     # Message handlers (reservation, payment, etc.)
-│   ├── parsers.py      # Seat input parser (1-3,5,8-10 format)
-│   └── formatters.py   # Response formatting
-├── web/                 # Web admin interface (Planned)
-│   ├── __init__.py
-│   ├── api.py          # Flask/FastAPI endpoints
-│   ├── auth.py         # Authentication middleware
-│   └── templates/      # Jinja2 templates
-├── services/            # Business logic layer (Planned)
-│   ├── __init__.py
-│   ├── reservation.py  # Booking operations
-│   ├── payment.py      # Payment recording
-│   ├── audit.py        # Audit log helpers
-│   └── reminders.py    # Delinquent reminder scheduling
-├── utils/               # Utilities (Planned)
-│   ├── __init__.py
-│   ├── seat_parser.py  # Parse "1-3,5,8-10" format
-│   ├── layout.py       # Load and validate JSON layout
-│   └── formatting.py   # Seat range formatting
-└── tests/               # Test suite (Planned)
-    ├── conftest.py     # Pytest fixtures
-    ├── unit/           # Unit tests
-    └── integration/    # Integration tests
-```
+**`bot/main.py` (110 lines):**
+- Entry point for bot
+- Initializes Redis, database, layout
+- Registers all handlers
+- Starts polling loop
+
+**`bot/utils/db.py` (~1000 lines):**
+- Largest file in codebase
+- All database CRUD operations
+- Custom exception classes
+- Audit logging
+- Seat assignment logic
+
+**`database.py` (68 lines):**
+- Session factory and engine creation
+- init_db() function
+- SQLite foreign key enablement
+
+**`models/base.py` (40 lines):**
+- Base class for all models
+- ENUM types (UserRole, ReservationState, SeatStatus, ActorType)
+
+**`models/seat_assignment.py` (94 lines):**
+- Most complex model
+- Partial unique index to prevent double-booking
+- Soft-delete via released_at
+
+**`bot/fsm/storage.py` (~150 lines):**
+- Redis-based state dispenser
+- Implements ABCStateDispenser
+- Handles StatePeer serialization
+
+**`web/app.py` (323 lines):**
+- All web routes in one file
+- Hall view, payments dashboard, auth
+- Uses SessionLocal per request
+
+## Data Model Overview
+
+**Core Entities:**
+- `AppUser` (seller/admin internal)
+- `VkUser` (customer external)
+- `Reservation` (booking, links buyer to seller)
+- `SeatAssignment` (occupancy, unified table)
+- `Payment` (receipt, amount paid)
+- `AuditLog` (event trail)
+
+**Relationships:**
+- Reservation.buyer_vk_user_id → VkUser.id
+- Reservation.sold_by_user_id → AppUser.id
+- SeatAssignment.reservation_id → Reservation.id (CASCADE)
+- SeatAssignment.created_by_user_id → AppUser.id
+- Payment.reservation_id → Reservation.id
+- Payment.recorded_by_user_id → AppUser.id
+- PaymentSeat.payment_id → Payment.id (CASCADE)
+- PaymentSeat.seat_assignment_id → SeatAssignment.id
+
+**Key Constraints:**
+- SeatAssignment: Unique (row_number, seat_number) WHERE released_at IS NULL
+- PaymentSeat: Unique seat_assignment_id
+- Reservation: Indexed by buyer, seller, last_activity
+- Layout: JSON with rows and seat counts
 
 ---
 
-*Structure analysis: 2026-01-24*
+*Structure analysis: 2026-02-19*
