@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 9 of 12 (FSM Config + Steps)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-02-19 — Completed 09-01-PLAN.md (FSM config)
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-02-19 — Completed 09-02-PLAN.md (shared step functions)
 
-Progress: [██████████░░░░░░░░░░] 50% (v0.1 complete, v0.2 phases 7-9/01 done)
+Progress: [██████████░░░░░░░░░░] 52% (v0.1 complete, v0.2 phases 7-9 done)
 
 ## Performance Metrics
 
@@ -33,7 +33,7 @@ Progress: [██████████░░░░░░░░░░] 50% (v0
 | Phase 4 | 2 | ~9 min | ~5 min |
 | Phase 5 | 2 | ~4 min | ~2 min |
 | Phase 8 | 3 | ~7 min | ~2 min |
-| Phase 9 | 1 | ~1 min | ~1 min |
+| Phase 9 | 2 | ~3 min | ~1.5 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -61,6 +61,9 @@ Progress: [██████████░░░░░░░░░░] 50% (v0
 - [09-fsm-config] handler=None in Phase 9; Phase 10 Router wires real handlers to avoid premature coupling
 - [09-fsm-config] bot/fsm/config.py NOT exported from __init__.py — imported directly to prevent circular import risk
 - [09-fsm-config] auth_guard Literal "any"|"seller"|"admin" — no UserRole import needed in config layer
+- [09-steps] Lazy imports in handle_row_input/handle_seat_input/handle_confirmation — avoids circular imports at module level
+- [09-steps] availability mode builds dynamic error message inline — occupancy detail is too dynamic for a static texts.py constant
+- [09-steps] handle_confirmation is the canonical Btn.CONFIRM/CANCEL comparison location — handlers never compare raw strings directly
 
 ### Pending Todos
 
@@ -73,6 +76,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T18:28:21Z
-Stopped at: Completed 09-01-PLAN.md (FSM config). Ready to execute 09-02.
+Last session: 2026-02-19T18:30:14Z
+Stopped at: Phase 9 complete (09-01 FSM config + 09-02 step functions). Ready for Phase 10 (Router).
 Resume file: None
