@@ -5,21 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 12: Back Navigation (next)
+**Current focus:** v0.2 — Phase 12: Back Navigation (in progress)
 
 ## Current Position
 
-Phase: 11 of 12 (Handler Migration) — COMPLETE
-Plan: 8 of 8 in current phase
-Status: Phase complete — 11-08 verification pass done
-Last activity: 2026-02-19 — Completed 11-08-PLAN.md (verification pass: 7/7 structural checks passed, 12 pre-existing pytest failures documented as non-regressions)
+Phase: 12 of 12 (Back Navigation) — In progress
+Plan: 1 of 3 in current phase
+Status: In progress — 12-01 cancel back-navigation complete
+Last activity: 2026-02-19 — Completed 12-01-PLAN.md (cancel_handler rewritten with FSM_CONFIG back-step navigation)
 
-Progress: [████████████████████] 82% (v0.1 complete, v0.2 phases 7-11 complete, phase 12 next)
+Progress: [█████████████████████░░] 85% (v0.1 complete, v0.2 phases 7-11 complete, phase 12 plan 1/3 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (13 v0.1 + 6 v0.2)
+- Total plans completed: 20 (13 v0.1 + 7 v0.2)
 - Average duration: ~5 min
 - Total execution time: ~1.3 hours
 
@@ -38,6 +38,7 @@ Progress: [████████████████████] 82% (v0
 | Phase 10 plan 02 | 1 | ~1 min | 1 min |
 | Phase 10 plan 03 | 1 | ~1 min | 1 min |
 | Phase 10 plan 04 | 1 | ~2 min | 2 min |
+| Phase 12 plan 01 | 1 | ~2 min | 2 min |
 
 **Recent Trend:**
 - Last 5 plans: fast (AI-assisted, minutes each)
@@ -84,6 +85,10 @@ Progress: [████████████████████] 82% (v0
 - [11-04] MSG_EXIT_FULL added to texts.py (not kept inline in commands.py) — mirrors MSG_CANCEL_FULL pattern, all user-facing strings in one place
 - [11-06] text[len(Btn.PAY_ALL_PREFIX):] preferred over text[4:] — self-documents prefix boundary, avoids magic number
 - [11-08] Pre-existing pytest failures (12 total) confirmed not caused by Phase 11 — Phase 11 only modified bot/handlers/*.py and bot/texts.py, zero changes to db.py/models/tests
+- [12-01] cancel_handler: all bot.* imports lazy inside function body (FSM_CONFIG, BotState, show_main_menu, db, format_reserves_list, reserve_action_keyboard, get_empty_keyboard) — consistent with [09-steps] and [10-router] patterns
+- [12-01] AWAITING_ROW back-navigation: from_main_menu flag disambiguates MAIN_MENU vs IDLE — checked in step 6 before generic dispatch (step 7)
+- [12-01] CONTEXT_SWITCH_CONFIRM /cancel: restores original_state/original_context from payload; falls through to clear-IDLE if original_state missing
+- [12-01] RESERVE_ACTION back navigation re-fetches fresh reserves list (always current data, not stale payload)
 
 ### Pending Todos
 
@@ -91,10 +96,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- [Phase 12] BACK_MAP для AWAITING_ROW неоднозначен: состояние достигается из разных точек входа. Определить весь BACK_MAP до начала реализации.
+None — AWAITING_ROW ambiguity (formerly a concern) resolved via from_main_menu flag in payload (Plan 12-01).
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:14:07Z
-Stopped at: Completed 11-08-PLAN.md — verification pass. Phase 11 handler migration confirmed complete. 7/7 structural checks pass. 12 pre-existing pytest failures documented. Phase 12 (Back Navigation) is ready to begin.
+Last session: 2026-02-19T20:50:15Z
+Stopped at: Completed 12-01-PLAN.md — cancel_handler rewritten with FSM_CONFIG back-step navigation. AWAITING_ROW ambiguity resolved via from_main_menu flag. CONTEXT_SWITCH_CONFIRM restores original state. Phase 12 plan 1/3 done.
 Resume file: None
