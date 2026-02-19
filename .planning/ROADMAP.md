@@ -137,11 +137,13 @@ Plans:
   2. Router читает FSM config и автоматически регистрирует хендлеры с инъекцией storage и проверкой auth guard
   3. `register_all()` гарантирует порядок: forwarded-message handler первый, затем command handlers, затем state handlers
   4. bot/main.py использует `bot.labeler.load(router.labeler)` вместо цепочки register_handlers() вызовов
-**Plans:** 2 plans
+**Plans:** 4 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Create bot/router.py (Router class, register_all() with enforced ordering)
-- [ ] 10-02-PLAN.md — Wire router into bot/main.py, replace 7 register_handlers() calls
+- [x] 10-01-PLAN.md — Create bot/router.py (Router class, register_all() with enforced ordering)
+- [x] 10-02-PLAN.md — Wire router into bot/main.py, replace 7 register_handlers() calls
+- [ ] 10-03-PLAN.md — Gap closure: Add /exit command handler and register in router
+- [ ] 10-04-PLAN.md — Gap closure: Integrate FSM_CONFIG into router and add auth guard enforcement
 
 ---
 
@@ -201,10 +203,10 @@ Plans:
 | 7. Bug Fix | v0.2 | 1/1 | Complete | 2026-02-19 |
 | 8. Foundation | v0.2 | 3/3 | Complete | 2026-02-19 |
 | 9. FSM Config + Steps | v0.2 | 2/2 | Complete | 2026-02-19 |
-| 10. Router | v0.2 | 0/2 | Not started | — |
+| 10. Router | v0.2 | 2/4 | Gap closure | — |
 | 11. Handler Migration | v0.2 | 0/8 | Not started | — |
 | 12. Navigation UX | v0.2 | 0/2 | Not started | — |
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 10 planned*
+*Roadmap updated: 2026-02-19 — Phase 10 gap closure plans added (10-03, 10-04)*
