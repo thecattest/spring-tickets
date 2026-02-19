@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 11: Handler Migration (in progress)
+**Current focus:** v0.2 — Phase 12: Back Navigation (next)
 
 ## Current Position
 
-Phase: 11 of 12 (Handler Migration) — In progress
-Plan: 7 of 8 in current phase
-Status: In progress — 11-07 complete (debtors.py migrated)
-Last activity: 2026-02-19 — Completed 11-07-PLAN.md (debtors.py: register_handlers removed, Bot import removed, 3 texts.* constants wired)
+Phase: 11 of 12 (Handler Migration) — COMPLETE
+Plan: 8 of 8 in current phase
+Status: Phase complete — 11-08 verification pass done
+Last activity: 2026-02-19 — Completed 11-08-PLAN.md (verification pass: 7/7 structural checks passed, 12 pre-existing pytest failures documented as non-regressions)
 
-Progress: [█████████████████░░░] 78% (v0.1 complete, v0.2 phases 7-11 in progress)
+Progress: [████████████████████] 82% (v0.1 complete, v0.2 phases 7-11 complete, phase 12 next)
 
 ## Performance Metrics
 
@@ -83,6 +83,7 @@ Progress: [█████████████████░░░] 78% (v0
 - [11-02] Steps imports in deletion.py kept lazy inside function bodies — consistent with 09-steps circular-import avoidance pattern
 - [11-04] MSG_EXIT_FULL added to texts.py (not kept inline in commands.py) — mirrors MSG_CANCEL_FULL pattern, all user-facing strings in one place
 - [11-06] text[len(Btn.PAY_ALL_PREFIX):] preferred over text[4:] — self-documents prefix boundary, avoids magic number
+- [11-08] Pre-existing pytest failures (12 total) confirmed not caused by Phase 11 — Phase 11 only modified bot/handlers/*.py and bot/texts.py, zero changes to db.py/models/tests
 
 ### Pending Todos
 
@@ -94,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:12:03Z
-Stopped at: Backfilled 11-05-PLAN.md. menu.py migrated — register_handlers() + command dispatch block removed, Btn.ADD/DELETE/DELETE_ALL/PAYMENT/YES/NO + 13 texts.* constants wired. 11-05-SUMMARY.md created. (Note: 11-07 was the last substantive plan completed; 11-05 backfill only created missing SUMMARY.md artifacts and re-committed code that was already migrated.)
+Last session: 2026-02-19T20:14:07Z
+Stopped at: Completed 11-08-PLAN.md — verification pass. Phase 11 handler migration confirmed complete. 7/7 structural checks pass. 12 pre-existing pytest failures documented. Phase 12 (Back Navigation) is ready to begin.
 Resume file: None
