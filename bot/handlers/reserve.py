@@ -100,6 +100,12 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
         return
     row = result.row
 
+    # Early row validation: check if row has free seats
+    available = db.get_available_seats_in_row(row)
+    if not available:
+        await message.answer(texts.ERR_ROW_NO_AVAILABLE_SEATS.format(row=row))
+        return
+
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)
     context['current_row'] = row
@@ -210,6 +216,12 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
         await message.answer(result.error_text)
         return
     row = result.row
+
+    # Early row validation: check if row has reserved seats
+    reserved = db.get_reserved_seats_in_row(row)
+    if not reserved:
+        await message.answer(texts.ERR_ROW_NO_RESERVED_SEATS.format(row=row))
+        return
 
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)

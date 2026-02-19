@@ -309,6 +309,12 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         return
     row = result.row
 
+    # Early row validation: check if row has free seats
+    available = db.get_available_seats_in_row(row)
+    if not available:
+        await message.answer(texts.ERR_ROW_NO_AVAILABLE_SEATS.format(row=row))
+        return
+
     # Get existing context to preserve it
     context = await storage.get_context(message.from_id)
 

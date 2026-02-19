@@ -42,8 +42,19 @@ async def deleting_row_handler(message: Message, storage: RedisStorage):
         return
     row = result.row
 
-    # Get existing context to preserve it
+    # Get existing context (need reservation_id for early validation)
     context = await storage.get_context(message.from_id)
+    reservation_id = context.get("reservation_id")
+    if not reservation_id:
+        await message.answer(texts.ERR_CONTEXT_LOST_FWD)
+        await storage.delete(message.from_id)
+        return
+
+    # Early row validation: check if reservation has seats in this row
+    booked = db.get_reservation_booked_seats_in_row(reservation_id, row)
+    if not booked:
+        await message.answer(texts.ERR_ROW_NO_BOOKED_SEATS.format(row=row))
+        return
 
     # Update context with current_row
     context['current_row'] = row
