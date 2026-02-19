@@ -20,13 +20,13 @@
 
 ### FSM Configuration
 
-- [ ] **FSM-01**: Create declarative state machine config — per-state definition of: handler function, allowed input type, validators/checkers, auth guard (admin/seller/any), forward transition(s), back state. Single source of truth for all bot behavior.
+- [x] **FSM-01**: Create declarative state machine config — per-state definition of: handler function, allowed input type, validators/checkers, auth guard (admin/seller/any), forward transition(s), back state. Single source of truth for all bot behavior.
 
 ### Shared Steps
 
-- [ ] **STEP-01**: `handle_row_input()` in `bot/steps.py` — validates row number, checks layout, returns typed result (`RowResult`); used by reservation, deletion, reserve flows
-- [ ] **STEP-02**: `handle_seat_input()` in `bot/steps.py` — parses seat range string, validates against layout and availability, returns typed result (`SeatResult`); used by reservation, deletion, reserve flows
-- [ ] **STEP-03**: `handle_confirmation()` in `bot/steps.py` — handles yes/no confirmation input, returns `Optional[bool]`; used by deletion confirm, reserve remove confirm flows
+- [x] **STEP-01**: `handle_row_input()` in `bot/steps.py` — validates row number, checks layout, returns typed result (`RowResult`); used by reservation, deletion, reserve flows
+- [x] **STEP-02**: `handle_seat_input()` in `bot/steps.py` — parses seat range string, validates against layout and availability, returns typed result (`SeatResult`); used by reservation, deletion, reserve flows
+- [x] **STEP-03**: `handle_confirmation()` in `bot/steps.py` — handles yes/no confirmation input, returns `Optional[bool]`; used by deletion confirm, reserve remove confirm flows
 
 ### Router
 
@@ -78,10 +78,10 @@
 | CONST-01 | Phase 8 | Complete |
 | CONST-02 | Phase 8 | Complete |
 | TEXT-01 | Phase 8 | Complete |
-| FSM-01 | Phase 9 | Pending |
-| STEP-01 | Phase 9 | Pending |
-| STEP-02 | Phase 9 | Pending |
-| STEP-03 | Phase 9 | Pending |
+| FSM-01 | Phase 9 | Complete |
+| STEP-01 | Phase 9 | Complete |
+| STEP-02 | Phase 9 | Complete |
+| STEP-03 | Phase 9 | Complete |
 | RTR-01 | Phase 10 | Pending |
 | RTR-02 | Phase 10 | Pending |
 | RTR-03 | Phase 10 | Pending |

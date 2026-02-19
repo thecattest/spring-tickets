@@ -64,7 +64,7 @@ Plans:
 
 - [x] **Phase 7: Bug Fix** — Исправить контекстный баг восстановления состояния
 - [x] **Phase 8: Foundation** — Создать constants.py, texts.py, обновить keyboards.py
-- [ ] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
+- [x] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
 - [ ] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
 - [ ] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
 - [ ] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
@@ -119,9 +119,11 @@ Plans:
   4. `handle_confirmation()` обрабатывает yes/no ввод и возвращает `Optional[bool]` — один код для всех подтверждений
 **Plans:** 2 plans
 
+**Status:** Complete (2026-02-19)
+
 Plans:
-- [ ] 09-01-PLAN.md — Create bot/fsm/config.py (StateConfig dataclass, FSM_CONFIG dict for all 16 states)
-- [ ] 09-02-PLAN.md — Create bot/steps.py (handle_row_input, handle_seat_input, handle_confirmation)
+- [x] 09-01-PLAN.md — Create bot/fsm/config.py (StateConfig dataclass, FSM_CONFIG dict for all 18 states)
+- [x] 09-02-PLAN.md — Create bot/steps.py (handle_row_input, handle_seat_input, handle_confirmation)
 
 ---
 
@@ -198,11 +200,11 @@ Plans:
 | 6. Статистика | v0.1 | — | Deferred | — |
 | 7. Bug Fix | v0.2 | 1/1 | Complete | 2026-02-19 |
 | 8. Foundation | v0.2 | 3/3 | Complete | 2026-02-19 |
-| 9. FSM Config + Steps | v0.2 | 0/2 | Not started | — |
+| 9. FSM Config + Steps | v0.2 | 2/2 | Complete | 2026-02-19 |
 | 10. Router | v0.2 | 0/2 | Not started | — |
 | 11. Handler Migration | v0.2 | 0/8 | Not started | — |
 | 12. Navigation UX | v0.2 | 0/2 | Not started | — |
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 9 planned*
+*Roadmap updated: 2026-02-19 — Phase 9 complete*
