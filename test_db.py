@@ -7,7 +7,7 @@ from datetime import datetime
 from database import init_db, get_session
 from models import (
     AppUser, VkUser, Reservation, SeatAssignment,
-    Payment, PaymentSeat, Expense, ReconcileCheckpoint, AuditLog
+    Payment, PaymentSeat, ReconcileCheckpoint, AuditLog
 )
 from models.base import UserRole, ReservationState, SeatStatus, ActorType
 
@@ -110,14 +110,6 @@ def test_database():
             # Обновляем статус места на "оплачено"
             seat.status = SeatStatus.PAID
         
-        # Расход
-        expense = Expense(
-            created_by_user_id=admin.id,
-            amount_rub=5000,
-            note="Аренда зала"
-        )
-        session.add(expense)
-        
         # Чекап
         checkpoint = ReconcileCheckpoint(
             checked_by_user_id=admin.id,
@@ -171,10 +163,6 @@ def test_database():
         # Проверка оплат
         payments = session.query(Payment).all()
         print(f"   - Оплат: {len(payments)}")
-        
-        # Проверка расходов
-        expenses = session.query(Expense).all()
-        print(f"   - Расходов: {len(expenses)}")
         
         # Проверка аудит-лога
         logs = session.query(AuditLog).all()
