@@ -137,11 +137,11 @@ Plans:
   2. Router читает FSM config и автоматически регистрирует хендлеры с инъекцией storage и проверкой auth guard
   3. `register_all()` гарантирует порядок: forwarded-message handler первый, затем command handlers, затем state handlers
   4. bot/main.py использует `bot.labeler.load(router.labeler)` вместо цепочки register_handlers() вызовов
-**Plans:** TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 10-01: Create bot/router.py (Router class, decorators, register_all() with enforced ordering)
-- [ ] 10-02: Wire router into bot/main.py, verify universal command interception
+- [ ] 10-01-PLAN.md — Create bot/router.py (Router class, register_all() with enforced ordering)
+- [ ] 10-02-PLAN.md — Wire router into bot/main.py, replace 7 register_handlers() calls
 
 ---
 
@@ -207,4 +207,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 9 complete*
+*Roadmap updated: 2026-02-19 — Phase 10 planned*
