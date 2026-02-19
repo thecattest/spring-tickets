@@ -39,7 +39,11 @@ async def cancel_handler(message: Message, storage):
     """
     /cancel command handler.
 
-    Cancels current operation and resets FSM state.
+    Back-step navigation: reads FSM_CONFIG[current_state].back_state and
+    navigates there instead of clearing to IDLE. Special cases:
+    - IDLE: sends "already idle" message (no-op)
+    - AWAITING_ROW: checks from_main_menu flag to decide MAIN_MENU vs IDLE
+    - CONTEXT_SWITCH_CONFIRM: restores original_state and original_context
 
     Args:
         message: VK message
@@ -48,13 +52,98 @@ async def cancel_handler(message: Message, storage):
     logger.info(f"User {message.from_id} sent /cancel")
 
     try:
-        # Clear FSM state
-        await storage.delete(message.from_id)
+        # Step 1: Read current FSM state
+        state_peer = await storage.get(message.from_id)
 
-        await message.answer(
-            texts.MSG_CANCEL_FULL,
-            keyboard=commands_keyboard(),
-        )
+        # If no state or idle — no-op
+        if state_peer is None or "idle" in state_peer.state.lower():
+            await message.answer(texts.MSG_CANCEL_ALREADY_IDLE, keyboard=commands_keyboard())
+            return
+
+        # Step 2: Convert state string to BotState enum
+        # vkbottle stores state as "BotState:awaiting_row" format
+        from bot.fsm.states import BotState
+        current_state = BotState(state_peer.state.split(":")[-1])
+
+        # Step 3: Look up back_state from FSM_CONFIG
+        from bot.fsm.config import FSM_CONFIG
+        config = FSM_CONFIG.get(current_state)
+        back_state = config.back_state if config else None
+
+        # Step 4: Handle special CONTEXT_SWITCH_CONFIRM case (back_state is None)
+        if back_state is None and current_state == BotState.CONTEXT_SWITCH_CONFIRM:
+            original_state = state_peer.payload.get("original_state")
+            original_context = state_peer.payload.get("original_context", {})
+            if original_state and original_state != "idle":
+                restored = BotState(original_state.split(":")[-1])
+                await storage.set(message.from_id, restored, **original_context)
+                await message.answer(
+                    texts.MSG_CONTINUE_WITH.format(
+                        name=original_context.get("buyer_display_name", "")
+                    )
+                )
+                return
+            # No restorable state — fall through to clear-to-IDLE below
+
+        # Step 5: Handle None back_state (IDLE or unknown) — clear to IDLE
+        if back_state is None:
+            await storage.delete(message.from_id)
+            await message.answer(texts.MSG_CANCEL_FULL, keyboard=commands_keyboard())
+            return
+
+        # Step 6: Handle AWAITING_ROW ambiguity via from_main_menu flag
+        if current_state == BotState.AWAITING_ROW:
+            from_main_menu = state_peer.payload.get("from_main_menu", False)
+            if from_main_menu:
+                from bot.handlers.menu import show_main_menu
+                await show_main_menu(
+                    message,
+                    storage,
+                    reservation_id=state_peer.payload["reservation_id"],
+                    vk_user_id=state_peer.payload["buyer_vk_user_id"],
+                    buyer_display_name=state_peer.payload["buyer_display_name"],
+                    buyer_vk_api_id=state_peer.payload["buyer_vk_api_id"],
+                )
+            else:
+                await storage.delete(message.from_id)
+                await message.answer(texts.MSG_CANCEL_FULL, keyboard=commands_keyboard())
+            return
+
+        # Step 7: Generic back_state navigation
+        if back_state == BotState.MAIN_MENU:
+            from bot.handlers.menu import show_main_menu
+            await show_main_menu(
+                message,
+                storage,
+                reservation_id=state_peer.payload["reservation_id"],
+                vk_user_id=state_peer.payload["buyer_vk_user_id"],
+                buyer_display_name=state_peer.payload["buyer_display_name"],
+                buyer_vk_api_id=state_peer.payload["buyer_vk_api_id"],
+            )
+        elif back_state == BotState.RESERVE_ACTION:
+            from bot.utils import db
+            from bot.messages import format_reserves_list
+            from bot.keyboards import reserve_action_keyboard
+            reserves = db.get_active_reserves()
+            reserves_text = format_reserves_list(reserves)
+            await message.answer(
+                texts.MSG_RESERVE_ACTION_HEADER.format(reserves=reserves_text),
+                keyboard=reserve_action_keyboard(),
+            )
+            await storage.set(message.from_id, back_state, **state_peer.payload)
+        else:
+            # Prompt lookup for row-entry states
+            from bot.keyboards import get_empty_keyboard
+            _BACK_PROMPTS = {
+                BotState.AWAITING_ROW: texts.PROMPT_ENTER_ROW,
+                BotState.DELETING_ROW: texts.PROMPT_ENTER_ROW_DELETE,
+                BotState.RESERVE_ADDING_ROW: texts.PROMPT_ENTER_ROW,
+                BotState.RESERVE_REMOVING_ROW: texts.PROMPT_ENTER_ROW,
+            }
+            prompt = _BACK_PROMPTS.get(back_state, texts.MSG_CANCELLED)
+            await message.answer(prompt, keyboard=get_empty_keyboard())
+            await storage.set(message.from_id, back_state, **state_peer.payload)
+
     except Exception as e:
         logger.error(f"Error in /cancel: {e}")
         await message.answer(texts.MSG_CANCELLED)
