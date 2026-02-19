@@ -94,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19T20:12:00Z
-Stopped at: Completed 11-07-PLAN.md. debtors.py migrated — register_handlers() dead code removed, Bot import removed, 3 texts.* constants (ERR_NOT_REGISTERED, ERR_DB_GET_DEBTORS, MSG_NO_DEBTORS) wired. "Обновить" button handling confirmed via Router. Phase 11 blocker resolved.
+Last session: 2026-02-19T20:12:03Z
+Stopped at: Backfilled 11-05-PLAN.md. menu.py migrated — register_handlers() + command dispatch block removed, Btn.ADD/DELETE/DELETE_ALL/PAYMENT/YES/NO + 13 texts.* constants wired. 11-05-SUMMARY.md created. (Note: 11-07 was the last substantive plan completed; 11-05 backfill only created missing SUMMARY.md artifacts and re-committed code that was already migrated.)
 Resume file: None
