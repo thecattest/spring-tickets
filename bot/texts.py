@@ -79,6 +79,8 @@ MSG_CANCEL_FULL = (
 
 MSG_CANCELLED = "Операция отменена."
 
+MSG_CANCEL_ALREADY_IDLE = "Вы уже в начальном состоянии."
+
 MSG_EXIT_FULL = (
     "Сессия завершена. Состояние сброшено.\n"
     "\n"
@@ -117,6 +119,11 @@ ERR_PAID_CANCEL_ADMIN_ONLY = "В брони есть оплаченные мес
 ERR_ALREADY_WORKING = "Вы уже работаете с этим клиентом."
 ERR_NO_SEATS_TO_DELETE = "В брони нет мест для удаления."
 ERR_NO_SEATS = "В брони нет мест."
+
+# Early row validation (NAV-03)
+ERR_ROW_NO_AVAILABLE_SEATS = "Ряд {row}: нет свободных мест. Введите другой ряд:"
+ERR_ROW_NO_BOOKED_SEATS = "Ряд {row}: в этой брони нет мест для удаления. Введите другой ряд:"
+ERR_ROW_NO_RESERVED_SEATS = "Ряд {row}: нет зарезервированных мест. Введите другой ряд:"
 
 # ---------------------------------------------------------------------------
 # Prompt messages (PROMPT_*)
