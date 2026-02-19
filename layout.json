@@ -1,35 +1,89 @@
 {
   "rows": {
-    "1": { "seatCount": 21 },
-    "2": { "seatCount": 22 },
-    "3": { "seatCount": 23 },
-    "4": { "seatCount": 25 },
-    "5": { "seatCount": 26 },
-    "6": { "seatCount": 27 },
-    "7": { "seatCount": 27 },
-    "8": { "seatCount": 27 },
-    "9": { "seatCount": 27 },
-    "10": { "seatCount": 28 },
-    "11": { "seatCount": 28 },
-    "12": { "seatCount": 28 },
-    "13": { "seatCount": 28 },
-    "14": { "seatCount": 28 },
-    "15": { "seatCount": 28 },
-    "16": { "seatCount": 28 },
-    "17": { "seatCount": 28 },
-    "18": { "seatCount": 28 },
-    "19": { "seatCount": 28 },
-    "20": { "seatCount": 28 },
-    "21": { "seatCount": 28 },
-    "22": { "seatCount": 28 },
-    "23": { "seatCount": 28 },
-    "24": { "seatCount": 28 }
+    "1": {
+      "seatCount": 21
+    },
+    "2": {
+      "seatCount": 22
+    },
+    "3": {
+      "seatCount": 23
+    },
+    "4": {
+      "seatCount": 25
+    },
+    "5": {
+      "seatCount": 26
+    },
+    "6": {
+      "seatCount": 27
+    },
+    "7": {
+      "seatCount": 27
+    },
+    "8": {
+      "seatCount": 27
+    },
+    "9": {
+      "seatCount": 27
+    },
+    "10": {
+      "seatCount": 28
+    },
+    "11": {
+      "seatCount": 28
+    },
+    "12": {
+      "seatCount": 28
+    },
+    "13": {
+      "seatCount": 28
+    },
+    "14": {
+      "seatCount": 28
+    },
+    "15": {
+      "seatCount": 28
+    },
+    "16": {
+      "seatCount": 28
+    },
+    "17": {
+      "seatCount": 28
+    },
+    "18": {
+      "seatCount": 28
+    },
+    "19": {
+      "seatCount": 28
+    },
+    "20": {
+      "seatCount": 28
+    },
+    "21": {
+      "seatCount": 28
+    },
+    "22": {
+      "seatCount": 28
+    },
+    "23": {
+      "seatCount": 28
+    },
+    "24": {
+      "seatCount": 28
+    }
   },
   "layout": {
     "horizontalEntranceAfterRow": 9,
     "verticalAisles": [
-      { "rows": "10-24", "afterSeat": 7 },
-      { "rows": "10-24", "afterSeat": 21 }
+      {
+        "rows": "10-24",
+        "afterSeat": 6
+      },
+      {
+        "rows": "10-24",
+        "afterSeat": 20
+      }
     ]
   }
 }

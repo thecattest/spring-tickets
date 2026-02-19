@@ -1,207 +1,239 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Схема зала</title>
-<style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #1a1a2e;
-    color: #eee;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px 10px 40px;
-    min-height: 100vh;
-  }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Схема зала</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-  .stage {
-    background: linear-gradient(135deg, #e94560, #c23152);
-    color: #fff;
-    font-size: 1.2rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    padding: 12px 60px;
-    border-radius: 0 0 16px 16px;
-    margin-bottom: 24px;
-    text-align: center;
-  }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 10px 40px;
+      min-height: 100vh;
+    }
 
-  .hall-scroll {
-    width: 100%;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+    .stage {
+      background: linear-gradient(135deg, #e94560, #c23152);
+      color: #fff;
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 12px 60px;
+      border-radius: 0 0 16px 16px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
 
-  .hall {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 3px;
-    min-width: max-content;
-    margin: 0 auto;
-    padding: 0 10px;
-  }
+    .hall-scroll {
+      width: 100%;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
 
-  .row {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 30px;
-  }
+    .hall {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      min-width: max-content;
+      margin: 0 auto;
+      padding: 0 10px;
+    }
 
-  .row-label {
-    width: 28px;
-    text-align: right;
-    font-size: 11px;
-    color: #999;
-    flex-shrink: 0;
-    margin-right: 4px;
-  }
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      height: 30px;
+    }
 
-  .row-label-right {
-    width: 28px;
-    text-align: left;
-    font-size: 11px;
-    color: #999;
-    flex-shrink: 0;
-    margin-left: 4px;
-  }
+    .row-label {
+      width: 28px;
+      text-align: right;
+      font-size: 11px;
+      color: #999;
+      flex-shrink: 0;
+      margin-right: 4px;
+    }
 
-  .seat {
-    width: 28px;
-    height: 28px;
-    border-radius: 5px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    font-weight: 600;
-    color: rgba(255,255,255,0.85);
-    cursor: default;
-    transition: transform 0.1s;
-    flex-shrink: 0;
-  }
-  .seat:hover { transform: scale(1.2); z-index: 1; }
-  .seat.free { background: #4CAF50; }
-  .seat.occupied { background: #E53935; }
+    .row-label-right {
+      width: 28px;
+      text-align: left;
+      font-size: 11px;
+      color: #999;
+      flex-shrink: 0;
+      margin-left: 4px;
+    }
 
-  .aisle-v {
-    width: 28px;
-    flex-shrink: 0;
-  }
+    .seat {
+      width: 28px;
+      height: 28px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.85);
+      cursor: default;
+      transition: transform 0.1s;
+      flex-shrink: 0;
+    }
 
-  .entrance {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 28px;
-    margin: 6px 0;
-    position: relative;
-  }
-  .entrance::before {
-    content: "";
-    position: absolute;
-    left: 40px;
-    right: 40px;
-    top: 50%;
-    border-top: 1px dashed #555;
-  }
-  .entrance span {
-    background: #1a1a2e;
-    padding: 0 12px;
-    font-size: 11px;
-    color: #777;
-    position: relative;
-    z-index: 1;
-  }
+    .seat:hover {
+      transform: scale(1.2);
+      z-index: 1;
+    }
 
-  .spacer { width: 28px; height: 28px; flex-shrink: 0; }
+    .seat.free {
+      background: #4CAF50;
+    }
 
-  .legend {
-    margin-top: 28px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-  }
-  .legend-row {
-    display: flex;
-    gap: 20px;
-    align-items: center;
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 14px;
-  }
-  .legend-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-  }
-  .stats {
-    font-size: 13px;
-    color: #aaa;
-  }
-</style>
+    .seat.occupied {
+      background: #E53935;
+    }
+
+    .aisle-v {
+      width: 28px;
+      flex-shrink: 0;
+    }
+
+    .entrance {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 28px;
+      margin: 6px 0;
+      position: relative;
+    }
+
+    .entrance::before {
+      content: "";
+      position: absolute;
+      left: 40px;
+      right: 40px;
+      top: 50%;
+      border-top: 1px dashed #555;
+    }
+
+    .entrance span {
+      background: #1a1a2e;
+      padding: 0 12px;
+      font-size: 11px;
+      color: #777;
+      position: relative;
+      z-index: 1;
+    }
+
+    .spacer {
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+
+    .legend {
+      margin-top: 28px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .legend-row {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+    }
+
+    .legend-swatch {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+    }
+
+    .stats {
+      font-size: 13px;
+      color: #aaa;
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="stage">Сцена</div>
+  <div class="stage">Сцена</div>
 
-<div class="hall-scroll">
-<div class="hall">
-  {% set max_seats = 28 %}
-  {% set aisle_before = [22, 8] %}
+  <div class="hall-scroll">
+    <div class="hall">
+      {% set max_seats = 28 %}
+      {% set aisle_before = [21, 7] %}
 
-  {# --- Rows 1-9 (no vertical aisles, one fewer spacer) --- #}
-  {% for row in rows[:9] %}
-    {% set pad = (max_seats - 1 - row.seats|length) // 2 %}
-    <div class="row">
-      <div class="row-label">{{ row.row_number }}</div>
-      {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
-      {% for seat in row.seats|reverse %}
+      {# --- Rows 1-9 (no vertical aisles, one fewer spacer) --- #}
+      {% for row in rows[:9] %}
+      {% set pad = (max_seats - 1 - row.seats|length) // 2 %}
+      <div class="row">
+        <div class="row-label">{{ row.row_number }}</div>
+        {% for _ in range(pad) %}<div class="spacer"></div>{% endfor %}
+        {% for seat in row.seats|reverse %}
         <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
-             title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
+          title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
+        {% endfor %}
+        {% for _ in range(max_seats - 1 - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
+        <div class="row-label-right">{{ row.row_number }}</div>
+      </div>
       {% endfor %}
-      {% for _ in range(max_seats - 1 - row.seats|length - pad) %}<div class="spacer"></div>{% endfor %}
-      <div class="row-label-right">{{ row.row_number }}</div>
-    </div>
-  {% endfor %}
 
-  {# --- Horizontal entrance --- #}
-  <div class="entrance"><span>вход</span></div>
+      {# --- Horizontal entrance --- #}
+      <div class="entrance"><span>вход</span></div>
 
-  {# --- Rows 10-24 --- #}
-  {% for row in rows[9:] %}
-    <div class="row">
-      <div class="row-label">{{ row.row_number }}</div>
-      {% for seat in row.seats|reverse %}
+      {# --- Rows 10-24 --- #}
+      {% for row in rows[9:] %}
+      <div class="row">
+        <div class="row-label">{{ row.row_number }}</div>
+        {% for seat in row.seats|reverse %}
         {% if seat.number in aisle_before %}<div class="aisle-v"></div>{% endif %}
         <div class="seat {{ 'occupied' if seat.occupied else 'free' }}"
-             title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
+          title="Ряд {{ row.row_number }}, Место {{ seat.number }}">{{ seat.number }}</div>
+        {% endfor %}
+        <div class="row-label-right">{{ row.row_number }}</div>
+      </div>
       {% endfor %}
-      <div class="row-label-right">{{ row.row_number }}</div>
     </div>
-  {% endfor %}
-</div>
-</div>
+  </div>
 
-<div class="legend">
-  <div class="legend-row">
-    <div class="legend-item"><div class="legend-swatch" style="background:#4CAF50"></div> Свободно</div>
-    <div class="legend-item"><div class="legend-swatch" style="background:#E53935"></div> Занято</div>
+  <div class="legend">
+    <div class="legend-row">
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:#4CAF50"></div> Свободно
+      </div>
+      <div class="legend-item">
+        <div class="legend-swatch" style="background:#E53935"></div> Занято
+      </div>
+    </div>
+    <div class="stats">
+      Свободно: {{ total_free }} / Занято: {{ total_occupied }} / Всего: {{ total_seats }}
+    </div>
   </div>
-  <div class="stats">
-    Свободно: {{ total_free }} / Занято: {{ total_occupied }} / Всего: {{ total_seats }}
-  </div>
-</div>
 
 </body>
+
 </html>

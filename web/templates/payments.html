@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Платежи</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+  }
+
+  .page-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* --- Sidebar --- */
+  .sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .summary-card {
+    background: #16213e;
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .summary-card h2 {
+    font-size: 1.1rem;
+    margin-bottom: 12px;
+  }
+  .summary-card canvas {
+    display: block;
+    margin: 0 auto 12px;
+    max-width: 200px;
+    max-height: 200px;
+  }
+  .summary-card ul {
+    list-style: none;
+    font-size: 0.9rem;
+    color: #aaa;
+  }
+  .summary-card ul li {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid #333;
+  }
+  .summary-card ul li:last-child { border-bottom: none; }
+  .summary-card ul li .val { color: #eee; font-weight: 600; }
+
+  /* --- Main --- */
+  main {
+    flex: 1;
+    padding: 24px 24px 48px;
+    min-width: 0;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .header h1 { font-size: 1.5rem; }
+  .btn-checkpoint {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #e94560, #c23152);
+    color: #fff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: 0.03em;
+  }
+  .btn-checkpoint:hover { opacity: 0.9; }
+
+  /* --- Table --- */
+  .payments-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .payments-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #555;
+  }
+  .payments-table td {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #333;
+    vertical-align: middle;
+  }
+  .payments-table tr:last-child td { border-bottom: none; }
+  .payments-table a {
+    color: #64b5f6;
+    text-decoration: none;
+  }
+  .payments-table a:hover { text-decoration: underline; }
+
+  .empty-msg {
+    color: #777;
+    font-size: 0.9rem;
+    padding: 16px 0;
+  }
+
+  /* --- Accordion --- */
+  .checkpoint-section {
+    margin-top: 16px;
+  }
+  .checkpoint-section summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #16213e;
+    padding: 12px 16px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    color: #aaa;
+    list-style: none;
+    user-select: none;
+  }
+  .checkpoint-section summary::-webkit-details-marker { display: none; }
+  .checkpoint-section summary::before {
+    content: "▶";
+    font-size: 0.7rem;
+    transition: transform 0.2s;
+    display: inline-block;
+  }
+  .checkpoint-section[open] summary::before {
+    transform: rotate(90deg);
+  }
+  .checkpoint-section summary:hover { background: #1a2744; }
+  .checkpoint-section .section-body {
+    padding-top: 8px;
+  }
+
+  /* --- Mobile --- */
+  @media (max-width: 768px) {
+    .page-layout {
+      flex-direction: column;
+    }
+    .sidebar {
+      width: 100%;
+      position: static;
+      height: auto;
+      flex-direction: row;
+      overflow-x: auto;
+      padding: 16px;
+    }
+    .summary-card {
+      min-width: 240px;
+      flex-shrink: 0;
+    }
+    main {
+      padding: 16px;
+    }
+
+    /* Table to cards */
+    .payments-table thead { display: none; }
+    .payments-table,
+    .payments-table tbody,
+    .payments-table tr,
+    .payments-table td {
+      display: block;
+      width: 100%;
+    }
+    .payments-table tr {
+      background: #16213e;
+      border-radius: 5px;
+      margin-bottom: 8px;
+      padding: 12px;
+    }
+    .payments-table td {
+      padding: 4px 0;
+      border-bottom: none;
+      font-size: 0.85rem;
+    }
+    .payments-table td::before {
+      content: attr(data-label);
+      color: #999;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 2px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-layout">
+  <aside class="sidebar">
+    <div class="summary-card">
+      <h2>Места</h2>
+      <canvas id="seatsChart"></canvas>
+      <ul>
+        <li><span>Свободно</span><span class="val">{{ seat_stats.free }}</span></li>
+        <li><span>Бронь</span><span class="val">{{ seat_stats.booked }}</span></li>
+        <li><span>Оплачено</span><span class="val">{{ seat_stats.paid }}</span></li>
+        <li><span>Резерв</span><span class="val">{{ seat_stats.reserved }}</span></li>
+      </ul>
+    </div>
+    <div class="summary-card">
+      <h2>Деньги</h2>
+      <canvas id="moneyChart"></canvas>
+      <ul>
+        <li><span>Оплачено</span><span class="val">{{ "{:,.0f}".format(money_stats.paid).replace(",", " ") }} ₽</span></li>
+        <li><span>Ожидается</span><span class="val">{{ "{:,.0f}".format(money_stats.projected).replace(",", " ") }} ₽</span></li>
+        <li><span>Цена билета</span><span class="val">{{ "{:,.0f}".format(seat_price).replace(",", " ") }} ₽</span></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main>
+    <div class="header">
+      <h1>Платежи</h1>
+      <form method="post" action="/payments/checkpoint" style="margin:0;">
+        <button type="submit" class="btn-checkpoint"
+                onclick="return confirm('Отметить все текущие платежи как проверенные?')">
+          Проверено
+        </button>
+      </form>
+    </div>
+
+    {% for section in sections %}
+      {% if loop.first %}
+        {# Current payments (after latest checkpoint) #}
+        {% if section.payments %}
+          <table class="payments-table">
+            <thead>
+              <tr>
+                <th>Покупатель</th>
+                <th>Продавец</th>
+                <th>Мест</th>
+                <th>Сумма</th>
+                <th>Дата</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in section.payments %}
+                <tr>
+                  <td data-label="Покупатель"><a href="https://vk.com/im?sel={{ p.buyer_vk_id }}" target="_blank" rel="noopener">{{ p.buyer_name }}</a></td>
+                  <td data-label="Продавец">{{ p.seller_name }}</td>
+                  <td data-label="Мест">{{ p.seat_count }}</td>
+                  <td data-label="Сумма">{{ "{:,.0f}".format(p.amount).replace(",", " ") }} ₽</td>
+                  <td data-label="Дата">{{ p.date.strftime('%d.%m.%Y %H:%M') }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <p class="empty-msg">Нет новых платежей</p>
+        {% endif %}
+      {% else %}
+        {# Checkpoint accordion section #}
+        <details class="checkpoint-section">
+          <summary>{{ section.label }} ({{ section.count }} {{ "платеж" if section.count == 1 else ("платежа" if section.count in [2,3,4] else "платежей") }})</summary>
+          <div class="section-body">
+            {% if section.payments %}
+              <table class="payments-table">
+                <thead>
+                  <tr>
+                    <th>Покупатель</th>
+                    <th>Продавец</th>
+                    <th>Мест</th>
+                    <th>Сумма</th>
+                    <th>Дата</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for p in section.payments %}
+                    <tr>
+                      <td data-label="Покупатель"><a href="https://vk.com/im?sel={{ p.buyer_vk_id }}" target="_blank" rel="noopener">{{ p.buyer_name }}</a></td>
+                      <td data-label="Продавец">{{ p.seller_name }}</td>
+                      <td data-label="Мест">{{ p.seat_count }}</td>
+                      <td data-label="Сумма">{{ "{:,.0f}".format(p.amount).replace(",", " ") }} ₽</td>
+                      <td data-label="Дата">{{ p.date.strftime('%d.%m.%Y %H:%M') }}</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% else %}
+              <p class="empty-msg">Нет платежей в этом периоде</p>
+            {% endif %}
+          </div>
+        </details>
+      {% endif %}
+    {% endfor %}
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script>
+  const chartDefaults = {
+    responsive: true,
+    maintainAspectRatio: true,
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { color: '#eee', padding: 12, font: { size: 12 } }
+      }
+    },
+    cutout: '55%',
+  };
+
+  new Chart(document.getElementById('seatsChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Свободно', 'Бронь', 'Оплачено', 'Резерв'],
+      datasets: [{
+        data: [{{ seat_stats.free }}, {{ seat_stats.booked }}, {{ seat_stats.paid }}, {{ seat_stats.reserved }}],
+        backgroundColor: ['#4CAF50', '#FF9800', '#2196F3', '#9C27B0'],
+        borderWidth: 0,
+      }]
+    },
+    options: chartDefaults,
+  });
+
+  new Chart(document.getElementById('moneyChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Оплачено', 'Ожидается'],
+      datasets: [{
+        data: [{{ money_stats.paid }}, {{ money_stats.projected - money_stats.paid }}],
+        backgroundColor: ['#2196F3', '#FF9800'],
+        borderWidth: 0,
+      }]
+    },
+    options: chartDefaults,
+  });
+</script>
+
+</body>
+</html>

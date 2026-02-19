@@ -15,10 +15,10 @@ class ReconcileCheckpoint(Base):
     __tablename__ = "reconcile_checkpoints"
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    checked_by_user_id: Mapped[int] = mapped_column(
+    checked_by_user_id: Mapped[Optional[int]] = mapped_column(
         Integer,
         ForeignKey("app_users.id"),
-        nullable=False
+        nullable=True
     )
     checked_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
