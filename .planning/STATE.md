@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-19)
 
 **Core value:** Ни одно место не может быть продано дважды
-**Current focus:** v0.2 — Phase 8: Foundation
+**Current focus:** v0.2 — Phase 9 (next)
 
 ## Current Position
 
-Phase: 8 of 12 (Foundation — constants.py, texts.py, keyboards.py)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-02-19 — Completed 08-02-PLAN.md (bot/texts.py)
+Phase: 8 of 12 (Foundation — constants.py, texts.py, keyboards.py) — COMPLETE
+Plan: 3 of 3 in phase 8 complete
+Status: Phase 8 complete
+Last activity: 2026-02-19 — Completed 08-03-PLAN.md (bot/keyboards.py)
 
-Progress: [█████████░░░░░░░░░░░] 45% (v0.1 complete, v0.2 phase 8 plan 2 done)
+Progress: [█████████░░░░░░░░░░░] 47% (v0.1 complete, v0.2 phase 8 all 3 plans done)
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [█████████░░░░░░░░░░░] 45% (v0
 - [08-01] ALL_COMMANDS = frozenset(Cmd) — auto-derived, no manual sync needed
 - [08-02] bot/texts.py: 62 constants, ERR_*/PROMPT_*/MSG_* naming, .format() placeholders (not f-strings), zero imports/callables
 - [08-02] ERR_DB_CHECK_BOOKING added (not in research baseline) — found in reservation.py context-switch branch
+- [08-03] keyboards.py: all Text() calls use Btn.* members; dynamic button is f"{Btn.PAY_ALL_PREFIX}{count}"; 19 Btn.* usages, 0 raw strings
 
 ### Pending Todos
 
@@ -65,6 +66,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19 17:56 UTC
-Stopped at: Completed 08-02-PLAN.md (bot/texts.py — 62 user-facing string constants)
+Last session: 2026-02-19 17:59 UTC
+Stopped at: Completed 08-03-PLAN.md (bot/keyboards.py — Btn.* migration, phase 8 complete)
 Resume file: None
