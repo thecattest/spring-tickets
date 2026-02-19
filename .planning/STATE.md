@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-02-19)
 ## Current Position
 
 Phase: 8 of 12 (Foundation — constants.py, texts.py, keyboards.py)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-02-19 — Completed 08-01-PLAN.md (constants.py)
+Last activity: 2026-02-19 — Completed 08-02-PLAN.md (bot/texts.py)
 
-Progress: [█████████░░░░░░░░░░░] 44% (v0.1 complete, v0.2 phase 8 plan 1 done)
+Progress: [█████████░░░░░░░░░░░] 45% (v0.1 complete, v0.2 phase 8 plan 2 done)
 
 ## Performance Metrics
 
@@ -51,6 +51,8 @@ Progress: [█████████░░░░░░░░░░░] 44% (v0
 - [07-bug-fix] Idle guard checks raw string against "idle" — modern "BotState:idle" passes guard, but extracted value is still "idle", giving correct BotState.IDLE
 - [08-01] PAY_ALL_PREFIX = "Все " (trailing space) in Btn for startswith(); dynamic button label stays as f-string in keyboards.py
 - [08-01] ALL_COMMANDS = frozenset(Cmd) — auto-derived, no manual sync needed
+- [08-02] bot/texts.py: 62 constants, ERR_*/PROMPT_*/MSG_* naming, .format() placeholders (not f-strings), zero imports/callables
+- [08-02] ERR_DB_CHECK_BOOKING added (not in research baseline) — found in reservation.py context-switch branch
 
 ### Pending Todos
 
@@ -63,6 +65,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-19 17:55 UTC
-Stopped at: Completed 08-01-PLAN.md (bot/constants.py — Btn/Cmd StrEnum, ALL_COMMANDS)
+Last session: 2026-02-19 17:56 UTC
+Stopped at: Completed 08-02-PLAN.md (bot/texts.py — 62 user-facing string constants)
 Resume file: None
