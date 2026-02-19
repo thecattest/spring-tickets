@@ -189,8 +189,9 @@ class TestSeatOperations:
         with pytest.raises(db.SeatOccupiedError) as exc_info:
             db.add_seats_to_reservation(reservation2.id, 1, [5], test_seller.id)
 
-        assert exc_info.value.row == 1
-        assert exc_info.value.seat == 5
+        assert len(exc_info.value.conflicts) == 1
+        assert exc_info.value.conflicts[0]['row'] == 1
+        assert exc_info.value.conflicts[0]['seat'] == 5
 
     def test_add_seats_atomic(self, test_db, test_seller):
         """Test that seat addition is atomic."""
