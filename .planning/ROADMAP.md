@@ -97,12 +97,12 @@ Plans:
   1. Все строки кнопок в keyboards.py читаются из `Btn.*` — ни одного строкового литерала для кнопок
   2. Все пользовательские сообщения (промпты, ошибки) содержатся в bot/texts.py с .format() плейсхолдерами
   3. `Btn`, `Cmd`, `ALL_COMMANDS` импортируются из bot/constants.py и работают как обычные строки в vkbottle параметрах
-**Plans:** TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 08-01: Create bot/constants.py (Btn, Cmd StrEnums, ALL_COMMANDS frozenset)
-- [ ] 08-02: Create bot/texts.py (all user-facing strings consolidated)
-- [ ] 08-03: Update bot/keyboards.py to use Btn.* instead of raw string literals
+- [ ] 08-01-PLAN.md — Create bot/constants.py (Btn, Cmd StrEnums, ALL_COMMANDS frozenset)
+- [ ] 08-02-PLAN.md — Create bot/texts.py (all user-facing strings consolidated)
+- [ ] 08-03-PLAN.md — Update bot/keyboards.py to use Btn.* instead of raw string literals
 
 ---
 
@@ -204,4 +204,4 @@ Plans:
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 7 complete*
+*Roadmap updated: 2026-02-19 — Phase 8 planned*
