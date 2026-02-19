@@ -14,9 +14,9 @@
 
 ### Constants & Texts
 
-- [ ] **CONST-01**: Create `bot/constants.py` with `Btn` StrEnum for all button labels, `Cmd` StrEnum for all commands, and `ALL_COMMANDS` frozenset derived from `Cmd`
-- [ ] **CONST-02**: Update `bot/keyboards.py` to use `Btn.*` instead of raw string literals
-- [ ] **TEXT-01**: Create `bot/texts.py` consolidating all user-facing prompt and error message strings with `.format()` parameters
+- [x] **CONST-01**: Create `bot/constants.py` with `Btn` StrEnum for all button labels, `Cmd` StrEnum for all commands, and `ALL_COMMANDS` frozenset derived from `Cmd`
+- [x] **CONST-02**: Update `bot/keyboards.py` to use `Btn.*` instead of raw string literals
+- [x] **TEXT-01**: Create `bot/texts.py` consolidating all user-facing prompt and error message strings with `.format()` parameters
 
 ### FSM Configuration
 
@@ -75,9 +75,9 @@
 | REQ-ID | Phase | Status |
 |--------|-------|--------|
 | BUG-01 | Phase 7 | Complete |
-| CONST-01 | Phase 8 | Pending |
-| CONST-02 | Phase 8 | Pending |
-| TEXT-01 | Phase 8 | Pending |
+| CONST-01 | Phase 8 | Complete |
+| CONST-02 | Phase 8 | Complete |
+| TEXT-01 | Phase 8 | Complete |
 | FSM-01 | Phase 9 | Pending |
 | STEP-01 | Phase 9 | Pending |
 | STEP-02 | Phase 9 | Pending |
