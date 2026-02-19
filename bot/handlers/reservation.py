@@ -9,18 +9,19 @@ Handles:
 """
 
 import logging
-from vkbottle.bot import Bot, Message
+from vkbottle.bot import Message
 from vkbottle import VKAPIError
 
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
 from bot.utils import db
-from bot.utils.seat_parser import parse_seats, SeatParseError
-from bot.utils.layout import is_valid_row, is_valid_seat, get_seat_count, get_row_range
+from bot.utils.layout import get_seat_count
 from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, context_switch_keyboard, main_menu_keyboard
 from bot.messages import generate_reservation_script
 from models.base import SeatStatus
 from bot.handlers.menu import show_main_menu
+from bot.constants import Btn
+from bot import texts
 
 logger = logging.getLogger(__name__)
 
@@ -120,8 +121,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
                         current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
                         await message.answer(
-                            f"Получен чек от {display_name}.\n"
-                            f"Переключиться с {current_buyer_name} на {display_name}?",
+                            texts.MSG_SWITCH_RECEIPT.format(name=display_name, current=current_buyer_name),
                             keyboard=context_switch_keyboard()
                         )
 
@@ -146,7 +146,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         )
                     except db.DatabaseError as e:
                         logger.error(f"Database error checking reservation: {e}")
-                        await message.answer("Ошибка при проверке брони. Попробуйте позже.")
+                        await message.answer(texts.ERR_DB_CHECK_BOOKING)
                 else:
                     # Plain text forward from different client in MAIN_MENU -> context switch (no receipt)
                     try:
@@ -155,8 +155,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
                         current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
                         await message.answer(
-                            f"Вы работаете с {current_buyer_name}.\n"
-                            f"Переключиться на {display_name}?",
+                            texts.MSG_SWITCH_PLAIN.format(current=current_buyer_name, name=display_name),
                             keyboard=context_switch_keyboard()
                         )
 
@@ -174,20 +173,19 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         )
                     except db.DatabaseError as e:
                         logger.error(f"Database error checking reservation: {e}")
-                        await message.answer("Ошибка при проверке брони. Попробуйте позже.")
+                        await message.answer(texts.ERR_DB_CHECK_BOOKING)
                 return
 
         # Same client in non-MAIN_MENU state - already working with them
         if buyer_vk_id == current_buyer_vk_api_id:
-            await message.answer("Вы уже работаете с этим клиентом.")
+            await message.answer(texts.ERR_ALREADY_WORKING)
             return
 
         # Different client in non-MAIN_MENU state - context switch confirmation
         current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
 
         await message.answer(
-            f"Переключиться на {display_name}?\n"
-            f"Текущая операция с {current_buyer_name} будет отменена.",
+            texts.MSG_SWITCH_TO_CLIENT.format(name=display_name, current=current_buyer_name),
             keyboard=context_switch_keyboard()
         )
 
@@ -221,9 +219,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
         except db.DatabaseError as e:
             logger.error(f"Database error checking reservation: {e}")
-            await message.answer(
-                "Ошибка при проверке брони. Попробуйте позже."
-            )
+            await message.answer(texts.ERR_DB_CHECK_BOOKING)
 
         return
 
@@ -277,8 +273,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         # Transition to AWAITING_ROW with context
         await message.ctx_api.messages.send(
             peer_id=message.peer_id,
-            message=f"Создана новая бронь для {display_name} (ID: {reservation.id}).\n\n"
-                    f"Введите номер ряда (1-24):",
+            message=texts.MSG_NEW_BOOKING_CREATED.format(name=display_name, id=reservation.id),
             random_id=0,
         )
 
@@ -293,9 +288,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
     except db.DatabaseError as e:
         logger.error(f"Database error creating reservation: {e}")
-        await message.answer(
-            "Ошибка при создании брони. Попробуйте позже или обратитесь к администратору."
-        )
+        await message.answer(texts.ERR_DB_CREATE_BOOKING)
 
 
 async def awaiting_row_handler(message: Message, storage: RedisStorage):
@@ -308,24 +301,13 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         message: VK message
         storage: Redis storage instance
     """
-    text = message.text.strip()
+    from bot.steps import handle_row_input
 
-    # Validate row number
-    try:
-        row = int(text)
-    except ValueError:
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный формат. Введите номер ряда ({min_row}-{max_row}):"
-        )
+    result = handle_row_input(message.text)
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    if not is_valid_row(row):
-        min_row, max_row = get_row_range()
-        await message.answer(
-            f"Неверный ряд. Допустимые значения: {min_row}-{max_row}. Введите ряд:"
-        )
-        return
+    row = result.row
 
     # Get existing context to preserve it
     context = await storage.get_context(message.from_id)
@@ -336,9 +318,7 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
     # Transition to AWAITING_SEATS with updated context
     seat_count = get_seat_count(row)
     await message.answer(
-        f"Ряд {row} (мест: {seat_count}).\n\n"
-        f"Введите номера мест через пробел, запятую или диапазон.\n"
-        f"Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
+        texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count)
     )
 
     await storage.set(message.from_id, BotState.AWAITING_SEATS, **context)
@@ -354,64 +334,23 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         message: VK message
         storage: Redis storage instance
     """
-    text = message.text.strip()
+    from bot.steps import handle_seat_input
+
     context = await storage.get_context(message.from_id)
 
     row = context.get("current_row")
     reservation_id = context.get("reservation_id")
 
     if not row or not reservation_id:
-        await message.answer("Ошибка: потерян контекст. Начните заново с пересылки сообщения.")
+        await message.answer(texts.ERR_CONTEXT_LOST_FWD)
         await storage.delete(message.from_id)
         return
 
-    # Parse seats
-    try:
-        seats = parse_seats(text)
-    except SeatParseError as e:
-        await message.answer(f"Ошибка ввода: {e}\n\nПопробуйте снова:")
+    result = handle_seat_input(message.text, row=row, mode="availability")
+    if not result.ok:
+        await message.answer(result.error_text)
         return
-
-    # Validate seat numbers for this row
-    seat_count = get_seat_count(row)
-    invalid_seats = [s for s in seats if not is_valid_seat(row, s)]
-
-    if invalid_seats:
-        await message.answer(
-            f"Недопустимые номера мест: {', '.join(map(str, invalid_seats))}.\n"
-            f"Для ряда {row} доступны места 1-{seat_count}.\n\n"
-            f"Введите другие места:"
-        )
-        return
-
-    # Check availability
-    occupied = []
-    for seat in seats:
-        assignment = db.get_seat_assignment(row, seat)
-        if assignment:
-            occupied.append((seat, assignment))
-
-    if occupied:
-        # Build error message with details
-        error_lines = ["Места уже заняты:"]
-        for seat, assignment in occupied:
-            if assignment.status == SeatStatus.RESERVED:
-                status_text = "Резерв"
-                detail = assignment.note or "без комментария"
-            else:
-                status_text = "Бронь" if assignment.status == SeatStatus.BOOKED else "Оплачено"
-                # Get reservation info
-                try:
-                    res_seats = db.get_reservation_seats(assignment.reservation_id)
-                    detail = f"бронь #{assignment.reservation_id}, всего мест: {len(res_seats)}"
-                except Exception:
-                    detail = f"бронь #{assignment.reservation_id}"
-
-            error_lines.append(f"• Ряд {row}, место {seat} — {status_text} ({detail})")
-
-        error_lines.append("\nВведите другие места:")
-        await message.answer("\n".join(error_lines))
-        return
+    seats = result.seats
 
     # All seats available - add them
     try:
@@ -424,9 +363,12 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
 
         # Success message
         await message.answer(
-            f"Добавлено {len(seats)} мест:\n"
-            f"Ряд {row}, места: {', '.join(map(str, seats))}\n\n"
-            f"Всего в брони: {total_count} мест",
+            texts.MSG_SEATS_ADDED.format(
+                count=len(seats),
+                row=row,
+                seats=", ".join(map(str, seats)),
+                total=total_count,
+            ),
             keyboard=seat_addition_menu_keyboard()
         )
 
@@ -434,7 +376,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         await storage.set(message.from_id, BotState.SEAT_ADDITION_MENU, **context)
 
     except db.SeatOccupiedError as e:
-        # Show all conflicting seats at once
+        # Show all conflicting seats at once (race condition guard — steps.py already checked availability)
         error_lines = ["Места уже заняты:"]
         for c in e.conflicts:
             if c['status'] == SeatStatus.RESERVED:
@@ -452,9 +394,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         await message.answer("\n".join(error_lines))
     except db.DatabaseError as e:
         logger.error(f"Error adding seats: {e}")
-        await message.answer(
-            "Ошибка при добавлении мест. Попробуйте позже или обратитесь к администратору."
-        )
+        await message.answer(texts.ERR_DB_ADD_SEATS)
 
 
 async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
@@ -476,20 +416,20 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
     context = await storage.get_context(message.from_id)
     from_main_menu = context.get("from_main_menu", False)
 
-    if text == "Добавить еще":
+    if text == Btn.ADD_MORE:
         # Return to AWAITING_ROW (preserve context including from_main_menu)
         await message.answer(
-            "Введите номер ряда:",
+            texts.PROMPT_ENTER_ROW,
             keyboard=get_empty_keyboard()
         )
         await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
-    elif text == "Готово":
+    elif text == Btn.DONE:
         reservation_id = context.get("reservation_id")
         buyer_display_name = context.get("buyer_display_name")
 
         if not reservation_id:
-            await message.answer("Ошибка: потерян контекст. Начните заново.")
+            await message.answer(texts.ERR_CONTEXT_LOST)
             await storage.delete(message.from_id)
             return
 
@@ -518,47 +458,11 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
 
             except db.DatabaseError as e:
                 logger.error(f"Error generating script: {e}")
-                await message.answer(
-                    "Ошибка при генерации скрипта. Попробуйте позже."
-                )
+                await message.answer(texts.ERR_DB_GENERATE_SCRIPT)
 
     else:
         # Unknown button
         await message.answer(
-            "Выберите действие:",
+            texts.PROMPT_SELECT_ACTION,
             keyboard=seat_addition_menu_keyboard()
         )
-
-
-def register_handlers(bot: Bot):
-    """
-    Register reservation handlers with the bot.
-
-    Args:
-        bot: VKBottle Bot instance
-    """
-    # Get storage reference from bot
-    storage = bot.state_dispenser
-
-    # Wrap handlers with storage access
-    async def forwarded_with_storage(message: Message):
-        await forwarded_message_handler(message, storage)
-
-    async def awaiting_row_with_storage(message: Message):
-        await awaiting_row_handler(message, storage)
-
-    async def awaiting_seats_with_storage(message: Message):
-        await awaiting_seats_handler(message, storage)
-
-    async def seat_menu_with_storage(message: Message):
-        await seat_addition_menu_handler(message, storage)
-
-    # Forwarded message (any state except active flows)
-    bot.on.message(func=lambda msg: bool(msg.fwd_messages))(forwarded_with_storage)
-
-    # State-specific handlers
-    bot.on.message(state=BotState.AWAITING_ROW)(awaiting_row_with_storage)
-    bot.on.message(state=BotState.AWAITING_SEATS)(awaiting_seats_with_storage)
-    bot.on.message(state=BotState.SEAT_ADDITION_MENU)(seat_menu_with_storage)
-
-    logger.info("Reservation handlers registered")
