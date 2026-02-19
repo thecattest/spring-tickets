@@ -9,8 +9,10 @@ Handles:
 import logging
 from datetime import datetime
 
-from vkbottle.bot import Bot, Message
+from vkbottle.bot import Message
 
+from bot.constants import Btn
+from bot import texts
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
 from bot.utils import db
@@ -49,7 +51,7 @@ async def start_payment_flow(
 
         if len(booked_seats) == 0:
             await message.answer(
-                f"У клиента {buyer_display_name} нет мест для оплаты. Все места уже оплачены.",
+                texts.MSG_NO_SEATS_FOR_PAYMENT.format(name=buyer_display_name),
                 keyboard=main_menu_keyboard()
             )
             return
@@ -81,7 +83,7 @@ async def start_payment_flow(
     except db.DatabaseError as e:
         logger.error(f"Database error starting payment flow: {e}")
         await message.answer(
-            "Ошибка при загрузке брони. Попробуйте позже.",
+            texts.ERR_DB_LOAD_BOOKING,
             keyboard=main_menu_keyboard()
         )
 
@@ -107,12 +109,12 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     payment_vk_message_ts_raw = context.get("payment_vk_message_ts")
 
     if not reservation_id:
-        await message.answer("Ошибка: потерян контекст. Начните заново.")
+        await message.answer(texts.ERR_CONTEXT_LOST)
         await storage.delete(message.from_id)
         return
 
     # "Отмена" button - return to main menu
-    if text == "Отмена":
+    if text == Btn.CANCEL:
         from bot.handlers.menu import show_main_menu
         await show_main_menu(
             message, storage, reservation_id,
@@ -123,12 +125,12 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     # Parse quantity
     quantity = None
 
-    if text.startswith("Все "):
+    if text.startswith(Btn.PAY_ALL_PREFIX):
         # "Все N" button — pay all booked seats
         try:
-            quantity = int(text[4:])
+            quantity = int(text[len(Btn.PAY_ALL_PREFIX):])
         except ValueError:
-            await message.answer("Выберите количество мест из предложенных кнопок.")
+            await message.answer(texts.PROMPT_SELECT_QUANTITY)
             return
     else:
         try:
@@ -139,11 +141,11 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                 seats = db.get_reservation_seats(reservation_id)
                 booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
                 await message.answer(
-                    "Выберите количество мест из предложенных кнопок.",
+                    texts.PROMPT_SELECT_QUANTITY,
                     keyboard=payment_quantity_keyboard(booked_count) if booked_count > 0 else main_menu_keyboard()
                 )
             except db.DatabaseError:
-                await message.answer("Выберите количество мест из предложенных кнопок.")
+                await message.answer(texts.PROMPT_SELECT_QUANTITY)
             return
 
     # Validate quantity >= 1
@@ -152,11 +154,11 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             seats = db.get_reservation_seats(reservation_id)
             booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
             await message.answer(
-                "Количество мест должно быть не менее 1.",
+                texts.PROMPT_MIN_QUANTITY,
                 keyboard=payment_quantity_keyboard(booked_count) if booked_count > 0 else main_menu_keyboard()
             )
         except db.DatabaseError:
-            await message.answer("Количество мест должно быть не менее 1.")
+            await message.answer(texts.PROMPT_MIN_QUANTITY)
         return
 
     # Validate quantity <= available booked seats
@@ -166,8 +168,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
         if quantity > len(booked_seats):
             await message.answer(
-                f"Количество мест превышает доступные для оплаты ({len(booked_seats)}). "
-                f"Введите количество от 1 до {len(booked_seats)}:",
+                texts.ERR_QTY_EXCEEDS.format(available=len(booked_seats)),
                 keyboard=payment_quantity_keyboard(len(booked_seats))
             )
             return
@@ -175,7 +176,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     except db.DatabaseError as e:
         logger.error(f"Database error fetching seats for validation: {e}")
         await message.answer(
-            "Ошибка при проверке мест. Попробуйте позже.",
+            texts.ERR_DB_CHECK_SEATS,
             keyboard=main_menu_keyboard()
         )
         return
@@ -228,14 +229,14 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     except db.InsufficientSeatsError as e:
         logger.warning(f"Insufficient seats for payment: requested {e.requested}, available {e.available}")
         await message.answer(
-            f"Ошибка: запрошено {e.requested} мест, но доступно только {e.available}.",
+            texts.ERR_INSUFFICIENT_SEATS.format(requested=e.requested, available=e.available),
             keyboard=payment_quantity_keyboard(e.available) if e.available > 0 else main_menu_keyboard()
         )
 
     except db.DatabaseError as e:
         logger.error(f"Database error recording payment: {e}")
         await message.answer(
-            "Ошибка при регистрации оплаты. Попробуйте позже.",
+            texts.ERR_DB_RECORD_PAYMENT,
             keyboard=main_menu_keyboard()
         )
         # Return to MAIN_MENU on database error
@@ -248,20 +249,3 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             buyer_display_name=buyer_display_name,
             from_main_menu=True,
         )
-
-
-def register_handlers(bot: Bot):
-    """
-    Register payment handlers with the bot.
-
-    Args:
-        bot: VKBottle Bot instance
-    """
-    storage = bot.state_dispenser
-
-    async def payment_quantity_with_storage(message: Message):
-        await payment_quantity_handler(message, storage)
-
-    bot.on.message(state=BotState.PAYMENT_QUANTITY)(payment_quantity_with_storage)
-
-    logger.info("Payment handlers registered")
