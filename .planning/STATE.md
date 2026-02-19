@@ -59,7 +59,7 @@ Progress: [████████████████████] 82% (v0
 - [08-foundation] PAY_ALL_PREFIX = "Все " (trailing space) — dynamic button uses f"{Btn.PAY_ALL_PREFIX}{count}"
 - [08-foundation] ALL_COMMANDS = frozenset(Cmd) — auto-derived, no manual sync needed
 - [08-foundation] texts.py: 62 constants, ERR_*/PROMPT_*/MSG_* naming, .format() placeholders, zero imports/callables
-- [08-foundation] texts.py not yet wired into handlers — Phase 11 handles import wiring
+- [08-foundation] texts.py wired into all 7 handler files in Phase 11
 - [08-foundation] keyboards.py: 19 Btn.* usages, 0 raw strings in Text() calls
 - [09-fsm-config] FSM_CONFIG keyed by BotState enum member (not string) — type-safe access
 - [09-fsm-config] handler=None in Phase 9; Phase 10 Router wires real handlers to avoid premature coupling
@@ -74,7 +74,7 @@ Progress: [████████████████████] 82% (v0
 - [10-02] Router(storage=redis_storage) uses local variable directly — more explicit than bot.state_dispenser
 - [10-02] BaseStateGroup import removed from main.py — was unused after handler module imports removed
 - [10-03] exit_handler message "Сессия завершена" distinct from cancel_handler "Операция отменена" — Phase 12 uses this to differentiate hard reset vs back-navigation
-- [10-03] exit_handler NOT added to legacy register_handlers() — it will be removed atomically in Phase 11
+- [10-03] exit_handler NOT added to legacy register_handlers() — legacy register_handlers() removed in Phase 11
 - [10-04] get_user_role() returns Optional[UserRole] (not bool) — enables router to distinguish seller vs admin guard levels
 - [10-04] _with_auth_guard() imports get_user_role lazily inside the method — consistent with existing lazy import pattern
 - [10-04] Auth failure clears FSM state via storage.delete() — prevents user from getting stuck in an unauthorized state

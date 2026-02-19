@@ -66,7 +66,7 @@ Plans:
 - [x] **Phase 8: Foundation** — Создать constants.py, texts.py, обновить keyboards.py
 - [x] **Phase 9: FSM Config + Steps** — Декларативный конфиг FSM и переиспользуемые примитивы шагов
 - [x] **Phase 10: Router** — Центральный реестр хендлеров с универсальным перехватом команд
-- [ ] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
+- [x] **Phase 11: Handler Migration** — Миграция всех 7 файлов хендлеров на router + steps
 - [ ] **Phase 12: Navigation UX** — /cancel → назад, /exit → IDLE, ранняя валидация ряда
 
 ---
@@ -159,15 +159,17 @@ Plans:
   4. Каждый файл хендлера мигрирован атомарно: в одном коммите новые декораторы + удаление старой регистрации + обновление main.py
 **Plans:** 8 plans
 
+**Status:** Complete (2026-02-19)
+
 Plans:
-- [ ] 11-01-PLAN.md — Migrate reservation.py: remove dead code, wire steps.py/texts.py/Btn
-- [ ] 11-02-PLAN.md — Migrate deletion.py: remove dead code, wire steps.py/texts.py/Btn
-- [ ] 11-03-PLAN.md — Migrate reserve.py: remove dead code + command dispatch, wire steps.py/texts.py/Btn
-- [ ] 11-04-PLAN.md — Migrate commands.py: remove dead code, wire texts.py, add MSG_EXIT_FULL
-- [ ] 11-05-PLAN.md — Migrate menu.py: remove dead code + command dispatch, wire Btn/texts.py
-- [ ] 11-06-PLAN.md — Migrate payment.py: remove dead code, wire Btn/texts.py
-- [ ] 11-07-PLAN.md — Migrate debtors.py: remove dead code, wire texts.py, verify "Обновить"
-- [ ] 11-08-PLAN.md — Verification pass: confirm zero dead code remains across bot/
+- [x] 11-01-PLAN.md — Migrate reservation.py: remove dead code, wire steps.py/texts.py/Btn
+- [x] 11-02-PLAN.md — Migrate deletion.py: remove dead code, wire steps.py/texts.py/Btn
+- [x] 11-03-PLAN.md — Migrate reserve.py: remove dead code + command dispatch, wire steps.py/texts.py/Btn
+- [x] 11-04-PLAN.md — Migrate commands.py: remove dead code, wire texts.py, add MSG_EXIT_FULL
+- [x] 11-05-PLAN.md — Migrate menu.py: remove dead code + command dispatch, wire Btn/texts.py
+- [x] 11-06-PLAN.md — Migrate payment.py: remove dead code, wire Btn/texts.py
+- [x] 11-07-PLAN.md — Migrate debtors.py: remove dead code, wire texts.py, verify "Обновить"
+- [x] 11-08-PLAN.md — Verification pass: confirm zero dead code remains across bot/
 
 ---
 
@@ -204,9 +206,9 @@ Plans:
 | 8. Foundation | v0.2 | 3/3 | Complete | 2026-02-19 |
 | 9. FSM Config + Steps | v0.2 | 2/2 | Complete | 2026-02-19 |
 | 10. Router | v0.2 | 4/4 | Complete | 2026-02-19 |
-| 11. Handler Migration | v0.2 | 0/8 | Not started | — |
+| 11. Handler Migration | v0.2 | 8/8 | Complete | 2026-02-19 |
 | 12. Navigation UX | v0.2 | 0/2 | Not started | — |
 
 ---
 
-*Roadmap updated: 2026-02-19 — Phase 11 planned (8 plans in 2 waves)*
+*Roadmap updated: 2026-02-19 — Phase 11 complete (8 plans, 2 waves)*

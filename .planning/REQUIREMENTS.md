@@ -36,15 +36,15 @@
 
 ### Handler Migration
 
-- [ ] **MIG-01**: Migrate `bot/handlers/reservation.py` to pure handler functions consumed by FSM config + shared steps
-- [ ] **MIG-02**: Migrate `bot/handlers/deletion.py` to pure handler functions + shared steps
-- [ ] **MIG-03**: Migrate `bot/handlers/reserve.py` to pure handler functions + shared steps
-- [ ] **MIG-04**: Migrate `bot/handlers/commands.py` to pure handler functions
-- [ ] **MIG-05**: Migrate `bot/handlers/menu.py` to pure handler functions, remove command dispatch elif block
-- [ ] **MIG-06**: Migrate `bot/handlers/payment.py` to pure handler functions
-- [ ] **MIG-07**: Migrate `bot/handlers/debtors.py` to pure handler functions
-- [ ] **MIG-08**: Remove all `register_handlers()` functions and closure wrappers from all handler files
-- [ ] **MIG-09**: Update `bot/main.py` to use `bot.labeler.load(router.labeler)` instead of per-file `register_handlers()` calls
+- [x] **MIG-01**: Migrate `bot/handlers/reservation.py` to pure handler functions consumed by FSM config + shared steps
+- [x] **MIG-02**: Migrate `bot/handlers/deletion.py` to pure handler functions + shared steps
+- [x] **MIG-03**: Migrate `bot/handlers/reserve.py` to pure handler functions + shared steps
+- [x] **MIG-04**: Migrate `bot/handlers/commands.py` to pure handler functions
+- [x] **MIG-05**: Migrate `bot/handlers/menu.py` to pure handler functions, remove command dispatch elif block
+- [x] **MIG-06**: Migrate `bot/handlers/payment.py` to pure handler functions
+- [x] **MIG-07**: Migrate `bot/handlers/debtors.py` to pure handler functions
+- [x] **MIG-08**: Remove all `register_handlers()` functions and closure wrappers from all handler files
+- [x] **MIG-09**: Update `bot/main.py` to use `bot.labeler.load(router.labeler)` instead of per-file `register_handlers()` calls
 
 ### Navigation UX
 
@@ -85,15 +85,15 @@
 | RTR-01 | Phase 10 | Complete |
 | RTR-02 | Phase 10 | Complete |
 | RTR-03 | Phase 10 | Complete |
-| MIG-01 | Phase 11 | Pending |
-| MIG-02 | Phase 11 | Pending |
-| MIG-03 | Phase 11 | Pending |
-| MIG-04 | Phase 11 | Pending |
-| MIG-05 | Phase 11 | Pending |
-| MIG-06 | Phase 11 | Pending |
-| MIG-07 | Phase 11 | Pending |
-| MIG-08 | Phase 11 | Pending |
-| MIG-09 | Phase 11 | Pending |
+| MIG-01 | Phase 11 | Complete |
+| MIG-02 | Phase 11 | Complete |
+| MIG-03 | Phase 11 | Complete |
+| MIG-04 | Phase 11 | Complete |
+| MIG-05 | Phase 11 | Complete |
+| MIG-06 | Phase 11 | Complete |
+| MIG-07 | Phase 11 | Complete |
+| MIG-08 | Phase 11 | Complete |
+| MIG-09 | Phase 11 | Complete |
 | NAV-01 | Phase 12 | Pending |
 | NAV-02 | Phase 12 | Pending |
 | NAV-03 | Phase 12 | Pending |
