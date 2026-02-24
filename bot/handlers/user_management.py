@@ -1,5 +1,5 @@
 """
-Команды управления пользователями: /addadmin, /addseller, /users.
+Команды управления пользователями: /addadmin, /addseller, /removeuser, /users.
 
 Доступны только администраторам.
 """
@@ -81,6 +81,44 @@ async def add_admin_handler(message: Message) -> None:
 async def add_seller_handler(message: Message) -> None:
     """/addseller — добавить билетера."""
     await _add_user(message, UserRole.SELLER)
+
+
+async def remove_user_handler(message: Message) -> None:
+    """/removeuser — удалить пользователя из системы."""
+    if not db.is_user_admin(message.from_id):
+        await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
+        return
+
+    if not message.fwd_messages:
+        await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
+        return
+
+    target_vk_id = message.fwd_messages[0].from_id
+    if not target_vk_id or target_vk_id <= 0:
+        await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
+        return
+
+    if target_vk_id == message.from_id:
+        await message.answer(texts.ERR_REMOVE_SELF)
+        return
+
+    existing = db.get_app_user_by_vk_id(target_vk_id)
+    if not existing:
+        await message.answer(texts.ERR_USER_NOT_FOUND)
+        return
+
+    try:
+        db.deactivate_app_user(target_vk_id)
+    except Exception as e:
+        logger.error(f"Failed to remove user {target_vk_id}: {e}")
+        await message.answer(texts.ERR_ADD_USER_FAILED)
+        return
+
+    await message.answer(
+        texts.MSG_USER_REMOVED.format(name=existing.display_name, vk_id=target_vk_id),
+        keyboard=commands_keyboard(),
+    )
+    logger.info(f"Admin {message.from_id} removed VK {target_vk_id} ({existing.display_name})")
 
 
 async def list_users_handler(message: Message) -> None:

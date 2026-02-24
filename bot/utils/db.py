@@ -1259,6 +1259,26 @@ def add_app_user(vk_user_id: int, display_name: str, role: UserRole) -> AppUser:
             raise DatabaseError(f"Failed to add app user: {e}")
 
 
+def deactivate_app_user(vk_user_id: int) -> None:
+    """Деактивировать AppUser по VK ID (soft-delete)."""
+    with SessionLocal() as session:
+        try:
+            stmt = (
+                select(AppUser)
+                .where(AppUser.vk_user_id == vk_user_id)
+                .where(AppUser.is_active == True)
+            )
+            user = session.execute(stmt).scalar_one_or_none()
+            if user:
+                user.is_active = False
+                session.commit()
+                logger.info(f"Deactivated AppUser {user.id} for VK ID {vk_user_id}")
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to deactivate app user for VK ID {vk_user_id}: {e}")
+            raise DatabaseError(f"Failed to deactivate app user: {e}")
+
+
 def get_all_app_users() -> List[AppUser]:
     """Все активные пользователи системы, админы первыми."""
     with SessionLocal() as session:

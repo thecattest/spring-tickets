@@ -140,7 +140,7 @@ class Router:
         Both text= and func= filters are combined — handler matches only when
         the message text is the command AND fwd_messages are present.
         """
-        from bot.handlers.user_management import add_admin_handler, add_seller_handler
+        from bot.handlers.user_management import add_admin_handler, add_seller_handler, remove_user_handler
 
         self.labeler.message(
             text=["/addadmin", "/Добавитьадмина"],
@@ -151,6 +151,11 @@ class Router:
             text=["/addseller", "/Добавитьбилетера"],
             func=lambda msg: bool(msg.fwd_messages),
         )(add_seller_handler)
+
+        self.labeler.message(
+            text=["/removeuser", "/Удалитьпользователя"],
+            func=lambda msg: bool(msg.fwd_messages),
+        )(remove_user_handler)
 
     def _register_forwarded(self) -> None:
         """
