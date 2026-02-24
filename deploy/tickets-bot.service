@@ -1,0 +1,17 @@
+[Unit]
+Description=Tickets VK Bot
+After=network.target redis.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/spring-tickets
+ExecStart=%h/spring-tickets/.venv/bin/python -m bot
+Restart=always
+RestartSec=5
+EnvironmentFile=%h/spring-tickets/.env
+
+StandardOutput=append:%h/spring-tickets/logs/bot.log
+StandardError=append:%h/spring-tickets/logs/bot.log
+
+[Install]
+WantedBy=default.target
