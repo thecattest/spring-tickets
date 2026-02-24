@@ -38,8 +38,7 @@
 
     .hall-scroll {
       width: 100%;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow: hidden;
     }
 
     .hall {
@@ -50,6 +49,7 @@
       min-width: max-content;
       margin: 0 auto;
       padding: 0 10px;
+      transform-origin: top center;
     }
 
     .row {
@@ -299,6 +299,24 @@
         hideTip();
       }
     });
+
+    // Scale hall to fit viewport width
+    function fitHall() {
+      const scroll = document.querySelector('.hall-scroll');
+      const hall = document.querySelector('.hall');
+      hall.style.transform = 'none';
+      const hallW = hall.scrollWidth;
+      const viewW = scroll.clientWidth;
+      if (hallW > viewW) {
+        const scale = viewW / hallW;
+        hall.style.transform = 'scale(' + scale + ')';
+        scroll.style.height = (hall.scrollHeight * scale) + 'px';
+      } else {
+        scroll.style.height = '';
+      }
+    }
+    fitHall();
+    window.addEventListener('resize', fitHall);
   </script>
 
 </body>
