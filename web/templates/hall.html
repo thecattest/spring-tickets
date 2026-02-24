@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=1100">
   <title>Схема зала</title>
   <style>
     * {
@@ -38,7 +38,8 @@
 
     .hall-scroll {
       width: 100%;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .hall {
@@ -46,7 +47,7 @@
       flex-direction: column;
       align-items: center;
       gap: 3px;
-      width: max-content;
+      min-width: max-content;
       margin: 0 auto;
       padding: 0 10px;
     }
@@ -299,18 +300,6 @@
       }
     });
 
-    // Scale hall to fit viewport width
-    function fitHall() {
-      const hall = document.querySelector('.hall');
-      hall.style.zoom = '1';
-      const hallW = hall.offsetWidth;
-      const viewW = document.documentElement.clientWidth - 20;
-      if (hallW > viewW) {
-        hall.style.zoom = String(viewW / hallW);
-      }
-    }
-    fitHall();
-    window.addEventListener('resize', fitHall);
   </script>
 
 </body>
