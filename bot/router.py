@@ -52,10 +52,12 @@ class Router:
         Register all handlers in enforced dispatch order.
 
         Order:
-          1. Forwarded message handler
-          2. Command handlers
-          3. FSM state handlers
+          1. User management commands (forwarded + text, must precede generic forward handler)
+          2. Forwarded message handler
+          3. Command handlers
+          4. FSM state handlers
         """
+        self._register_user_management()
         self._register_forwarded()
         self._register_commands()
         self._register_states()
@@ -128,6 +130,27 @@ class Router:
     # ------------------------------------------------------------------
     # Registration groups
     # ------------------------------------------------------------------
+
+    def _register_user_management(self) -> None:
+        """
+        Register /addadmin and /addseller commands.
+
+        These require a forwarded message, so they must be registered BEFORE
+        the generic forwarded message handler to avoid being swallowed by it.
+        Both text= and func= filters are combined — handler matches only when
+        the message text is the command AND fwd_messages are present.
+        """
+        from bot.handlers.user_management import add_admin_handler, add_seller_handler
+
+        self.labeler.message(
+            text=["/addadmin", "/Добавитьадмина"],
+            func=lambda msg: bool(msg.fwd_messages),
+        )(add_admin_handler)
+
+        self.labeler.message(
+            text=["/addseller", "/Добавитьбилетера"],
+            func=lambda msg: bool(msg.fwd_messages),
+        )(add_seller_handler)
 
     def _register_forwarded(self) -> None:
         """

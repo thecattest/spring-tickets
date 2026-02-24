@@ -1204,6 +1204,61 @@ def get_reservation_booked_seats_in_row(reservation_id: int, row: int) -> list[i
         return [r[0] for r in session.execute(stmt).all()]
 
 
+def add_app_user(vk_user_id: int, display_name: str, role: UserRole) -> AppUser:
+    """
+    Создать или обновить AppUser с указанной ролью.
+
+    Если AppUser с таким vk_user_id уже существует и активен — обновляет роль.
+    Если не существует — создаёт нового.
+
+    Args:
+        vk_user_id: VK user ID
+        display_name: Отображаемое имя
+        role: UserRole.ADMIN или UserRole.SELLER
+
+    Returns:
+        AppUser
+
+    Raises:
+        DatabaseError: If operation fails
+    """
+    with SessionLocal() as session:
+        try:
+            stmt = (
+                select(AppUser)
+                .where(AppUser.vk_user_id == vk_user_id)
+                .where(AppUser.is_active == True)
+            )
+            user = session.execute(stmt).scalar_one_or_none()
+
+            if user:
+                user.role = role
+                user.display_name = display_name
+                session.commit()
+                session.refresh(user)
+                logger.info(f"Updated AppUser {user.id} role to {role.value} for VK ID {vk_user_id}")
+                return user
+
+            user = AppUser(
+                vk_user_id=vk_user_id,
+                role=role,
+                display_name=display_name,
+                is_active=True,
+            )
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            logger.info(f"Created AppUser {user.id} with role {role.value} for VK ID {vk_user_id}")
+            return user
+
+        except DatabaseError:
+            raise
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to add app user for VK ID {vk_user_id}: {e}")
+            raise DatabaseError(f"Failed to add app user: {e}")
+
+
 def get_reserved_seats_in_row(row: int) -> list[int]:
     """Return seat numbers with RESERVED status in this row (no reservation_id).
 

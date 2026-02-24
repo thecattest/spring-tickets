@@ -64,6 +64,11 @@ HELP = (
     "/Резерв - управление резервами (только для админов)\n"
     "/Должники - список должников\n"
     "\n"
+    "УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (только для админов):\n"
+    "Перешлите сообщение пользователя с командой:\n"
+    "/addadmin — добавить администратора\n"
+    "/addseller — добавить билетера\n"
+    "\n"
     "По вопросам обращайтесь к администратору."
 )
 
@@ -212,6 +217,15 @@ MSG_CONFIRM_DELETE_SEATS = "Удалить места:\nРяд {row}: {seats}\n"
 MSG_CONFIRM_UNRESERVE = "Снять резерв:\nРяд {row}: {seats}\n\nПодтвердить?"
 MSG_RESERVE_CREATED = "Резерв создан:\nРяд {row}, места: {seats}\nКомментарий: {comment}"
 MSG_RESERVE_ACTION_HEADER = "{reserves}\n\nУправление резервами:"
+
+# User management
+MSG_USER_ADDED_ADMIN = "Пользователь {name} (vk.com/id{vk_id}) добавлен как администратор."
+MSG_USER_ADDED_SELLER = "Пользователь {name} (vk.com/id{vk_id}) добавлен как билетер."
+MSG_USER_UPDATED_ADMIN = "Роль {name} (vk.com/id{vk_id}) обновлена на администратор."
+MSG_USER_UPDATED_SELLER = "Роль {name} (vk.com/id{vk_id}) обновлена на билетер."
+ERR_ADD_USER_NO_FORWARD = "Перешлите сообщение пользователя вместе с командой."
+ERR_ADD_USER_FAILED = "Ошибка при добавлении пользователя."
+ERR_ADD_USER_ADMIN_ONLY = "Команда доступна только администраторам."
 
 # DB errors with detail
 ERR_DELETE_SEATS = "Ошибка при удалении мест: {error}"
