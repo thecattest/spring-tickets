@@ -184,6 +184,7 @@ class Router:
         from bot.handlers.commands import start_handler, help_handler, cancel_handler, exit_handler
         from bot.handlers.reserve import reserve_command_handler
         from bot.handlers.debtors import debtors_command_handler, refresh_debtors_handler
+        from bot.handlers.user_management import list_users_handler
 
         # /start — direct registration (no storage needed)
         self.labeler.message(text="/start")(start_handler)
@@ -202,6 +203,9 @@ class Router:
 
         # /debtors and /Должники — stateless, direct registration
         self.labeler.message(text=["/debtors", "/Должники"])(debtors_command_handler)
+
+        # /users and /Пользователи — list all users (admin-only, checked internally)
+        self.labeler.message(text=["/users", "/Пользователи"])(list_users_handler)
 
         # "Обновить" button — stateless refresh of debtor list
         self.labeler.message(text="Обновить")(refresh_debtors_handler)

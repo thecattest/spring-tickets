@@ -1,8 +1,7 @@
 """
-Команды управления пользователями: /addadmin, /addseller.
+Команды управления пользователями: /addadmin, /addseller, /users.
 
-Доступны только администраторам. Требуют пересланное сообщение
-от VK-пользователя, которого нужно добавить.
+Доступны только администраторам.
 """
 
 import logging
@@ -82,3 +81,24 @@ async def add_admin_handler(message: Message) -> None:
 async def add_seller_handler(message: Message) -> None:
     """/addseller — добавить билетера."""
     await _add_user(message, UserRole.SELLER)
+
+
+async def list_users_handler(message: Message) -> None:
+    """/users — список всех пользователей системы."""
+    if not db.is_user_admin(message.from_id):
+        await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
+        return
+
+    users = db.get_all_app_users()
+    if not users:
+        await message.answer(texts.MSG_USERS_LIST_EMPTY, keyboard=commands_keyboard())
+        return
+
+    lines = []
+    for user in users:
+        role_label = "админ" if user.role == UserRole.ADMIN else "билетер"
+        vk_link = f"vk.com/id{user.vk_user_id}" if user.vk_user_id else "—"
+        lines.append(f"• {user.display_name} ({role_label}) — {vk_link}")
+
+    text = texts.MSG_USERS_LIST_HEADER + "\n".join(lines)
+    await message.answer(text, keyboard=commands_keyboard())

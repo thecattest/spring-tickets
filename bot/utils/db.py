@@ -1259,6 +1259,17 @@ def add_app_user(vk_user_id: int, display_name: str, role: UserRole) -> AppUser:
             raise DatabaseError(f"Failed to add app user: {e}")
 
 
+def get_all_app_users() -> List[AppUser]:
+    """Все активные пользователи системы, админы первыми."""
+    with SessionLocal() as session:
+        stmt = (
+            select(AppUser)
+            .where(AppUser.is_active == True)
+            .order_by(AppUser.role, AppUser.display_name)
+        )
+        return list(session.execute(stmt).scalars().all())
+
+
 def get_reserved_seats_in_row(row: int) -> list[int]:
     """Return seat numbers with RESERVED status in this row (no reservation_id).
 
