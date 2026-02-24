@@ -46,10 +46,9 @@
       flex-direction: column;
       align-items: center;
       gap: 3px;
-      min-width: max-content;
+      width: max-content;
       margin: 0 auto;
       padding: 0 10px;
-      transform-origin: top center;
     }
 
     .row {
@@ -302,17 +301,12 @@
 
     // Scale hall to fit viewport width
     function fitHall() {
-      const scroll = document.querySelector('.hall-scroll');
       const hall = document.querySelector('.hall');
-      hall.style.transform = 'none';
-      const hallW = hall.scrollWidth;
-      const viewW = scroll.clientWidth;
+      hall.style.zoom = '1';
+      const hallW = hall.offsetWidth;
+      const viewW = document.documentElement.clientWidth - 20;
       if (hallW > viewW) {
-        const scale = viewW / hallW;
-        hall.style.transform = 'scale(' + scale + ')';
-        scroll.style.height = (hall.scrollHeight * scale) + 'px';
-      } else {
-        scroll.style.height = '';
+        hall.style.zoom = String(viewW / hallW);
       }
     }
     fitHall();
