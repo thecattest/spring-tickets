@@ -56,6 +56,12 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     if not message.fwd_messages:
         return
 
+    # Permission check: only sellers and admins can use forwarded messages
+    role = db.get_user_role(message.from_id)
+    if role is None:
+        await message.answer(texts.ERR_NOT_REGISTERED)
+        return
+
     # Get VK user ID from forwarded message
     forwarded = message.fwd_messages[0]
     buyer_vk_id = forwarded.from_id
