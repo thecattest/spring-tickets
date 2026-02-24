@@ -185,8 +185,15 @@
       color: #aaa;
     }
 
+    .seat {
+      position: relative;
+    }
+
     .tooltip {
-      position: fixed;
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
       background: #16213e;
       color: #eee;
       padding: 6px 12px;
@@ -198,6 +205,7 @@
       border: 1px solid #555;
       opacity: 0;
       transition: opacity 0.15s;
+      margin-bottom: 4px;
     }
 
     .tooltip.visible {
@@ -255,40 +263,32 @@
     </div>
   </div>
 
-  <div class="tooltip" id="tooltip"></div>
-
   <script>
-    const tip = document.getElementById('tooltip');
+    const tip = document.createElement('div');
+    tip.className = 'tooltip';
     let hideTimer;
+    let selected = null;
 
-    function showTip(el, x, y) {
-      const row = el.dataset.row;
-      const seat = el.dataset.seat;
-      if (!row) return;
-      tip.textContent = 'Ряд ' + row + ', Место ' + seat;
+    function showTip(seat) {
+      tip.textContent = 'Ряд ' + seat.dataset.row + ', Место ' + seat.dataset.seat;
+      seat.appendChild(tip);
       tip.classList.add('visible');
-      const rect = tip.getBoundingClientRect();
-      const left = Math.min(x - rect.width / 2, window.innerWidth - rect.width - 8);
-      tip.style.left = Math.max(8, left) + 'px';
-      tip.style.top = (y - rect.height - 10) + 'px';
     }
 
     function hideTip() {
       tip.classList.remove('visible');
+      if (tip.parentNode) tip.parentNode.removeChild(tip);
     }
-
-    let selected = null;
 
     document.querySelector('.hall').addEventListener('click', function (e) {
       const seat = e.target.closest('.seat');
-      if (!seat || seat.classList.contains('occupied')) { return; }
+      if (!seat || seat.classList.contains('occupied')) return;
       clearTimeout(hideTimer);
       if (selected) selected.classList.remove('selected');
       if (selected === seat) { selected = null; hideTip(); return; }
       seat.classList.add('selected');
       selected = seat;
-      const r = seat.getBoundingClientRect();
-      showTip(seat, r.left + r.width / 2, r.top);
+      showTip(seat);
       hideTimer = setTimeout(hideTip, 2000);
     });
 
@@ -299,7 +299,6 @@
         hideTip();
       }
     });
-
   </script>
 
 </body>
