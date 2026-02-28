@@ -237,9 +237,9 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
     context = await storage.get_context(message.from_id)
     context['current_row'] = row
 
-    seat_count = get_seat_count(row)
+    reserved_str = format_seat_ranges(sorted(reserved))
     await message.answer(
-        texts.MSG_ENTER_SEATS_UNRESERVE.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
+        texts.MSG_ENTER_SEATS_UNRESERVE_WITH_RESERVED.format(row=row, reserved=reserved_str)
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVING_SEATS, **context)
 

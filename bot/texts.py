@@ -168,6 +168,7 @@ MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED = (
     "Введите номера мест для резерва (ряд {row}, {seat_count} {seat_count_word}). Заняты: {occupied}."
 )
 MSG_ENTER_SEATS_UNRESERVE = "Введите номера мест для снятия резерва (ряд {row}, {seat_count} {seat_count_word}):"
+MSG_ENTER_SEATS_UNRESERVE_WITH_RESERVED = "В ряду {row} зарезервированы: {reserved}. Какие снять?"
 
 # Validation errors
 ERR_INVALID_ROW = "Неверный ряд. Допустимые значения: {min_row}-{max_row}. Введите ряд:"

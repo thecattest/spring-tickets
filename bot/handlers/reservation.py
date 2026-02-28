@@ -439,6 +439,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         total_count = len(all_seats)
 
         # Success message
+        from bot.utils.formatting import pluralize_seats
         await message.answer(
             texts.MSG_SEATS_ADDED.format(
                 count=len(seats),

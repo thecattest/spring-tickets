@@ -138,6 +138,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
             seller_id = db.get_seller_id(message.from_id)
             released_count = db.release_seats(reservation_id, row, seats, seller_id)
 
+            from bot.utils.formatting import pluralize_seats
             await message.answer(
                 texts.MSG_SEATS_DELETED.format(count=released_count, count_word=pluralize_seats(released_count)),
                 keyboard=get_empty_keyboard()
