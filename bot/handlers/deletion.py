@@ -20,6 +20,7 @@ from bot.fsm.storage import RedisStorage
 from bot.utils import db
 from bot.keyboards import confirmation_keyboard, get_empty_keyboard
 from bot.handlers.menu import show_main_menu
+from bot.utils.formatting import pluralize_seats
 from bot import texts
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
             released_count = db.release_seats(reservation_id, row, seats, seller_id)
 
             await message.answer(
-                texts.MSG_SEATS_DELETED.format(count=released_count),
+                texts.MSG_SEATS_DELETED.format(count=released_count, count_word=pluralize_seats(released_count)),
                 keyboard=get_empty_keyboard()
             )
 

@@ -20,6 +20,7 @@ from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, conte
 from bot.messages import generate_reservation_script
 from models.base import SeatStatus
 from bot.handlers.menu import show_main_menu
+from bot.utils.formatting import pluralize_seats
 from bot.constants import Btn
 from bot import texts
 
@@ -389,12 +390,12 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
         occupied_str = format_seat_ranges(occupied)
         await message.answer(
             texts.MSG_ROW_SEAT_COUNT_WITH_OCCUPIED.format(
-                row=row, seat_count=seat_count, occupied=occupied_str
+                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count), occupied=occupied_str
             )
         )
     else:
         await message.answer(
-            texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count)
+            texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
         )
 
     await storage.set(message.from_id, BotState.AWAITING_SEATS, **context)
@@ -441,9 +442,11 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         await message.answer(
             texts.MSG_SEATS_ADDED.format(
                 count=len(seats),
+                count_word=pluralize_seats(len(seats)),
                 row=row,
                 seats=", ".join(map(str, seats)),
                 total=total_count,
+                total_word=pluralize_seats(total_count),
             ),
             keyboard=seat_addition_menu_keyboard()
         )
@@ -462,7 +465,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
                 status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
                 try:
                     res_seats = db.get_reservation_seats(c['reservation_id'])
-                    detail = f"бронь #{c['reservation_id']}, всего мест: {len(res_seats)}"
+                    detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
             error_lines.append(f"• Ряд {c['row']}, место {c['seat']} — {status_text} ({detail})")

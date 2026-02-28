@@ -159,12 +159,12 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
                 # Admin — show confirmation with paid seats warning
                 msg = (
                     f"Отменить бронь {buyer_display_name}?\n\n"
-                    f"Всего {pluralize_seats(len(seats))}: {len(seats)} (бронь: {booked_count}, оплачено: {paid_count})\n\n"
+                    f"Всего: {len(seats)} {pluralize_seats(len(seats))} (бронь: {booked_count}, оплачено: {paid_count})\n\n"
                     f"В брони {paid_count} оплаченных {pluralize_seats(paid_count)}."
                 )
             else:
                 # No paid seats — simple confirmation
-                msg = f"Отменить бронь {buyer_display_name}?\n\nВсего {pluralize_seats(len(seats))}: {len(seats)}"
+                msg = f"Отменить бронь {buyer_display_name}?\n\nВсего: {len(seats)} {pluralize_seats(len(seats))}"
 
             # Send confirmation
             await message.answer(msg, keyboard=confirmation_keyboard())

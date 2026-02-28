@@ -134,7 +134,7 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
     paid = status_counts[SeatStatus.PAID]
     reserved = status_counts[SeatStatus.RESERVED]
 
-    summary = f"Всего мест: {total}"
+    summary = f"Всего: {total} {pluralize_seats(total)}"
     if booked:
         summary += f" | 📌Бронь: {booked}"
     if paid:
