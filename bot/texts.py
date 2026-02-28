@@ -187,12 +187,12 @@ ERR_INSUFFICIENT_SEATS = "Ошибка: запрошено {requested} мест,
 
 # Seat operation results
 MSG_SEATS_ADDED = (
-    "Добавлено {count} мест:\n"
+    "Добавлено {count} {count_word}:\n"
     "Ряд {row}, места: {seats}\n"
     "\n"
-    "Всего в брони: {total} мест"
+    "Всего в брони: {total} {total_word}"
 )
-MSG_SEATS_DELETED = "Удалено {count} мест."
+MSG_SEATS_DELETED = "Удалено {count} {count_word}."
 MSG_SEATS_NOT_IN_BOOKING = "Места не принадлежат данной брони: {seats}.\n\nВведите другие места:"
 MSG_SEATS_ALREADY_PAID = "Места уже оплачены, удалить нельзя: {seats}.\n\nВведите другие места:"
 
@@ -212,7 +212,7 @@ MSG_PAYMENT_ADMIN_NOTIFICATION = (
     "Оплата зафиксирована\n\n"
     "Покупатель: {buyer_name}\n"
     "Билетер: {seller_name}\n"
-    "Оплачено мест: {seat_count}\n"
+    "Оплачено {seat_count_word}: {seat_count}\n"
     "Сумма: {amount} руб."
 )
 

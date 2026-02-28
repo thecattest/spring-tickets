@@ -17,6 +17,7 @@ from bot.fsm.storage import RedisStorage
 from bot.utils import db
 from bot.keyboards import main_menu_keyboard, confirmation_keyboard, get_empty_keyboard, context_switch_keyboard
 from bot.messages import format_reservation_seats
+from bot.utils.formatting import pluralize_seats
 from models.base import SeatStatus
 
 logger = logging.getLogger(__name__)
@@ -158,12 +159,12 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
                 # Admin — show confirmation with paid seats warning
                 msg = (
                     f"Отменить бронь {buyer_display_name}?\n\n"
-                    f"Всего мест: {len(seats)} (бронь: {booked_count}, оплачено: {paid_count})\n\n"
-                    f"В брони {paid_count} оплаченных мест."
+                    f"Всего {pluralize_seats(len(seats))}: {len(seats)} (бронь: {booked_count}, оплачено: {paid_count})\n\n"
+                    f"В брони {paid_count} оплаченных {pluralize_seats(paid_count)}."
                 )
             else:
                 # No paid seats — simple confirmation
-                msg = f"Отменить бронь {buyer_display_name}?\n\nВсего мест: {len(seats)}"
+                msg = f"Отменить бронь {buyer_display_name}?\n\nВсего {pluralize_seats(len(seats))}: {len(seats)}"
 
             # Send confirmation
             await message.answer(msg, keyboard=confirmation_keyboard())
