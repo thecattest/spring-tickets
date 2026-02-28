@@ -143,17 +143,17 @@ class Router:
         from bot.handlers.user_management import add_admin_handler, add_seller_handler, remove_user_handler
 
         self.labeler.message(
-            text=["/addadmin", "/Добавитьадмина"],
+            text=["addadmin", "/addadmin"],
             func=lambda msg: bool(msg.fwd_messages),
         )(add_admin_handler)
 
         self.labeler.message(
-            text=["/addseller", "/Добавитьбилетера"],
+            text=["addseller", "/addseller"],
             func=lambda msg: bool(msg.fwd_messages),
         )(add_seller_handler)
 
         self.labeler.message(
-            text=["/removeuser", "/Удалитьпользователя"],
+            text=["removeuser", "/removeuser"],
             func=lambda msg: bool(msg.fwd_messages),
         )(remove_user_handler)
 
@@ -191,26 +191,19 @@ class Router:
         from bot.handlers.debtors import debtors_command_handler, refresh_debtors_handler
         from bot.handlers.user_management import list_users_handler
 
-        # /start — direct registration (no storage needed)
-        self.labeler.message(text="/start")(start_handler)
+        self.labeler.message(text=["/start", "start"])(start_handler)
 
-        # /help and /Справка — direct registration
-        self.labeler.message(text=["/help", "/Справка"])(help_handler)
+        self.labeler.message(text=["Справка", "/help", "help"])(help_handler)
 
-        # /cancel and /Отмена — needs storage to clear FSM state
-        self.labeler.message(text=["/cancel", "/Отмена"])(self._wrap(cancel_handler))
+        self.labeler.message(text=["Отмена", "/cancel", "cancel"])(self._wrap(cancel_handler))
 
-        # /exit and /Выход — hard reset to IDLE from any state
-        self.labeler.message(text=["/exit", "/Выход"])(self._wrap(exit_handler))
+        self.labeler.message(text=["Выход", "/exit", "exit"])(self._wrap(exit_handler))
 
-        # /reserve and /Резерв — needs storage to set RESERVE_ACTION state
-        self.labeler.message(text=["/reserve", "/Резерв"])(self._wrap(reserve_command_handler))
+        self.labeler.message(text=["Резерв", "/reserve", "reserve"])(self._wrap(reserve_command_handler))
 
-        # /debtors and /Должники — stateless, direct registration
-        self.labeler.message(text=["/debtors", "/Должники"])(debtors_command_handler)
+        self.labeler.message(text=["Должники", "/debtors", "debtors"])(debtors_command_handler)
 
-        # /users and /Пользователи — list all users (admin-only, checked internally)
-        self.labeler.message(text=["/users", "/Пользователи"])(list_users_handler)
+        self.labeler.message(text=["users", "Пользователи"])(list_users_handler)
 
         # "Обновить" button — stateless refresh of debtor list
         self.labeler.message(text="Обновить")(refresh_debtors_handler)

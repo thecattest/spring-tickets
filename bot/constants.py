@@ -2,7 +2,7 @@
 Константы кнопок и команд бота.
 
 StrEnum-члены являются строками — сравнение через == и `in` работает без .value.
-Например: Btn.ADD == "Добавить" is True, Cmd.CANCEL == "/Отмена" is True.
+Например: Btn.ADD == "Добавить" is True, Cmd.CANCEL == "Отмена" is True.
 """
 
 from enum import StrEnum
@@ -12,10 +12,10 @@ class Btn(StrEnum):
     """Метки кнопок клавиатуры. Используются в Text(...) и сравнениях if text == ..."""
 
     # commands_keyboard
-    CANCEL_CMD  = "/Отмена"
-    HELP_CMD    = "/Справка"
-    DEBTORS_CMD = "/Должники"
-    RESERVE_CMD = "/Резерв"
+    CANCEL_CMD  = "Отмена"
+    HELP_CMD    = "Справка"
+    DEBTORS_CMD = "Должники"
+    RESERVE_CMD = "Резерв"
 
     # main_menu_keyboard
     ADD         = "Добавить"
@@ -44,17 +44,17 @@ class Btn(StrEnum):
 
 
 class Cmd(StrEnum):
-    """Слэш-команды бота. Используются в text= регистрациях и inline-диспетчеризации."""
+    """Команды бота. Используются в text= регистрациях и inline-диспетчеризации."""
 
-    START       = "/start"
-    HELP        = "/Справка"
-    HELP_EN     = "/help"
-    CANCEL      = "/Отмена"
-    CANCEL_EN   = "/cancel"
-    DEBTORS     = "/Должники"
-    DEBTORS_EN  = "/debtors"
-    RESERVE     = "/Резерв"
-    RESERVE_EN  = "/reserve"
+    START       = "start"
+    HELP        = "Справка"
+    HELP_EN     = "help"
+    CANCEL      = "Отмена"
+    CANCEL_EN   = "cancel"
+    DEBTORS     = "Должники"
+    DEBTORS_EN  = "debtors"
+    RESERVE     = "Резерв"
+    RESERVE_EN  = "reserve"
 
 
 # Все известные команды бота — для O(1) проверки `text in ALL_COMMANDS`
