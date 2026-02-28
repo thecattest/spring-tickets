@@ -8,10 +8,10 @@ Handles:
 Both handlers are stateless (no FSM state) -- /debtors is a read-only view.
 Seller sees only their own debtors; admin sees all.
 
-Debtor criteria:
+Debtor criteria (button view, min_days=0):
 - Reservation is ACTIVE
-- last_activity_at <= now - 7 days
 - Has at least one unreleased BOOKED seat
+Cron reminders use min_days from config (default 7).
 """
 
 import logging

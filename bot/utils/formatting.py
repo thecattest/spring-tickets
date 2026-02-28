@@ -8,7 +8,20 @@ from itertools import groupby
 from operator import itemgetter
 
 
-__all__ = ["format_seat_ranges"]
+__all__ = ["format_seat_ranges", "pluralize_seats"]
+
+
+def pluralize_seats(n: int) -> str:
+    """Склонение слова 'место': 1 место, 2 места, 5 мест."""
+    abs_n = abs(n) % 100
+    last_one = abs_n % 10
+    if 11 <= abs_n <= 19:
+        return "мест"
+    if last_one == 1:
+        return "место"
+    if 2 <= last_one <= 4:
+        return "места"
+    return "мест"
 
 
 def format_seat_ranges(seats: list[int]) -> str:

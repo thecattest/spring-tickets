@@ -448,6 +448,17 @@ def get_user_role(vk_user_id: int) -> Optional[UserRole]:
         return session.execute(stmt).scalar_one_or_none()
 
 
+def get_all_admin_vk_ids() -> List[int]:
+    """Get VK user IDs of all active admins."""
+    with SessionLocal() as session:
+        stmt = (
+            select(AppUser.vk_user_id)
+            .where(AppUser.role == UserRole.ADMIN)
+            .where(AppUser.is_active == True)
+        )
+        return list(session.execute(stmt).scalars().all())
+
+
 def get_reservation_with_seats(reservation_id: int) -> tuple[Optional[Reservation], List[SeatAssignment]]:
     """
     Get reservation and its active seats.
@@ -1009,18 +1020,19 @@ def release_reserve(row: int, seats: List[int], user_id: int) -> List[dict]:
             raise DatabaseError(f"Failed to release reserve: {e}")
 
 
-def get_debtors(seller_id: Optional[int] = None) -> List[dict]:
+def get_debtors(seller_id: Optional[int] = None, min_days: int = 0) -> List[dict]:
     """
-    Get list of debtors: reservations with BOOKED seats and no activity for 7+ days.
+    Get list of debtors: reservations with BOOKED (unpaid) seats.
 
     A debtor is a reservation that:
     - Is ACTIVE state
-    - Has last_activity_at <= (now - 7 days)
     - Has at least one unreleased BOOKED seat (released_at IS NULL, status=BOOKED)
+    - Has last_activity_at <= (now - min_days) if min_days > 0
 
     Args:
         seller_id: If provided, filter to reservations by this seller (AppUser.id).
                    If None, returns all debtors across all sellers (admin view).
+        min_days: Minimum days since last activity. 0 = show all unpaid.
 
     Returns:
         List of dicts: {
@@ -1038,7 +1050,6 @@ def get_debtors(seller_id: Optional[int] = None) -> List[dict]:
     """
     with SessionLocal() as session:
         try:
-            threshold = datetime.utcnow() - timedelta(days=7)
 
             # Correlated subquery: count BOOKED unreleased seats per reservation
             booked_count_subq = (
@@ -1049,15 +1060,18 @@ def get_debtors(seller_id: Optional[int] = None) -> List[dict]:
                 .scalar_subquery()
             )
 
-            # Main query: active reservations older than threshold with booked seats
+            # Main query: active reservations with booked seats
             stmt = (
                 select(Reservation, VkUser, booked_count_subq.label("booked_count"))
                 .join(VkUser, Reservation.buyer_vk_user_id == VkUser.id)
                 .where(Reservation.state == ReservationState.ACTIVE)
-                .where(Reservation.last_activity_at <= threshold)
                 .where(booked_count_subq > 0)
                 .order_by(Reservation.last_activity_at.asc())
             )
+
+            if min_days > 0:
+                threshold = datetime.utcnow() - timedelta(days=min_days)
+                stmt = stmt.where(Reservation.last_activity_at <= threshold)
 
             if seller_id is not None:
                 stmt = stmt.where(Reservation.sold_by_user_id == seller_id)

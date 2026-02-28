@@ -86,28 +86,18 @@ def handle_seat_input(
 
     if mode == "availability":
         from bot.utils import db
-        occupied = []
+        from bot.utils.formatting import format_seat_ranges
+        occupied_seats = []
         for seat in seats:
             assignment = db.get_seat_assignment(row, seat)
             if assignment:
-                occupied.append((seat, assignment))
-        if occupied:
-            from models.base import SeatStatus
-            error_lines = ["Места уже заняты:"]
-            for seat, assignment in occupied:
-                if assignment.status == SeatStatus.RESERVED:
-                    status_text = "Резерв"
-                    detail = assignment.note or "без комментария"
-                else:
-                    status_text = "Бронь" if assignment.status == SeatStatus.BOOKED else "Оплачено"
-                    try:
-                        res_seats = db.get_reservation_seats(assignment.reservation_id)
-                        detail = f"бронь #{assignment.reservation_id}, всего мест: {len(res_seats)}"
-                    except Exception:
-                        detail = f"бронь #{assignment.reservation_id}"
-                error_lines.append(f"• Ряд {row}, место {seat} — {status_text} ({detail})")
-            error_lines.append("\nВведите другие места:")
-            return SeatResult(ok=False, error_text="\n".join(error_lines))
+                occupied_seats.append(seat)
+        if occupied_seats:
+            seats_str = format_seat_ranges(sorted(occupied_seats))
+            return SeatResult(
+                ok=False,
+                error_text=f"Места {seats_str} в ряду {row} недоступны.\n\nВведите другие места:"
+            )
         return SeatResult(ok=True, seats=seats)
 
     if mode == "membership":

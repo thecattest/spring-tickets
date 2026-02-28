@@ -59,10 +59,11 @@ async def deleting_row_handler(message: Message, storage: RedisStorage):
     # Update context with current_row
     context['current_row'] = row
 
-    # Transition to DELETING_SEATS with updated context
-    seat_count = get_seat_count(row)
+    # Transition to DELETING_SEATS — show which seats from this reservation are in the row
+    from bot.utils.formatting import format_seat_ranges
+    booked_str = format_seat_ranges(sorted(booked))
     await message.answer(
-        texts.MSG_ENTER_SEATS_ROW.format(row=row, seat_count=seat_count)
+        texts.MSG_ENTER_SEATS_DELETE_WITH_BOOKED.format(row=row, seats=booked_str)
     )
 
     await storage.set(message.from_id, BotState.DELETING_SEATS, **context)
@@ -140,6 +141,16 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
                 texts.MSG_SEATS_DELETED.format(count=released_count),
                 keyboard=get_empty_keyboard()
             )
+
+            # Send updated client script if seats remain
+            remaining = db.get_reservation_seats(reservation_id)
+            if remaining:
+                from bot.messages import generate_reservation_script
+                script = generate_reservation_script(
+                    buyer_display_name=buyer_display_name,
+                    seats=remaining,
+                )
+                await message.answer(script, keyboard=get_empty_keyboard())
 
             # Return to main menu with updated seat list
             await show_main_menu(

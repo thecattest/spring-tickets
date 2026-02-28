@@ -146,11 +146,24 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             paid_count = sum(1 for s in seats if s.status == SeatStatus.PAID)
             booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
 
-            # Build confirmation message
-            msg = f"Отменить бронь {buyer_display_name}?\n\nВсего мест: {len(seats)} (бронь: {booked_count}, оплачено: {paid_count})"
-
             if paid_count > 0:
-                msg += f"\n\n⚠️ В брони {paid_count} оплаченных мест. Отмена доступна только админам."
+                # Has paid seats — check admin rights immediately
+                is_admin = db.is_user_admin(message.from_id)
+                if not is_admin:
+                    await message.answer(
+                        texts.ERR_PAID_CANCEL_ADMIN_ONLY,
+                        keyboard=main_menu_keyboard()
+                    )
+                    return
+                # Admin — show confirmation with paid seats warning
+                msg = (
+                    f"Отменить бронь {buyer_display_name}?\n\n"
+                    f"Всего мест: {len(seats)} (бронь: {booked_count}, оплачено: {paid_count})\n\n"
+                    f"В брони {paid_count} оплаченных мест."
+                )
+            else:
+                # No paid seats — simple confirmation
+                msg = f"Отменить бронь {buyer_display_name}?\n\nВсего мест: {len(seats)}"
 
             # Send confirmation
             await message.answer(msg, keyboard=confirmation_keyboard())
@@ -166,12 +179,10 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             )
 
     elif text == Btn.PAYMENT:
-        # Local import to avoid circular dependency (payment.py uses local import for show_main_menu)
-        from bot.handlers.payment import start_payment_flow
-        await start_payment_flow(
-            message, storage, reservation_id, buyer_display_name,
-            vk_message_url=None,
-            vk_message_ts=None,
+        # Show info message — actual payment flow starts when seller sends a receipt (photo/doc)
+        await message.answer(
+            texts.MSG_PAYMENT_SEND_RECEIPT,
+            keyboard=main_menu_keyboard()
         )
 
     else:
@@ -237,6 +248,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     pending_buyer_display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
+                    receipt_attachments=context.get("pending_receipt_attachments", []),
                 )
             else:
                 # Normal switch -> show main menu for new client's existing reservation

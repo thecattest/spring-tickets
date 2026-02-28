@@ -5,7 +5,7 @@ Payment и PaymentSeat models - оплаты (чеки) и привязка ме
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from sqlalchemy import ForeignKey, Index, Integer, Numeric, Text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from models.base import Base
 
@@ -51,6 +51,7 @@ class Payment(Base):
 
     recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     
     __table_args__ = (

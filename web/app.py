@@ -6,13 +6,12 @@ Run:
 """
 
 import os
-from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import func
@@ -20,8 +19,7 @@ from sqlalchemy import func
 from bot.utils.layout import get_layout
 from database import SessionLocal
 from models.base import SeatStatus
-from models.payment import Payment
-from models.reconcile import ReconcileCheckpoint
+from models.payment import Payment, PaymentSeat
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.user import AppUser
@@ -150,7 +148,19 @@ def payments_page(request: Request):
         return RedirectResponse("/payments/login", status_code=303)
 
     with SessionLocal() as session:
-        # Fetch all payments with joins
+        # Subquery: count active (non-released) seats per payment
+        active_seat_count = (
+            session.query(func.count(PaymentSeat.payment_id))
+            .join(SeatAssignment, PaymentSeat.seat_assignment_id == SeatAssignment.id)
+            .filter(
+                PaymentSeat.payment_id == Payment.id,
+                SeatAssignment.released_at.is_(None),
+            )
+            .correlate(Payment)
+            .scalar_subquery()
+        )
+
+        # Fetch payments that have at least one active seat
         payments_query = (
             session.query(
                 Payment,
@@ -161,14 +171,8 @@ def payments_page(request: Request):
             .join(Reservation, Payment.reservation_id == Reservation.id)
             .join(VkUser, Reservation.buyer_vk_user_id == VkUser.id)
             .join(AppUser, Payment.recorded_by_user_id == AppUser.id)
+            .filter(active_seat_count > 0)
             .order_by(Payment.recorded_at.desc())
-            .all()
-        )
-
-        # Fetch checkpoints
-        checkpoints = (
-            session.query(ReconcileCheckpoint)
-            .order_by(ReconcileCheckpoint.checked_at.desc())
             .all()
         )
 
@@ -180,9 +184,10 @@ def payments_page(request: Request):
             .all()
         )
 
-        # Money stats
+        # Money stats — only payments with at least one active seat
         total_paid = (
             session.query(func.coalesce(func.sum(Payment.payment_amount), 0))
+            .filter(active_seat_count > 0)
             .scalar()
         )
 
@@ -224,99 +229,65 @@ def payments_page(request: Request):
         "projected": float(projected),
     }
 
-    # Group payments into sections by checkpoint boundaries
-    checkpoint_times = [cp.checked_at for cp in checkpoints]
-
-    # Build payment rows
-    payment_rows = []
+    # Build payment rows, split by is_verified
+    unverified_payments = []
+    verified_payments = []
     for p, buyer_name, buyer_vk_id, seller_name in payments_query:
-        payment_rows.append({
+        row = {
+            "id": p.id,
             "buyer_name": buyer_name,
             "buyer_vk_id": buyer_vk_id,
             "seller_name": seller_name,
             "seat_count": p.seat_count,
             "amount": float(p.payment_amount),
             "date": p.recorded_at,
-        })
-
-    # Section 0: payments after latest checkpoint (or all if no checkpoints)
-    sections = []
-    latest_cp_time = checkpoint_times[0] if checkpoint_times else None
-
-    new_payments = []
-    older_payments = []
-    for row in payment_rows:
-        if latest_cp_time is None or row["date"] > latest_cp_time:
-            new_payments.append(row)
+            "is_verified": p.is_verified,
+        }
+        if p.is_verified:
+            verified_payments.append(row)
         else:
-            older_payments.append(row)
-
-    sections.append({
-        "label": None,  # Current (no checkpoint header)
-        "payments": new_payments,
-    })
-
-    # For each checkpoint, group payments between this checkpoint and the next older one
-    for i, cp in enumerate(checkpoints):
-        cp_time = cp.checked_at
-        next_cp_time = checkpoint_times[i + 1] if i + 1 < len(checkpoint_times) else None
-
-        section_payments = []
-        for row in older_payments:
-            if next_cp_time is not None:
-                if next_cp_time < row["date"] <= cp_time:
-                    section_payments.append(row)
-            else:
-                if row["date"] <= cp_time:
-                    section_payments.append(row)
-
-        sections.append({
-            "label": f"Проверено {cp.checked_at.strftime('%d.%m.%Y %H:%M')}",
-            "count": len(section_payments),
-            "payments": section_payments,
-        })
-
-    has_new_payments = len(new_payments) > 0
+            unverified_payments.append(row)
 
     return templates.TemplateResponse("payments.html", {
         "request": request,
-        "sections": sections,
+        "unverified_payments": unverified_payments,
+        "verified_payments": verified_payments,
         "seat_stats": seat_stats,
         "money_stats": money_stats,
         "seat_price": SEAT_PRICE,
-        "has_new_payments": has_new_payments,
     })
 
 
 # ---------------------------------------------------------------------------
-# Checkpoint creation
+# Payment verification
 # ---------------------------------------------------------------------------
 
+@app.post("/payments/{payment_id}/verify")
+def toggle_verify(request: Request, payment_id: int):
+    if not is_authenticated(request):
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    with SessionLocal() as session:
+        payment = session.query(Payment).filter(Payment.id == payment_id).first()
+        if not payment:
+            return JSONResponse({"error": "not found"}, status_code=404)
+
+        payment.is_verified = not payment.is_verified
+        session.commit()
+        return JSONResponse({"is_verified": payment.is_verified})
+
+
 @app.post("/payments/checkpoint")
-def create_checkpoint(request: Request):
+def bulk_verify(request: Request):
     if not is_authenticated(request):
         return RedirectResponse("/payments/login", status_code=303)
 
     with SessionLocal() as session:
-        # Check there are payments after the latest checkpoint
-        latest_cp = (
-            session.query(ReconcileCheckpoint.checked_at)
-            .order_by(ReconcileCheckpoint.checked_at.desc())
-            .first()
+        updated = (
+            session.query(Payment)
+            .filter(Payment.is_verified == False)
+            .update({"is_verified": True})
         )
-        query = session.query(func.count()).select_from(Payment)
-        if latest_cp:
-            query = query.filter(Payment.recorded_at > latest_cp.checked_at)
-        new_count = query.scalar()
-
-        if not new_count:
-            return RedirectResponse("/payments", status_code=303)
-
-        checkpoint = ReconcileCheckpoint(
-            checked_by_user_id=None,
-            checked_at=datetime.utcnow(),
-        )
-        session.add(checkpoint)
         session.commit()
 
     return RedirectResponse("/payments", status_code=303)

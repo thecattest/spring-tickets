@@ -142,19 +142,21 @@ class Router:
         """
         from bot.handlers.user_management import add_admin_handler, add_seller_handler, remove_user_handler
 
+        has_fwd_or_reply = lambda msg: bool(msg.fwd_messages) or bool(msg.reply_message)
+
         self.labeler.message(
             text=["addadmin", "/addadmin"],
-            func=lambda msg: bool(msg.fwd_messages),
+            func=has_fwd_or_reply,
         )(add_admin_handler)
 
         self.labeler.message(
             text=["addseller", "/addseller"],
-            func=lambda msg: bool(msg.fwd_messages),
+            func=has_fwd_or_reply,
         )(add_seller_handler)
 
         self.labeler.message(
             text=["removeuser", "/removeuser"],
-            func=lambda msg: bool(msg.fwd_messages),
+            func=has_fwd_or_reply,
         )(remove_user_handler)
 
     def _register_forwarded(self) -> None:
@@ -167,7 +169,7 @@ class Router:
         from bot.handlers.reservation import forwarded_message_handler
 
         self.labeler.message(
-            func=lambda msg: bool(msg.fwd_messages)
+            func=lambda msg: bool(msg.fwd_messages) or bool(msg.reply_message)
         )(self._wrap(forwarded_message_handler))
 
     def _register_commands(self) -> None:

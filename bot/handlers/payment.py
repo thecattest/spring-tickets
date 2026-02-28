@@ -31,6 +31,7 @@ async def start_payment_flow(
     buyer_display_name: str,
     vk_message_url: str = None,
     vk_message_ts: datetime = None,
+    receipt_attachments: list[str] = None,
 ):
     """
     Shared entry point for payment flow (both receipt-forward and button flows).
@@ -76,6 +77,7 @@ async def start_payment_flow(
             buyer_display_name=context.get("buyer_display_name", buyer_display_name),
             payment_vk_message_url=vk_message_url,
             payment_vk_message_ts=vk_message_ts.isoformat() if vk_message_ts else None,
+            receipt_attachments=receipt_attachments or [],
         )
 
         logger.info(f"Started payment flow for reservation {reservation_id}")
@@ -209,6 +211,34 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             paid_seats, remaining_booked, payment.payment_amount, buyer_display_name
         )
         await message.answer(confirmation, keyboard=main_menu_keyboard())
+
+        # Notify all admins about the payment
+        try:
+            seller_app_user = db.get_app_user_by_vk_id(message.from_id)
+            seller_name = seller_app_user.display_name if seller_app_user else "—"
+            admin_vk_ids = db.get_all_admin_vk_ids()
+            receipt_attachments = context.get("receipt_attachments", [])
+            notification_text = texts.MSG_PAYMENT_ADMIN_NOTIFICATION.format(
+                buyer_name=buyer_display_name,
+                seller_name=seller_name,
+                seat_count=quantity,
+                amount=int(payment.payment_amount),
+            )
+            attachment_str = ",".join(receipt_attachments) if receipt_attachments else None
+            for admin_vk_id in admin_vk_ids:
+                if admin_vk_id == message.from_id:
+                    continue  # не уведомлять самого себя
+                try:
+                    await message.ctx_api.messages.send(
+                        peer_id=admin_vk_id,
+                        message=notification_text,
+                        attachment=attachment_str,
+                        random_id=0,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to notify admin {admin_vk_id}: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to send admin notifications: {e}")
 
         # Return to MAIN_MENU state
         await storage.set(

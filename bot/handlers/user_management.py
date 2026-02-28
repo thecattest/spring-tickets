@@ -22,12 +22,14 @@ async def _add_user(message: Message, role: UserRole) -> None:
         await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
         return
 
-    # Проверяем наличие пересланного сообщения
-    if not message.fwd_messages:
+    # Проверяем наличие пересланного или ответного сообщения
+    from bot.handlers.reservation import get_forwarded_or_reply
+    forwarded = get_forwarded_or_reply(message)
+    if not forwarded:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
         return
 
-    target_vk_id = message.fwd_messages[0].from_id
+    target_vk_id = forwarded.from_id
     if not target_vk_id or target_vk_id <= 0:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
         return
@@ -89,11 +91,13 @@ async def remove_user_handler(message: Message) -> None:
         await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
         return
 
-    if not message.fwd_messages:
+    from bot.handlers.reservation import get_forwarded_or_reply
+    forwarded = get_forwarded_or_reply(message)
+    if not forwarded:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
         return
 
-    target_vk_id = message.fwd_messages[0].from_id
+    target_vk_id = forwarded.from_id
     if not target_vk_id or target_vk_id <= 0:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
         return

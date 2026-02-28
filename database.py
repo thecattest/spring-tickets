@@ -14,7 +14,7 @@ Usage:
 """
 
 import os
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 
 
@@ -53,11 +53,32 @@ SessionLocal = sessionmaker(
 def init_db() -> None:
     """
     Initialize database: create all tables defined in models.
-    
+
     Should be called once when setting up the application.
     """
     from models.base import Base
     Base.metadata.create_all(bind=engine)
+    _run_migrations()
+
+
+def _run_migrations() -> None:
+    """Apply incremental schema migrations for columns added after initial create_all."""
+    migrations = [
+        # Block 10: per-payment verification checkbox
+        (
+            "payments",
+            "is_verified",
+            "ALTER TABLE payments ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT 0",
+        ),
+    ]
+    with engine.connect() as conn:
+        for table, column, ddl in migrations:
+            # Check if column already exists (SQLite-compatible)
+            result = conn.execute(text(f"PRAGMA table_info({table})"))
+            columns = [row[1] for row in result]
+            if column not in columns:
+                conn.execute(text(ddl))
+                conn.commit()
 
 
 if __name__ == "__main__":

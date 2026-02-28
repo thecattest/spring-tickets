@@ -36,9 +36,35 @@ def forwarded_has_receipt_attachment(forwarded) -> bool:
     return False
 
 
+def extract_attachment_strings(forwarded) -> list[str]:
+    """Extract VK attachment strings (e.g. 'photo123_456') from forwarded message for re-sending."""
+    result = []
+    if not hasattr(forwarded, 'attachments') or not forwarded.attachments:
+        return result
+    for att in forwarded.attachments:
+        if att.photo is not None:
+            p = att.photo
+            access = f"_{p.access_key}" if p.access_key else ""
+            result.append(f"photo{p.owner_id}_{p.id}{access}")
+        elif att.doc is not None:
+            d = att.doc
+            access = f"_{d.access_key}" if d.access_key else ""
+            result.append(f"doc{d.owner_id}_{d.id}{access}")
+    return result
+
+
+def get_forwarded_or_reply(message: Message):
+    """Get the forwarded or replied-to message object, or None."""
+    if message.fwd_messages:
+        return message.fwd_messages[0]
+    if message.reply_message:
+        return message.reply_message
+    return None
+
+
 async def forwarded_message_handler(message: Message, storage: RedisStorage):
     """
-    Handle forwarded message - create or show existing reservation.
+    Handle forwarded or replied message - create or show existing reservation.
 
     Handles three scenarios:
     1. Seller is IDLE, client has NO reservation -> create new reservation
@@ -53,7 +79,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         message: VK message
         storage: Redis storage instance
     """
-    if not message.fwd_messages:
+    forwarded = get_forwarded_or_reply(message)
+    if not forwarded:
         return
 
     # Permission check: only sellers and admins can use forwarded messages
@@ -62,8 +89,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         await message.answer(texts.ERR_NOT_REGISTERED)
         return
 
-    # Get VK user ID from forwarded message
-    forwarded = message.fwd_messages[0]
+    # Get VK user ID from forwarded/replied message
     buyer_vk_id = forwarded.from_id
     is_receipt = forwarded_has_receipt_attachment(forwarded)
 
@@ -106,6 +132,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         message, storage, reservation_id, display_name,
                         vk_message_url=None,
                         vk_message_ts=vk_message_ts,
+                        receipt_attachments=extract_attachment_strings(forwarded),
                     )
                 else:
                     # Plain text forward from same client -> re-show main menu
@@ -147,6 +174,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                             pending_reservation_id=existing_reservation.id if existing_reservation else None,
                             pending_is_receipt=True,
                             pending_receipt_vk_message_ts=vk_message_ts_iso,
+                            pending_receipt_attachments=extract_attachment_strings(forwarded),
                             original_state=current_state,
                             original_context=current_context,
                         )
@@ -218,6 +246,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 pending_reservation_id=existing_reservation.id if existing_reservation else None,
                 pending_is_receipt=is_receipt,
                 pending_receipt_vk_message_ts=vk_message_ts_iso if is_receipt else None,
+                pending_receipt_attachments=extract_attachment_strings(forwarded) if is_receipt else [],
                 # Original context to restore on "Нет"
                 original_state=current_state,
                 original_context=current_context,
@@ -258,6 +287,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     message, storage, existing.id, display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
+                    receipt_attachments=extract_attachment_strings(forwarded),
                 )
                 return
 
@@ -327,11 +357,21 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
     # Update context with new row (replaces old current_row if exists)
     context['current_row'] = row
 
-    # Transition to AWAITING_SEATS with updated context
+    # Transition to AWAITING_SEATS with occupied seats info
     seat_count = get_seat_count(row)
-    await message.answer(
-        texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count)
-    )
+    occupied = sorted(set(range(1, seat_count + 1)) - set(available))
+    if occupied:
+        from bot.utils.formatting import format_seat_ranges
+        occupied_str = format_seat_ranges(occupied)
+        await message.answer(
+            texts.MSG_ROW_SEAT_COUNT_WITH_OCCUPIED.format(
+                row=row, seat_count=seat_count, occupied=occupied_str
+            )
+        )
+    else:
+        await message.answer(
+            texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count)
+        )
 
     await storage.set(message.from_id, BotState.AWAITING_SEATS, **context)
 
@@ -445,8 +485,21 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
             await storage.delete(message.from_id)
             return
 
+        # Always send updated client script
+        try:
+            seats = db.get_reservation_seats(reservation_id)
+            if seats:
+                script = generate_reservation_script(
+                    buyer_display_name=buyer_display_name,
+                    seats=seats,
+                )
+                await message.answer(script, keyboard=get_empty_keyboard())
+        except db.DatabaseError as e:
+            logger.error(f"Error generating script: {e}")
+            await message.answer(texts.ERR_DB_GENERATE_SCRIPT)
+
         if from_main_menu:
-            # Phase 2 behavior: return to main menu with updated seat list
+            # Return to main menu with updated seat list
             buyer_vk_user_id = context.get("buyer_vk_user_id")
             buyer_vk_api_id = context.get("buyer_vk_api_id")
             await show_main_menu(
@@ -458,19 +511,8 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
                 buyer_vk_api_id,
             )
         else:
-            # Phase 1 behavior: generate script and clear state
-            try:
-                seats = db.get_reservation_seats(reservation_id)
-                script = generate_reservation_script(
-                    buyer_display_name=buyer_display_name,
-                    seats=seats,
-                )
-                await message.answer(script, keyboard=get_empty_keyboard())
-                await storage.delete(message.from_id)
-
-            except db.DatabaseError as e:
-                logger.error(f"Error generating script: {e}")
-                await message.answer(texts.ERR_DB_GENERATE_SCRIPT)
+            # Clear state (return to IDLE)
+            await storage.delete(message.from_id)
 
     else:
         # Unknown button

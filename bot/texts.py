@@ -155,8 +155,18 @@ MSG_ROW_SEAT_COUNT = (
     "Введите номера мест через пробел, запятую или диапазон.\n"
     "Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
 )
+MSG_ROW_SEAT_COUNT_WITH_OCCUPIED = (
+    "Ряд {row} (мест: {seat_count}). Заняты: {occupied}.\n"
+    "\n"
+    "Введите номера мест через пробел, запятую или диапазон.\n"
+    "Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
+)
 MSG_ENTER_SEATS_ROW = "Введите номера мест для удаления (ряд {row}, мест: {seat_count}):"
+MSG_ENTER_SEATS_DELETE_WITH_BOOKED = "В ряду {row} из этой брони: места {seats}. Какие удалить?"
 MSG_ENTER_SEATS_RESERVE = "Введите номера мест для резерва (ряд {row}, мест: {seat_count}):"
+MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED = (
+    "Введите номера мест для резерва (ряд {row}, мест: {seat_count}). Заняты: {occupied}."
+)
 MSG_ENTER_SEATS_UNRESERVE = "Введите номера мест для снятия резерва (ряд {row}, мест: {seat_count}):"
 
 # Validation errors
@@ -196,7 +206,15 @@ MSG_NEW_BOOKING_NO_RES = (
 )
 
 # Payment
+MSG_PAYMENT_SEND_RECEIPT = "Для отметки оплаты перешлите чек (фото или документ)."
 MSG_NO_SEATS_FOR_PAYMENT = "У клиента {name} нет мест для оплаты. Все места уже оплачены."
+MSG_PAYMENT_ADMIN_NOTIFICATION = (
+    "Оплата зафиксирована\n\n"
+    "Покупатель: {buyer_name}\n"
+    "Билетер: {seller_name}\n"
+    "Оплачено мест: {seat_count}\n"
+    "Сумма: {amount} руб."
+)
 
 # Context switch
 MSG_SWITCH_TO_CLIENT = "Переключиться на {name}?\nТекущая операция с {current} будет отменена."

@@ -27,6 +27,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tickets.db")
 
 # Business Logic Configuration
 SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
+DEBTORS_REMINDER_MIN_DAYS = int(os.getenv("DEBTORS_REMINDER_MIN_DAYS", "7"))
 
 # Logging Configuration
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()

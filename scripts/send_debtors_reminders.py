@@ -3,7 +3,7 @@
 Standalone cron script for sending debtor reminders to sellers via VK.
 
 Each active seller receives a VK message listing only their own clients with
-overdue unpaid bookings (7+ days of no activity with BOOKED seats).
+overdue unpaid bookings (DEBTORS_REMINDER_MIN_DAYS+ days of no activity with BOOKED seats).
 
 Sellers without debtors are silently skipped.
 One VK API failure does not abort the remaining sellers.
@@ -27,7 +27,7 @@ load_dotenv()
 from vkbottle.bot import Bot
 from vkbottle import VKAPIError
 
-from bot.config import VK_BOT_TOKEN
+from bot.config import VK_BOT_TOKEN, DEBTORS_REMINDER_MIN_DAYS
 from bot.utils.db import get_debtors, get_all_active_sellers, log_reminder_sent
 from bot.messages import format_reminder
 from database import init_db
@@ -61,7 +61,7 @@ async def main() -> None:
     error_count = 0
 
     for seller in sellers:
-        debtors = get_debtors(seller_id=seller.id)
+        debtors = get_debtors(seller_id=seller.id, min_days=DEBTORS_REMINDER_MIN_DAYS)
 
         if not debtors:
             skipped_count += 1

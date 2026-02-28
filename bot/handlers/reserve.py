@@ -111,9 +111,19 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
     context['current_row'] = row
 
     seat_count = get_seat_count(row)
-    await message.answer(
-        texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count)
-    )
+    occupied = sorted(set(range(1, seat_count + 1)) - set(available))
+    if occupied:
+        from bot.utils.formatting import format_seat_ranges
+        occupied_str = format_seat_ranges(occupied)
+        await message.answer(
+            texts.MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED.format(
+                row=row, seat_count=seat_count, occupied=occupied_str
+            )
+        )
+    else:
+        await message.answer(
+            texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count)
+        )
     await storage.set(message.from_id, BotState.RESERVE_ADDING_SEATS, **context)
 
 
@@ -131,7 +141,7 @@ async def reserve_adding_seats_handler(message: Message, storage: RedisStorage):
         await storage.delete(message.from_id)
         return
 
-    result = handle_seat_input(message.text, row=row, mode="layout_only")
+    result = handle_seat_input(message.text, row=row, mode="availability")
     if not result.ok:
         await message.answer(result.error_text)
         return
