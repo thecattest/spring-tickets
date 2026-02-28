@@ -18,6 +18,7 @@ from bot.fsm.storage import RedisStorage
 from bot.utils import db
 from bot.keyboards import payment_quantity_keyboard, main_menu_keyboard, get_empty_keyboard
 from bot.messages import format_payment_confirmation, format_reservation_seats
+from bot.utils.formatting import pluralize_seats
 from models.base import SeatStatus
 from bot.config import SEAT_PRICE
 
@@ -222,6 +223,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                 buyer_name=buyer_display_name,
                 seller_name=seller_name,
                 seat_count=quantity,
+                seat_count_word=pluralize_seats(quantity),
                 amount=int(payment.payment_amount),
             )
             attachment_str = ",".join(receipt_attachments) if receipt_attachments else None
@@ -259,7 +261,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     except db.InsufficientSeatsError as e:
         logger.warning(f"Insufficient seats for payment: requested {e.requested}, available {e.available}")
         await message.answer(
-            texts.ERR_INSUFFICIENT_SEATS.format(requested=e.requested, available=e.available),
+            texts.ERR_INSUFFICIENT_SEATS.format(requested=e.requested, requested_word=pluralize_seats(e.requested), available=e.available),
             keyboard=payment_quantity_keyboard(e.available) if e.available > 0 else main_menu_keyboard()
         )
 

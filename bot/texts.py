@@ -150,24 +150,24 @@ MSG_NO_DEBTORS = "Должников нет."
 
 # Row / seat prompts
 MSG_ROW_SEAT_COUNT = (
-    "Ряд {row} (мест: {seat_count}).\n"
+    "Ряд {row} ({seat_count} {seat_count_word}).\n"
     "\n"
     "Введите номера мест через пробел, запятую или диапазон.\n"
     "Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
 )
 MSG_ROW_SEAT_COUNT_WITH_OCCUPIED = (
-    "Ряд {row} (мест: {seat_count}). Заняты: {occupied}.\n"
+    "Ряд {row} ({seat_count} {seat_count_word}). Заняты: {occupied}.\n"
     "\n"
     "Введите номера мест через пробел, запятую или диапазон.\n"
     "Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
 )
-MSG_ENTER_SEATS_ROW = "Введите номера мест для удаления (ряд {row}, мест: {seat_count}):"
+MSG_ENTER_SEATS_ROW = "Введите номера мест для удаления (ряд {row}, {seat_count} {seat_count_word}):"
 MSG_ENTER_SEATS_DELETE_WITH_BOOKED = "В ряду {row} из этой брони: места {seats}. Какие удалить?"
-MSG_ENTER_SEATS_RESERVE = "Введите номера мест для резерва (ряд {row}, мест: {seat_count}):"
+MSG_ENTER_SEATS_RESERVE = "Введите номера мест для резерва (ряд {row}, {seat_count} {seat_count_word}):"
 MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED = (
-    "Введите номера мест для резерва (ряд {row}, мест: {seat_count}). Заняты: {occupied}."
+    "Введите номера мест для резерва (ряд {row}, {seat_count} {seat_count_word}). Заняты: {occupied}."
 )
-MSG_ENTER_SEATS_UNRESERVE = "Введите номера мест для снятия резерва (ряд {row}, мест: {seat_count}):"
+MSG_ENTER_SEATS_UNRESERVE = "Введите номера мест для снятия резерва (ряд {row}, {seat_count} {seat_count_word}):"
 
 # Validation errors
 ERR_INVALID_ROW = "Неверный ряд. Допустимые значения: {min_row}-{max_row}. Введите ряд:"
@@ -183,16 +183,16 @@ ERR_QTY_EXCEEDS = (
     "Количество мест превышает доступные для оплаты ({available}). "
     "Введите количество от 1 до {available}:"
 )
-ERR_INSUFFICIENT_SEATS = "Ошибка: запрошено {requested} мест, но доступно только {available}."
+ERR_INSUFFICIENT_SEATS = "Ошибка: запрошено {requested} {requested_word}, но доступно только {available}."
 
 # Seat operation results
 MSG_SEATS_ADDED = (
-    "Добавлено {count} мест:\n"
+    "Добавлено {count} {count_word}:\n"
     "Ряд {row}, места: {seats}\n"
     "\n"
-    "Всего в брони: {total} мест"
+    "Всего в брони: {total} {total_word}"
 )
-MSG_SEATS_DELETED = "Удалено {count} мест."
+MSG_SEATS_DELETED = "Удалено {count} {count_word}."
 MSG_SEATS_NOT_IN_BOOKING = "Места не принадлежат данной брони: {seats}.\n\nВведите другие места:"
 MSG_SEATS_ALREADY_PAID = "Места уже оплачены, удалить нельзя: {seats}.\n\nВведите другие места:"
 
@@ -212,7 +212,7 @@ MSG_PAYMENT_ADMIN_NOTIFICATION = (
     "Оплата зафиксирована\n\n"
     "Покупатель: {buyer_name}\n"
     "Билетер: {seller_name}\n"
-    "Оплачено мест: {seat_count}\n"
+    "Оплачено: {seat_count} {seat_count_word}\n"
     "Сумма: {amount} руб."
 )
 

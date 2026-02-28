@@ -22,7 +22,7 @@ from bot.keyboards import (
     get_empty_keyboard,
 )
 from bot.messages import format_reserves_list
-from bot.utils.formatting import format_seat_ranges
+from bot.utils.formatting import format_seat_ranges, pluralize_seats
 from bot.constants import Btn
 from bot import texts
 from models.base import SeatStatus
@@ -117,12 +117,12 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
         occupied_str = format_seat_ranges(occupied)
         await message.answer(
             texts.MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED.format(
-                row=row, seat_count=seat_count, occupied=occupied_str
+                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count), occupied=occupied_str
             )
         )
     else:
         await message.answer(
-            texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count)
+            texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
         )
     await storage.set(message.from_id, BotState.RESERVE_ADDING_SEATS, **context)
 
@@ -194,7 +194,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
                 status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
                 try:
                     res_seats = db.get_reservation_seats(c['reservation_id'])
-                    detail = f"бронь #{c['reservation_id']}, всего мест: {len(res_seats)}"
+                    detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
             error_lines.append(f"• Ряд {c['row']}, место {c['seat']} — {status_text} ({detail})")
@@ -239,7 +239,7 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
 
     seat_count = get_seat_count(row)
     await message.answer(
-        texts.MSG_ENTER_SEATS_UNRESERVE.format(row=row, seat_count=seat_count)
+        texts.MSG_ENTER_SEATS_UNRESERVE.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVING_SEATS, **context)
 

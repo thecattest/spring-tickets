@@ -12,7 +12,7 @@ from itertools import groupby
 from models.seat_assignment import SeatAssignment
 from models.base import SeatStatus
 from bot.config import SEAT_PRICE
-from bot.utils.formatting import format_seat_ranges
+from bot.utils.formatting import format_seat_ranges, pluralize_seats
 
 
 def generate_reservation_script(
@@ -65,7 +65,7 @@ def generate_reservation_script(
 
 [Место для вашего текста]
 
-Всего: {total_seats} {'место' if total_seats == 1 else 'мест' if total_seats < 5 else 'мест'}
+Всего: {total_seats} {pluralize_seats(total_seats)}
 К оплате: {total_price} руб.
 
 Спасибо за бронь!
@@ -134,7 +134,7 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
     paid = status_counts[SeatStatus.PAID]
     reserved = status_counts[SeatStatus.RESERVED]
 
-    summary = f"Всего мест: {total}"
+    summary = f"Всего: {total} {pluralize_seats(total)}"
     if booked:
         summary += f" | 📌Бронь: {booked}"
     if paid:
@@ -184,7 +184,7 @@ def format_reserves_list(reserves: list) -> str:
         return "Активных резервов нет."
 
     total_seats = sum(len(r['seats']) for r in reserves)
-    lines = [f"🔒 Активные резервы ({total_seats} мест):", ""]
+    lines = [f"🔒 Активные резервы ({total_seats} {pluralize_seats(total_seats)}):", ""]
 
     for r in reserves:
         seats_str = format_seat_ranges(r['seats'])
@@ -238,7 +238,7 @@ def format_reminder(debtors: list) -> str:
     for debtor in debtors:
         lines.append(
             f"{debtor['buyer_display_name']} -- "
-            f"{debtor['booked_seat_count']} мест, "
+            f"{debtor['booked_seat_count']} {pluralize_seats(debtor['booked_seat_count'])}, "
             f"{debtor['debt_amount']} руб., "
             f"{debtor['days_since_activity']} дн. без активности"
         )
@@ -278,7 +278,7 @@ def format_payment_confirmation(
 
     result = (
         f"Оплата зарегистрирована для {buyer_display_name}.\n\n"
-        f"Оплачено {len(paid_seats)} мест:\n"
+        f"Оплачено {len(paid_seats)} {pluralize_seats(len(paid_seats))}:\n"
         + "\n".join(paid_lines)
         + f"\n\nСумма: {payment_amount} руб."
     )
@@ -294,7 +294,7 @@ def format_payment_confirmation(
             remaining_lines.append(f"Ряд {row}: места {format_seat_ranges(seat_nums)}")
 
         result += (
-            f"\n\nОсталось к оплате: {len(remaining_seats)} мест:\n"
+            f"\n\nОсталось к оплате: {len(remaining_seats)} {pluralize_seats(len(remaining_seats))}:\n"
             + "\n".join(remaining_lines)
         )
     else:
