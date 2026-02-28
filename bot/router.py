@@ -142,22 +142,9 @@ class Router:
         """
         from bot.handlers.user_management import add_admin_handler, add_seller_handler, remove_user_handler
 
-        has_fwd_or_reply = lambda msg: bool(msg.fwd_messages) or bool(msg.reply_message)
-
-        self.labeler.message(
-            text=["addadmin", "/addadmin"],
-            func=has_fwd_or_reply,
-        )(add_admin_handler)
-
-        self.labeler.message(
-            text=["addseller", "/addseller"],
-            func=has_fwd_or_reply,
-        )(add_seller_handler)
-
-        self.labeler.message(
-            text=["removeuser", "/removeuser"],
-            func=has_fwd_or_reply,
-        )(remove_user_handler)
+        self.labeler.message(text=["addadmin", "/addadmin"])(add_admin_handler)
+        self.labeler.message(text=["addseller", "/addseller"])(add_seller_handler)
+        self.labeler.message(text=["removeuser", "/removeuser"])(remove_user_handler)
 
     def _register_forwarded(self) -> None:
         """
@@ -205,7 +192,7 @@ class Router:
 
         self.labeler.message(text=["Должники", "/debtors", "debtors"])(debtors_command_handler)
 
-        self.labeler.message(text=["users", "Пользователи"])(list_users_handler)
+        self.labeler.message(text=["users", "/users", "Пользователи"])(list_users_handler)
 
         # "Обновить" button — stateless refresh of debtor list
         self.labeler.message(text="Обновить")(refresh_debtors_handler)

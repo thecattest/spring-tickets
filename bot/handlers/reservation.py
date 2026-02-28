@@ -210,9 +210,33 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         await message.answer(texts.ERR_DB_CHECK_BOOKING)
                 return
 
-        # Same client in non-MAIN_MENU state - already working with them
+        # Same client in non-MAIN_MENU state
         if buyer_vk_id == current_buyer_vk_api_id:
-            await message.answer(texts.ERR_ALREADY_WORKING)
+            if is_receipt:
+                # Receipt from same client -> switch to payment flow
+                reservation_id = current_context.get("reservation_id")
+                await storage.set(
+                    message.from_id,
+                    BotState.MAIN_MENU,
+                    reservation_id=reservation_id,
+                    buyer_vk_user_id=current_context.get("buyer_vk_user_id"),
+                    buyer_vk_api_id=buyer_vk_id,
+                    buyer_display_name=display_name,
+                    from_main_menu=True,
+                )
+                from bot.handlers.payment import start_payment_flow
+                vk_message_ts = None
+                if forwarded.date:
+                    from datetime import datetime as dt
+                    vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                await start_payment_flow(
+                    message, storage, reservation_id, display_name,
+                    vk_message_url=None,
+                    vk_message_ts=vk_message_ts,
+                    receipt_attachments=extract_attachment_strings(forwarded),
+                )
+            else:
+                await message.answer(texts.ERR_ALREADY_WORKING)
             return
 
         # Different client in non-MAIN_MENU state - context switch confirmation
