@@ -814,7 +814,7 @@ def get_active_reserves() -> List[dict]:
 
     Returns:
         List of dicts: {'row': int, 'seats': list[int], 'note': str}
-        Sorted by row ASC, then by note.
+        Sorted by note ASC, then by row ASC.
     """
     with SessionLocal() as session:
         try:
@@ -823,14 +823,14 @@ def get_active_reserves() -> List[dict]:
                 .where(SeatAssignment.status == SeatStatus.RESERVED)
                 .where(SeatAssignment.released_at.is_(None))
                 .where(SeatAssignment.reservation_id.is_(None))
-                .order_by(SeatAssignment.row_number, SeatAssignment.seat_number)
+                .order_by(SeatAssignment.note, SeatAssignment.row_number, SeatAssignment.seat_number)
             )
             assignments = session.execute(stmt).scalars().all()
 
-            # Group by (row, note)
+            # Group by (note, row) — sorted by comment first, then row
             from itertools import groupby as gb
             groups = []
-            for (row, note), group in gb(assignments, lambda a: (a.row_number, a.note)):
+            for (note, row), group in gb(assignments, lambda a: (a.note, a.row_number)):
                 groups.append({
                     'row': row,
                     'seats': sorted(a.seat_number for a in group),

@@ -177,10 +177,17 @@ def format_reserves_list(reserves: list) -> str:
     total_seats = sum(len(r['seats']) for r in reserves)
     lines = [f"🔒 Активные резервы ({total_seats} {pluralize_seats(total_seats)}):", ""]
 
+    # Group consecutive entries by note for readability
+    current_note = None
     for r in reserves:
         seats_str = format_seat_ranges(r['seats'])
         note = r['note'] or "без комментария"
-        lines.append(f"Ряд {r['row']}: {seats_str} — {note}")
+        if note != current_note:
+            if current_note is not None:
+                lines.append("")  # blank line between groups
+            lines.append(f"📌 {note}")
+            current_note = note
+        lines.append(f"  Ряд {r['row']}: {seats_str}")
 
     return "\n".join(lines)
 
