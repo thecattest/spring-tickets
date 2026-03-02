@@ -73,3 +73,5 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+REFACTORING_PLAN.md
+.planning/phases/09-fsm-config-steps/09-UAT.md
