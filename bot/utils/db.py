@@ -1086,6 +1086,7 @@ def get_debtors(seller_id: Optional[int] = None, min_days: int = 0) -> List[dict
                 result.append({
                     'reservation_id': reservation.id,
                     'buyer_display_name': vk_user.display_name,
+                    'buyer_vk_id': vk_user.vk_user_id,
                     'booked_seat_count': booked_count,
                     'debt_amount': debt_amount,
                     'days_since_activity': days_since,

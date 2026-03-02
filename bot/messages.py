@@ -201,7 +201,10 @@ def format_debtors_list(debtors: list) -> str:
     lines = [f"Должники ({count}):", ""]
 
     for debtor in debtors:
-        lines.append(debtor['buyer_display_name'])
+        vk_id = debtor.get('buyer_vk_id')
+        name = debtor['buyer_display_name']
+        header = f"{name} (vk.com/id{vk_id})" if vk_id else name
+        lines.append(header)
         lines.append(
             f"  Мест: {debtor['booked_seat_count']} | "
             f"Долг: {debtor['debt_amount']} руб. | "
@@ -217,8 +220,8 @@ def format_reminder(debtors: list) -> str:
 
     Args:
         debtors: List of debtor dicts from db.get_debtors()
-                 Each dict has: buyer_display_name, booked_seat_count,
-                 debt_amount, days_since_activity
+                 Each dict has: buyer_display_name, buyer_vk_id,
+                 booked_seat_count, debt_amount, days_since_activity
 
     Returns:
         Formatted multi-line string with header and compact per-debtor entries
@@ -227,8 +230,11 @@ def format_reminder(debtors: list) -> str:
     lines = [f"Напоминание о должниках ({count}):", ""]
 
     for debtor in debtors:
+        vk_id = debtor.get('buyer_vk_id')
+        name = debtor['buyer_display_name']
+        header = f"{name} (vk.com/id{vk_id})" if vk_id else name
         lines.append(
-            f"{debtor['buyer_display_name']} -- "
+            f"{header} -- "
             f"{debtor['booked_seat_count']} {pluralize_seats(debtor['booked_seat_count'])}, "
             f"{debtor['debt_amount']} руб., "
             f"{debtor['days_since_activity']} дн. без активности"
