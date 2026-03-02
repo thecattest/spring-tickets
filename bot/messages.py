@@ -54,24 +54,16 @@ def generate_reservation_script(
     total_price = total_seats * SEAT_PRICE
 
     # Generate script
-    script = f"""Бронь сохранена.
+    script = f"""Места забронированы.
 
-Скрипт для отправки клиенту:
-
-─────────────────────
-Добрый день, {buyer_display_name}! Ваша бронь:
+Ваша бронь:
 
 {seats_text}
 
-[Место для вашего текста]
-
-Всего: {total_seats} {pluralize_seats(total_seats)}
+Всего {total_seats} {pluralize_seats(total_seats)}
 К оплате: {total_price} руб.
 
 Спасибо за бронь!
-─────────────────────
-
-Скопируйте текст выше и отправьте клиенту.
 """
 
     return script
