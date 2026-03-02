@@ -221,6 +221,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             receipt_attachment_urls = context.get("receipt_attachments", [])
             notification_text = texts.MSG_PAYMENT_ADMIN_NOTIFICATION.format(
                 buyer_name=buyer_display_name,
+                buyer_vk_id=buyer_vk_api_id,
                 seller_name=seller_name,
                 seat_count=quantity,
                 seat_count_word=pluralize_seats(quantity),

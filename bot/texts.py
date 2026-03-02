@@ -211,7 +211,7 @@ MSG_PAYMENT_SEND_RECEIPT = "Для отметки оплаты перешлит�
 MSG_NO_SEATS_FOR_PAYMENT = "У клиента {name} нет мест для оплаты. Все места уже оплачены."
 MSG_PAYMENT_ADMIN_NOTIFICATION = (
     "Оплата зафиксирована\n\n"
-    "Покупатель: {buyer_name}\n"
+    "Покупатель: {buyer_name} (vk.com/id{buyer_vk_id})\n"
     "Билетер: {seller_name}\n"
     "Оплачено: {seat_count} {seat_count_word}\n"
     "Сумма: {amount} руб."
