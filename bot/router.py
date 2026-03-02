@@ -150,13 +150,18 @@ class Router:
         """
         Register the forwarded message handler.
 
-        Matches any message with fwd_messages — forwarded messages indicate
-        a new client interaction initiated by the seller.
+        Matches any message with fwd_messages, reply_message, or a VK profile link —
+        all three indicate a new client interaction initiated by the seller.
         """
         from bot.handlers.reservation import forwarded_message_handler
+        from bot.utils.vk_link import parse_vk_link
 
         self.labeler.message(
-            func=lambda msg: bool(msg.fwd_messages) or bool(msg.reply_message)
+            func=lambda msg: (
+                bool(msg.fwd_messages)
+                or bool(msg.reply_message)
+                or bool(parse_vk_link(msg.text or ""))
+            )
         )(self._wrap(forwarded_message_handler))
 
     def _register_commands(self) -> None:

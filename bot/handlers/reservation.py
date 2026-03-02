@@ -58,7 +58,12 @@ def get_forwarded_or_reply(message: Message):
 
 async def forwarded_message_handler(message: Message, storage: RedisStorage):
     """
-    Handle forwarded or replied message - create or show existing reservation.
+    Handle forwarded/replied message or VK profile link — create or show existing reservation.
+
+    Triggers:
+    - Forwarded message (fwd_messages)
+    - Reply to message (reply_message)
+    - VK profile link in text (vk.com/id12345, vk.com/username)
 
     Handles three scenarios:
     1. Seller is IDLE, client has NO reservation -> create new reservation
@@ -74,32 +79,61 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         storage: Redis storage instance
     """
     forwarded = get_forwarded_or_reply(message)
+
     if not forwarded:
-        return
+        # No forwarded message — try parsing VK profile link from text
+        from bot.utils.vk_link import parse_vk_link
+        vk_id_or_screen = parse_vk_link(message.text or "")
+        if not vk_id_or_screen:
+            return
 
-    # Permission check: only sellers and admins can use forwarded messages
-    role = db.get_user_role(message.from_id)
-    if role is None:
-        await message.answer(texts.ERR_NOT_REGISTERED)
-        return
+        # Permission check
+        role = db.get_user_role(message.from_id)
+        if role is None:
+            await message.answer(texts.ERR_NOT_REGISTERED)
+            return
 
-    # Get VK user ID from forwarded/replied message
-    buyer_vk_id = forwarded.from_id
-    is_receipt = forwarded_has_receipt_attachment(forwarded)
-
-    logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
-
-    # Fetch VK user name via VK API (single location)
-    try:
-        vk_users = await message.ctx_api.users.get(user_ids=[buyer_vk_id])
-        if vk_users:
+        # Resolve screen name / id to numeric VK ID and display name
+        try:
+            vk_users = await message.ctx_api.users.get(user_ids=[vk_id_or_screen])
+            if not vk_users:
+                await message.answer("Пользователь VK не найден.")
+                return
             vk_info = vk_users[0]
+            buyer_vk_id = vk_info.id
             display_name = f"{vk_info.first_name} {vk_info.last_name}"
-        else:
+        except Exception as e:
+            logger.warning(f"Failed to resolve VK link '{vk_id_or_screen}': {e}")
+            await message.answer("Не удалось найти пользователя VK по ссылке.")
+            return
+
+        is_receipt = False
+        logger.info(f"Seller {message.from_id} sent VK link for buyer {buyer_vk_id} ({display_name})")
+
+    else:
+        # Permission check: only sellers and admins can use forwarded messages
+        role = db.get_user_role(message.from_id)
+        if role is None:
+            await message.answer(texts.ERR_NOT_REGISTERED)
+            return
+
+        # Get VK user ID from forwarded/replied message
+        buyer_vk_id = forwarded.from_id
+        is_receipt = forwarded_has_receipt_attachment(forwarded)
+
+        logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
+
+        # Fetch VK user name via VK API (single location)
+        try:
+            vk_users = await message.ctx_api.users.get(user_ids=[buyer_vk_id])
+            if vk_users:
+                vk_info = vk_users[0]
+                display_name = f"{vk_info.first_name} {vk_info.last_name}"
+            else:
+                display_name = f"VK User {buyer_vk_id}"
+        except Exception as e:
+            logger.warning(f"Failed to fetch VK user info for {buyer_vk_id}: {e}")
             display_name = f"VK User {buyer_vk_id}"
-    except Exception as e:
-        logger.warning(f"Failed to fetch VK user info for {buyer_vk_id}: {e}")
-        display_name = f"VK User {buyer_vk_id}"
 
     # Check current FSM state
     state_peer = await storage.get(message.from_id)
