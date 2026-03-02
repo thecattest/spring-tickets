@@ -4,7 +4,7 @@ Keyboard generators for VK bot.
 Provides inline keyboards for user interactions.
 """
 
-from vkbottle import Keyboard, KeyboardButtonColor, Text
+from vkbottle import Keyboard, KeyboardButtonColor, OpenLink, Text
 
 from bot.constants import Btn
 
@@ -27,6 +27,8 @@ def commands_keyboard() -> str:
     keyboard.row()
     keyboard.add(Text(Btn.DEBTORS_CMD), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Text(Btn.RESERVE_CMD), color=KeyboardButtonColor.POSITIVE)
+    keyboard.row()
+    keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/payments", label="Оплаты"))
 
     return keyboard.get_json()
 
