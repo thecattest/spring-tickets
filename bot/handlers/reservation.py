@@ -37,20 +37,13 @@ def forwarded_has_receipt_attachment(forwarded) -> bool:
     return False
 
 
-def extract_attachment_strings(forwarded) -> list[str]:
-    """Extract VK attachment strings (e.g. 'photo123_456') from forwarded message for re-sending."""
-    result = []
-    if not hasattr(forwarded, 'attachments') or not forwarded.attachments:
-        return result
-    for att in forwarded.attachments:
-        if att.photo is not None:
-            p = att.photo
-            access = f"_{p.access_key}" if p.access_key else ""
-            result.append(f"photo{p.owner_id}_{p.id}{access}")
-        elif att.doc is not None:
-            d = att.doc
-            access = f"_{d.access_key}" if d.access_key else ""
-            result.append(f"doc{d.owner_id}_{d.id}{access}")
+def extract_attachment_urls(forwarded) -> list[dict]:
+    """Extract attachment URLs from forwarded message for later re-upload.
+
+    Returns list of dicts: [{"type": "photo"|"doc", "url": "...", "title": "..."}]
+    """
+    from bot.utils.attachments import get_attachment_urls
+    return get_attachment_urls(forwarded)
     return result
 
 
@@ -133,7 +126,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         message, storage, reservation_id, display_name,
                         vk_message_url=None,
                         vk_message_ts=vk_message_ts,
-                        receipt_attachments=extract_attachment_strings(forwarded),
+                        receipt_attachments=extract_attachment_urls(forwarded),
                     )
                 else:
                     # Plain text forward from same client -> re-show main menu
@@ -175,7 +168,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                             pending_reservation_id=existing_reservation.id if existing_reservation else None,
                             pending_is_receipt=True,
                             pending_receipt_vk_message_ts=vk_message_ts_iso,
-                            pending_receipt_attachments=extract_attachment_strings(forwarded),
+                            pending_receipt_attachments=extract_attachment_urls(forwarded),
                             original_state=current_state,
                             original_context=current_context,
                         )
@@ -234,7 +227,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     message, storage, reservation_id, display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
-                    receipt_attachments=extract_attachment_strings(forwarded),
+                    receipt_attachments=extract_attachment_urls(forwarded),
                 )
             else:
                 await message.answer(texts.ERR_ALREADY_WORKING)
@@ -271,7 +264,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 pending_reservation_id=existing_reservation.id if existing_reservation else None,
                 pending_is_receipt=is_receipt,
                 pending_receipt_vk_message_ts=vk_message_ts_iso if is_receipt else None,
-                pending_receipt_attachments=extract_attachment_strings(forwarded) if is_receipt else [],
+                pending_receipt_attachments=extract_attachment_urls(forwarded) if is_receipt else [],
                 # Original context to restore on "Нет"
                 original_state=current_state,
                 original_context=current_context,
@@ -312,7 +305,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     message, storage, existing.id, display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
-                    receipt_attachments=extract_attachment_strings(forwarded),
+                    receipt_attachments=extract_attachment_urls(forwarded),
                 )
                 return
 

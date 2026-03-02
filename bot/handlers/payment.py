@@ -213,12 +213,12 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         )
         await message.answer(confirmation, keyboard=main_menu_keyboard())
 
-        # Notify all admins about the payment
+        # Notify all admins about the payment (with re-uploaded receipt)
         try:
             seller_app_user = db.get_app_user_by_vk_id(message.from_id)
             seller_name = seller_app_user.display_name if seller_app_user else "—"
             admin_vk_ids = db.get_all_admin_vk_ids()
-            receipt_attachments = context.get("receipt_attachments", [])
+            receipt_attachment_urls = context.get("receipt_attachments", [])
             notification_text = texts.MSG_PAYMENT_ADMIN_NOTIFICATION.format(
                 buyer_name=buyer_display_name,
                 seller_name=seller_name,
@@ -226,11 +226,18 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                 seat_count_word=pluralize_seats(quantity),
                 amount=int(payment.payment_amount),
             )
-            attachment_str = ",".join(receipt_attachments) if receipt_attachments else None
             for admin_vk_id in admin_vk_ids:
                 if admin_vk_id == message.from_id:
                     continue  # не уведомлять самого себя
                 try:
+                    attachment_str = None
+                    if receipt_attachment_urls:
+                        from bot.utils.attachments import reupload_attachments
+                        reuploaded = await reupload_attachments(
+                            message.ctx_api, receipt_attachment_urls, peer_id=admin_vk_id,
+                        )
+                        if reuploaded:
+                            attachment_str = ",".join(reuploaded)
                     await message.ctx_api.messages.send(
                         peer_id=admin_vk_id,
                         message=notification_text,
