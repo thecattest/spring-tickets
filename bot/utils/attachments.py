@@ -6,7 +6,6 @@
 """
 
 import logging
-from io import BytesIO
 
 import aiohttp
 from vkbottle import ABCAPI
@@ -73,15 +72,21 @@ async def reupload_attachments(
                         continue
                     data = await resp.read()
 
+                if not data:
+                    logger.warning(f"Empty data for attachment: {att['url'][:80]}")
+                    continue
+
                 if att["type"] == "photo":
+                    # Передаём raw bytes — uploader сам обернёт в BytesIO и выставит .name
                     attachment_str = await photo_uploader.upload(
-                        BytesIO(data), peer_id=peer_id
+                        data, peer_id=peer_id
                     )
                 else:
-                    doc_uploader.attachment_name = att["title"]
+                    # title передаётся как kwarg — DocUploader.raw_upload() извлекает его из params
                     attachment_str = await doc_uploader.upload(
-                        file_source=BytesIO(data),
+                        file_source=data,
                         peer_id=peer_id,
+                        title=att["title"],
                     )
                 result.append(attachment_str)
             except Exception as e:
