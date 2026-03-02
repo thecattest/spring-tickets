@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>День концерта</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  /* --- Header --- */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-header h1 { font-size: 1.5rem; }
+  .stats {
+    color: #aaa;
+    font-size: 0.85rem;
+  }
+  .stats span { color: #eee; font-weight: 600; }
+
+  /* --- Controls --- */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .search-input {
+    flex: 1;
+    min-width: 200px;
+    max-width: 400px;
+    padding: 10px 14px;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #16213e;
+    color: #eee;
+    font-size: 0.9rem;
+    outline: none;
+  }
+  .search-input::placeholder { color: #666; }
+  .search-input:focus { border-color: #e94560; }
+
+  .sort-btns {
+    display: flex;
+    gap: 4px;
+  }
+  .sort-btn {
+    padding: 8px 14px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #16213e;
+    color: #aaa;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .sort-btn:hover { border-color: #555; color: #eee; }
+  .sort-btn.active {
+    background: #e94560;
+    border-color: #e94560;
+    color: #fff;
+  }
+
+  .btn-print {
+    padding: 8px 16px;
+    border: 1px solid #333;
+    border-radius: 6px;
+    background: #16213e;
+    color: #aaa;
+    font-size: 0.8rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-print:hover { border-color: #555; color: #eee; }
+
+  /* --- Table --- */
+  .entries-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .entries-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 0.8rem;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #555;
+  }
+  .entries-table td {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid #333;
+    vertical-align: top;
+  }
+  .entries-table tr:last-child td { border-bottom: none; }
+  .entries-table a {
+    color: #64b5f6;
+    text-decoration: none;
+  }
+  .entries-table a:hover { text-decoration: underline; }
+
+  /* Name + status in one cell */
+  .name-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .name-status .buyer-name { flex: 1; }
+
+  /* Status badges */
+  .status { font-weight: 600; font-size: 0.85rem; white-space: nowrap; }
+  .status-paid { color: #4CAF50; }
+  .status-unpaid { color: #FF9800; }
+  .status-partial { color: #FFC107; }
+  .status-reserved { color: #42A5F5; }
+
+  .status-bg-paid { background: rgba(76, 175, 80, 0.08); }
+  .status-bg-unpaid { background: rgba(255, 152, 0, 0.08); }
+  .status-bg-partial { background: rgba(255, 193, 7, 0.08); }
+  .status-bg-reserved { background: rgba(66, 165, 245, 0.08); }
+
+  /* Seat lines — monospace for alignment */
+  .seat-line {
+    display: block;
+    font-family: "SF Mono", "Cascadia Code", "Fira Code", "Consolas", monospace;
+    font-size: 0.85rem;
+    white-space: pre;
+  }
+
+  .empty-msg {
+    color: #777;
+    font-size: 0.9rem;
+    padding: 32px 0;
+    text-align: center;
+  }
+
+  /* --- Mobile cards --- */
+  .cards-container { display: none; }
+
+  @media (max-width: 768px) {
+    body { padding: 16px; }
+
+    .controls { gap: 8px; }
+    .search-input { max-width: 100%; min-width: 0; }
+    .sort-btns { width: 100%; overflow-x: auto; }
+
+    .table-container { display: none; }
+    .cards-container { display: block; }
+
+    .entry-card {
+      background: #16213e;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 8px;
+    }
+    .entry-card.status-bg-paid { background: rgba(76, 175, 80, 0.12); }
+    .entry-card.status-bg-unpaid { background: rgba(255, 152, 0, 0.12); }
+    .entry-card.status-bg-partial { background: rgba(255, 193, 7, 0.12); }
+    .entry-card.status-bg-reserved { background: rgba(66, 165, 245, 0.12); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .card-buyer {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    .card-buyer a { color: #64b5f6; text-decoration: none; }
+    .card-seats {
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .card-seats .seat-count {
+      color: #aaa;
+      font-size: 0.8rem;
+    }
+  }
+
+  /* --- Print --- */
+  @media print {
+    @page { margin: 15mm; }
+
+    * { color: #000 !important; background: #fff !important; }
+    body {
+      background: #fff !important;
+      color: #000 !important;
+      padding: 0;
+      font-size: 11pt;
+    }
+    a { color: #000 !important; text-decoration: none !important; }
+
+    .no-print { display: none !important; }
+
+    .table-container { display: block !important; }
+    .cards-container { display: none !important; }
+
+    .entries-table { border-collapse: collapse; }
+    .entries-table th {
+      color: #000 !important;
+      border-bottom: 2px solid #000;
+      padding: 6px 8px;
+      font-size: 9pt;
+    }
+    .entries-table td {
+      border-bottom: 1px solid #ccc;
+      padding: 5px 8px;
+      font-size: 10pt;
+    }
+    .entries-table tr { background: none !important; }
+    .seat-line { font-size: 9pt; }
+
+    .status { color: #000 !important; }
+
+    .print-header {
+      display: flex !important;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 10pt;
+    }
+    .print-header h1 { font-size: 14pt; }
+  }
+
+  .print-header { display: none; }
+</style>
+</head>
+<body>
+
+{# Print-only header #}
+<div class="print-header">
+  <h1>День концерта</h1>
+  <div>Броней: {{ total_entries }}, мест: {{ total_seats }}</div>
+</div>
+
+{# Screen header #}
+<div class="page-header no-print">
+  <h1>День концерта</h1>
+  <div class="stats">Броней: <span>{{ total_entries }}</span>, мест: <span>{{ total_seats }}</span></div>
+</div>
+
+{# Controls #}
+<div class="controls no-print">
+  <input type="text" class="search-input" id="searchInput" placeholder="Имя или место...">
+  <div class="sort-btns">
+    <button class="sort-btn active" data-sort="name">По имени</button>
+    <button class="sort-btn" data-sort="seats">По рядам</button>
+  </div>
+  <button class="btn-print" onclick="window.print()">Печать</button>
+</div>
+
+{# Desktop table #}
+<div class="table-container">
+  {% if entries %}
+    <table class="entries-table" id="entriesTable">
+      <thead>
+        <tr>
+          <th>Покупатель</th>
+          <th>Места</th>
+          <th>Кол-во</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  {% else %}
+    <p class="empty-msg">Нет активных броней</p>
+  {% endif %}
+</div>
+
+{# Mobile cards #}
+<div class="cards-container" id="cardsContainer"></div>
+
+{% if entries %}
+<script>
+const entries = {{ entries_json | safe }};
+
+let currentSort = 'name';
+let searchQuery = '';
+
+function sortEntries(list, mode) {
+  const sorted = [...list];
+  switch (mode) {
+    case 'name':
+      sorted.sort((a, b) => a.buyer_name.localeCompare(b.buyer_name, 'ru'));
+      break;
+    case 'seats':
+      sorted.sort((a, b) => a.first_row - b.first_row || a.first_seat - b.first_seat);
+      break;
+  }
+  return sorted;
+}
+
+function filterEntries(list, query) {
+  if (!query) return list;
+  const q = query.toLowerCase();
+  return list.filter(e =>
+    e.buyer_name.toLowerCase().includes(q) ||
+    e.seats_search.toLowerCase().includes(q)
+  );
+}
+
+function escapeHtml(text) {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function renderSeatLines(lines) {
+  return lines.map(l => `<span class="seat-line">${escapeHtml(l)}</span>`).join('');
+}
+
+function statusIcon(key) {
+  if (key === 'paid') return '&#10003;';
+  if (key === 'unpaid') return '&#10007;';
+  if (key === 'reserved') return '&#9632;';
+  return '&#9684;';
+}
+
+function renderTable(list) {
+  const tbody = document.getElementById('tableBody');
+  if (!tbody) return;
+  tbody.innerHTML = list.map(e => {
+    const buyerHtml = e.buyer_profile_url
+      ? `<a href="${escapeHtml(e.buyer_profile_url)}" target="_blank" rel="noopener">${escapeHtml(e.buyer_name)}</a>`
+      : escapeHtml(e.buyer_name);
+    return `<tr class="status-bg-${e.status_key}">
+      <td>
+        <div class="name-status">
+          <span class="buyer-name">${buyerHtml}</span>
+          <span class="status status-${e.status_key}">${statusIcon(e.status_key)} ${escapeHtml(e.status_text)}</span>
+        </div>
+      </td>
+      <td>${renderSeatLines(e.seat_lines)}</td>
+      <td>${e.seat_count}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCards(list) {
+  const container = document.getElementById('cardsContainer');
+  if (!container) return;
+  container.innerHTML = list.map(e => {
+    const buyerHtml = e.buyer_profile_url
+      ? `<a href="${escapeHtml(e.buyer_profile_url)}" target="_blank" rel="noopener">${escapeHtml(e.buyer_name)}</a>`
+      : escapeHtml(e.buyer_name);
+    return `<div class="entry-card status-bg-${e.status_key}">
+      <div class="card-header">
+        <span class="card-buyer">${buyerHtml}</span>
+        <span class="status status-${e.status_key}">${statusIcon(e.status_key)} ${escapeHtml(e.status_text)}</span>
+      </div>
+      <div class="card-seats">${renderSeatLines(e.seat_lines)} <span class="seat-count">(${e.seat_count} м.)</span></div>
+    </div>`;
+  }).join('');
+}
+
+function render() {
+  const filtered = filterEntries(entries, searchQuery);
+  const sorted = sortEntries(filtered, currentSort);
+  renderTable(sorted);
+  renderCards(sorted);
+}
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  searchQuery = this.value.trim();
+  render();
+});
+
+document.querySelectorAll('.sort-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    this.classList.add('active');
+    currentSort = this.dataset.sort;
+    render();
+  });
+});
+
+render();
+</script>
+{% endif %}
+
+</body>
+</html>

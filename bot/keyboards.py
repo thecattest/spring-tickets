@@ -29,6 +29,7 @@ def commands_keyboard() -> str:
     keyboard.add(Text(Btn.RESERVE_CMD), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
     keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/payments", label="Оплаты"))
+    keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/concert-day", label="День концерта"))
 
     return keyboard.get_json()
 

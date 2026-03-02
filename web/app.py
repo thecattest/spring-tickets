@@ -5,7 +5,9 @@ Run:
     uvicorn web.app:app --host 0.0.0.0 --port 5000
 """
 
+import json
 import os
+from collections import defaultdict
 from decimal import Decimal
 from pathlib import Path
 
@@ -104,6 +106,182 @@ def hall(request: Request):
         "total_seats": total_seats,
         "total_occupied": total_occupied,
         "total_free": total_seats - total_occupied,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Concert day page (protected)
+# ---------------------------------------------------------------------------
+
+
+def _format_seat_ranges(seats: list[int]) -> str:
+    """Format sorted seat numbers as compact ranges: [1,2,3,5] -> '1-3, 5'."""
+    if not seats:
+        return ""
+    ranges: list[str] = []
+    start = prev = seats[0]
+    for s in seats[1:]:
+        if s == prev + 1:
+            prev = s
+        else:
+            ranges.append(str(start) if start == prev else f"{start}-{prev}")
+            start = prev = s
+    ranges.append(str(start) if start == prev else f"{start}-{prev}")
+    return ", ".join(ranges)
+
+
+@app.get("/concert-day")
+def concert_day(request: Request):
+    if not is_authenticated(request):
+        return RedirectResponse("/payments/login", status_code=303)
+
+    with SessionLocal() as session:
+        # Bookings (booked/paid) — have reservation + buyer
+        booking_rows = (
+            session.query(
+                SeatAssignment.row_number,
+                SeatAssignment.seat_number,
+                SeatAssignment.status,
+                Reservation.id.label("reservation_id"),
+                VkUser.display_name.label("buyer_name"),
+                VkUser.profile_url.label("buyer_profile_url"),
+            )
+            .join(Reservation, SeatAssignment.reservation_id == Reservation.id)
+            .join(VkUser, Reservation.buyer_vk_user_id == VkUser.id)
+            .filter(
+                SeatAssignment.released_at.is_(None),
+                SeatAssignment.status.in_([SeatStatus.BOOKED, SeatStatus.PAID]),
+            )
+            .all()
+        )
+
+        # Reserves — no reservation, have note
+        reserve_rows = (
+            session.query(
+                SeatAssignment.row_number,
+                SeatAssignment.seat_number,
+                SeatAssignment.note,
+            )
+            .filter(
+                SeatAssignment.released_at.is_(None),
+                SeatAssignment.status == SeatStatus.RESERVED,
+            )
+            .all()
+        )
+
+    # Group bookings by reservation
+    reservations: dict[int, dict] = {}
+    seats_by_res: dict[int, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
+    statuses_by_res: dict[int, list[str]] = defaultdict(list)
+
+    for row in booking_rows:
+        rid = row.reservation_id
+        if rid not in reservations:
+            reservations[rid] = {
+                "buyer_name": row.buyer_name,
+                "buyer_profile_url": row.buyer_profile_url,
+            }
+        seats_by_res[rid][row.row_number].append(row.seat_number)
+        statuses_by_res[rid].append(row.status.value)
+
+    # Group reserves by note (each unique note = one entry)
+    reserves_by_note: dict[str, dict[int, list[int]]] = defaultdict(lambda: defaultdict(list))
+    for row in reserve_rows:
+        note = row.note or "Резерв"
+        reserves_by_note[note][row.row_number].append(row.seat_number)
+
+    # Find max row number across all data for seat line formatting
+    all_row_nums: set[int] = set()
+    for rid in seats_by_res:
+        all_row_nums.update(seats_by_res[rid].keys())
+    for note_seats in reserves_by_note.values():
+        all_row_nums.update(note_seats.keys())
+    max_row_digits = len(str(max(all_row_nums))) if all_row_nums else 1
+
+    def _build_seat_lines(
+        seats_by_row: dict[int, list[int]],
+    ) -> tuple[list[str], str, int, int, int]:
+        """Build formatted seat lines, search string, total, first_row, first_seat."""
+        seat_lines = []
+        total = 0
+        first_row = first_seat = None
+        for row_num in sorted(seats_by_row):
+            seat_nums = sorted(seats_by_row[row_num])
+            total += len(seat_nums)
+            if first_row is None:
+                first_row = row_num
+                first_seat = seat_nums[0]
+            # Pad row number for alignment: "Ряд  8, места: " vs "Ряд 12, места: "
+            padded_row = str(row_num).rjust(max_row_digits)
+            seat_lines.append(f"Ряд {padded_row}, места: {_format_seat_ranges(seat_nums)}")
+        search = " ".join(seat_lines)
+        return seat_lines, search, total, first_row or 0, first_seat or 0
+
+    # Build entries from bookings
+    entries = []
+    for rid, info in reservations.items():
+        seat_lines, seats_search, total_seats, first_row, first_seat = (
+            _build_seat_lines(seats_by_res[rid])
+        )
+
+        # Payment status
+        statuses = statuses_by_res[rid]
+        paid_count = statuses.count("paid")
+        if paid_count == len(statuses):
+            status_text = "оплачено"
+            status_key = "paid"
+        elif paid_count == 0:
+            status_text = "не оплачено"
+            status_key = "unpaid"
+        else:
+            status_text = f"частично ({paid_count} из {len(statuses)})"
+            status_key = "partial"
+
+        # VK stores "Имя Фамилия" — flip to "Фамилия Имя" for display
+        name_parts = info["buyer_name"].split(None, 1)
+        if len(name_parts) == 2:
+            display_name = f"{name_parts[1]} {name_parts[0]}"
+        else:
+            display_name = info["buyer_name"]
+
+        entries.append({
+            "buyer_name": display_name,
+            "buyer_profile_url": info["buyer_profile_url"],
+            "seat_lines": seat_lines,
+            "seats_search": seats_search,
+            "seat_count": total_seats,
+            "status_text": status_text,
+            "status_key": status_key,
+            "first_row": first_row,
+            "first_seat": first_seat,
+        })
+
+    # Build entries from reserves
+    for note, seats_by_row in reserves_by_note.items():
+        seat_lines, seats_search, total_seats, first_row, first_seat = (
+            _build_seat_lines(seats_by_row)
+        )
+        entries.append({
+            "buyer_name": note,
+            "buyer_profile_url": None,
+            "seat_lines": seat_lines,
+            "seats_search": seats_search,
+            "seat_count": total_seats,
+            "status_text": "резерв",
+            "status_key": "reserved",
+            "first_row": first_row,
+            "first_seat": first_seat,
+        })
+
+    # Default sort: alphabetical by display name
+    entries.sort(key=lambda e: e["buyer_name"].lower())
+
+    return templates.TemplateResponse("concert_day.html", {
+        "request": request,
+        "entries": entries,
+        "entries_json": json.dumps(entries, ensure_ascii=False),
+        "total_entries": len(entries),
+        "total_seats": sum(e["seat_count"] for e in entries),
     })
 
 
