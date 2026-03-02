@@ -53,6 +53,10 @@ class Payment(Base):
     
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    receipt_attachments: Mapped[Optional[str]] = mapped_column(
+        Text, nullable=True,
+        comment="VK media IDs чеков через запятую (photo-123_456,doc-789_012)"
+    )
     
     __table_args__ = (
         # Для просмотра оплат по конкретной брони

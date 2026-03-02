@@ -420,6 +420,7 @@ def payments_page(request: Request):
             "amount": float(p.payment_amount),
             "date": p.recorded_at,
             "is_verified": p.is_verified,
+            "receipt_attachments": p.receipt_attachments,
         }
         if p.is_verified:
             verified_payments.append(row)

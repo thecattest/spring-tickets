@@ -70,6 +70,12 @@ def _run_migrations() -> None:
             "is_verified",
             "ALTER TABLE payments ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT 0",
         ),
+        # Receipt attachments (VK media IDs)
+        (
+            "payments",
+            "receipt_attachments",
+            "ALTER TABLE payments ADD COLUMN receipt_attachments TEXT",
+        ),
     ]
     with engine.connect() as conn:
         for table, column, ddl in migrations:

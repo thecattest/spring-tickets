@@ -286,6 +286,7 @@
             <th>Мест</th>
             <th>Сумма</th>
             <th>Дата</th>
+            <th>Чек</th>
           </tr>
         </thead>
         <tbody>
@@ -297,6 +298,7 @@
               <td data-label="Мест">{{ p.seat_count }}</td>
               <td data-label="Сумма">{{ "{:,.0f}".format(p.amount).replace(",", " ") }} ₽</td>
               <td data-label="Дата">{{ p.date.strftime('%d.%m.%Y %H:%M') }}</td>
+              <td data-label="Чек">{% if p.receipt_attachments %}{% for att in p.receipt_attachments.split(',') %}<a href="https://vk.com/{{ att }}" target="_blank" rel="noopener" title="{{ att }}">{% if att.startswith('photo') %}&#128247;{% elif att.startswith('doc') %}&#128196;{% else %}&#128206;{% endif %}</a>{{ " " if not loop.last }}{% endfor %}{% else %}—{% endif %}</td>
             </tr>
           {% endfor %}
         </tbody>
@@ -320,6 +322,7 @@
                 <th>Мест</th>
                 <th>Сумма</th>
                 <th>Дата</th>
+                <th>Чек</th>
               </tr>
             </thead>
             <tbody>
@@ -331,6 +334,7 @@
                   <td data-label="Мест">{{ p.seat_count }}</td>
                   <td data-label="Сумма">{{ "{:,.0f}".format(p.amount).replace(",", " ") }} ₽</td>
                   <td data-label="Дата">{{ p.date.strftime('%d.%m.%Y %H:%M') }}</td>
+                  <td data-label="Чек">{% if p.receipt_attachments %}{% for att in p.receipt_attachments.split(',') %}<a href="https://vk.com/{{ att }}" target="_blank" rel="noopener" title="{{ att }}">{% if att.startswith('photo') %}&#128247;{% elif att.startswith('doc') %}&#128196;{% else %}&#128206;{% endif %}</a>{{ " " if not loop.last }}{% endfor %}{% else %}—{% endif %}</td>
                 </tr>
               {% endfor %}
             </tbody>

@@ -671,6 +671,7 @@ def record_payment(
     user_id: int,
     vk_message_url: Optional[str] = None,
     vk_message_ts: Optional[datetime] = None,
+    receipt_attachments: Optional[str] = None,
 ) -> tuple[Payment, List[SeatAssignment]]:
     """
     Record payment for N seats in a reservation (atomic operation).
@@ -684,6 +685,7 @@ def record_payment(
         user_id: AppUser.id of the person recording payment
         vk_message_url: VK receipt message URL (optional, None for button-flow)
         vk_message_ts: VK receipt message timestamp (optional, None for button-flow)
+        receipt_attachments: VK media IDs чеков через запятую (optional)
 
     Returns:
         Tuple of (Payment, List of SeatAssignment that were marked PAID)
@@ -722,6 +724,7 @@ def record_payment(
                 vk_message_ts=vk_message_ts,
                 payment_amount=payment_amount,
                 seat_count=seat_count,
+                receipt_attachments=receipt_attachments,
             )
             session.add(payment)
             session.flush()  # get payment.id before creating PaymentSeat

@@ -196,12 +196,27 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             except (ValueError, TypeError):
                 payment_vk_message_ts = None
 
+        # Reupload receipt attachments (before saving payment — to persist VK media IDs)
+        receipt_attachment_urls = context.get("receipt_attachments", [])
+        reuploaded_ids: list[str] = []
+        if receipt_attachment_urls:
+            try:
+                from bot.utils.attachments import reupload_attachments
+                reuploaded_ids = await reupload_attachments(
+                    message.ctx_api, receipt_attachment_urls, peer_id=message.from_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to reupload receipt attachments: {e}")
+
+        receipt_attachments_str = ",".join(reuploaded_ids) if reuploaded_ids else None
+
         payment, paid_seats = db.record_payment(
             reservation_id,
             quantity,
             seller_id,
             vk_message_url=payment_vk_message_url,
             vk_message_ts=payment_vk_message_ts,
+            receipt_attachments=receipt_attachments_str,
         )
 
         # Fetch updated seats to get remaining
@@ -218,7 +233,6 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             seller_app_user = db.get_app_user_by_vk_id(message.from_id)
             seller_name = seller_app_user.display_name if seller_app_user else "—"
             admin_vk_ids = db.get_all_admin_vk_ids()
-            receipt_attachment_urls = context.get("receipt_attachments", [])
             notification_text = texts.MSG_PAYMENT_ADMIN_NOTIFICATION.format(
                 buyer_name=buyer_display_name,
                 buyer_vk_id=buyer_vk_api_id,
@@ -231,14 +245,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                 if admin_vk_id == message.from_id:
                     continue  # не уведомлять самого себя
                 try:
-                    attachment_str = None
-                    if receipt_attachment_urls:
-                        from bot.utils.attachments import reupload_attachments
-                        reuploaded = await reupload_attachments(
-                            message.ctx_api, receipt_attachment_urls, peer_id=admin_vk_id,
-                        )
-                        if reuploaded:
-                            attachment_str = ",".join(reuploaded)
+                    attachment_str = receipt_attachments_str
                     await message.ctx_api.messages.send(
                         peer_id=admin_vk_id,
                         message=notification_text,
