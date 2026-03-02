@@ -373,7 +373,7 @@
     data: {
       labels: ['Оплачено', 'Ожидается'],
       datasets: [{
-        data: [{{ money_stats.paid }}, {{ money_stats.projected - money_stats.paid }}],
+        data: [{{ money_stats.paid }}, {{ money_stats.projected }}],
         backgroundColor: ['#2196F3', '#FF9800'],
         borderWidth: 0,
       }]

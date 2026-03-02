@@ -6,10 +6,11 @@
 """
 
 import logging
+from io import BytesIO
 
 import aiohttp
 from vkbottle import ABCAPI
-from vkbottle.tools import PhotoMessageUploader, DocMessagesUploader
+from vkbottle.tools import PhotoMessageUploader
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +36,75 @@ def get_attachment_urls(forwarded) -> list[dict]:
                     result.append({"type": "photo", "url": url, "title": "photo.jpg"})
         elif att.doc is not None:
             if att.doc.url:
+                # Сохраняем ext для корректного content-type при загрузке
+                title = att.doc.title or "document"
+                if att.doc.ext and "." not in title:
+                    title = f"{title}.{att.doc.ext}"
                 result.append({
                     "type": "doc",
                     "url": att.doc.url,
-                    "title": att.doc.title or "document",
+                    "title": title,
                 })
     return result
+
+
+async def _upload_doc_manual(
+    api: ABCAPI,
+    data: bytes,
+    title: str,
+    peer_id: int,
+) -> str | None:
+    """
+    Загрузить документ через VK Upload API вручную (без vkbottle uploader).
+
+    Обходит проблему с пустым ответом от upload-сервера при использовании
+    vkbottle DocMessagesUploader с raw bytes.
+
+    Returns:
+        Attachment string (например "doc-123_456") или None при ошибке.
+    """
+    try:
+        # 1. Получить upload URL
+        server_resp = await api.request(
+            "docs.getMessagesUploadServer",
+            {"peer_id": peer_id},
+        )
+        upload_url = server_resp["response"]["upload_url"]
+
+        # 2. Загрузить файл через multipart/form-data
+        form = aiohttp.FormData()
+        form.add_field(
+            "file",
+            data,
+            filename=title,
+            content_type="application/octet-stream",
+        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(upload_url, data=form) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Doc upload HTTP error: {resp.status}")
+                    return None
+                upload_result = await resp.json()
+
+        if not upload_result or not upload_result.get("file"):
+            logger.warning(f"Doc upload empty response: {upload_result}")
+            return None
+
+        # 3. Сохранить документ
+        save_resp = await api.request(
+            "docs.save",
+            {"file": upload_result["file"], "title": title},
+        )
+        doc_info = save_resp["response"]
+        doc_type = doc_info["type"]
+        doc = doc_info[doc_type]
+        access_key = doc.get("access_key", "")
+        ak_suffix = f"_{access_key}" if access_key else ""
+        return f"{doc_type}{doc['owner_id']}_{doc['id']}{ak_suffix}"
+
+    except Exception as e:
+        logger.warning(f"Manual doc upload failed: {e}")
+        return None
 
 
 async def reupload_attachments(
@@ -61,7 +125,6 @@ async def reupload_attachments(
     """
     result = []
     photo_uploader = PhotoMessageUploader(api)
-    doc_uploader = DocMessagesUploader(api)
 
     async with aiohttp.ClientSession() as session:
         for att in attachment_urls:
@@ -76,18 +139,21 @@ async def reupload_attachments(
                     logger.warning(f"Empty data for attachment: {att['url'][:80]}")
                     continue
 
+                logger.info(f"Downloaded attachment: type={att['type']}, size={len(data)}, title={att.get('title')}")
+
                 if att["type"] == "photo":
                     # Передаём raw bytes — uploader сам обернёт в BytesIO и выставит .name
                     attachment_str = await photo_uploader.upload(
                         data, peer_id=peer_id
                     )
                 else:
-                    # title передаётся как kwarg — DocUploader.raw_upload() извлекает его из params
-                    attachment_str = await doc_uploader.upload(
-                        file_source=data,
-                        peer_id=peer_id,
-                        title=att["title"],
+                    # Ручной upload документа через VK API (обходит проблему пустого ответа)
+                    attachment_str = await _upload_doc_manual(
+                        api, data, att["title"], peer_id
                     )
+                    if not attachment_str:
+                        continue
+
                 result.append(attachment_str)
             except Exception as e:
                 logger.warning(f"Failed to reupload attachment ({att['type']}): {e}")
