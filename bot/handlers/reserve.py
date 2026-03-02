@@ -264,12 +264,19 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
         return
     seats = result.seats
 
-    # Store seats and show confirmation
+    # Store seats and show confirmation with notes
     context['reserve_seats_to_remove'] = seats
     seats_str = format_seat_ranges(sorted(seats))
 
+    # Fetch notes for the seats being removed
+    notes = db.get_reserve_notes(row, seats)
+    unique_notes = set(n for n in notes.values() if n)
+    note_text = ""
+    if unique_notes:
+        note_text = "\nКомментарий: " + ", ".join(sorted(unique_notes))
+
     await message.answer(
-        texts.MSG_CONFIRM_UNRESERVE.format(row=row, seats=seats_str),
+        texts.MSG_CONFIRM_UNRESERVE.format(row=row, seats=seats_str) + note_text,
         keyboard=confirmation_keyboard()
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVE_CONFIRM, **context)

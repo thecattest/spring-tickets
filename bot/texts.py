@@ -224,10 +224,10 @@ MSG_SWITCH_PLAIN = "Вы работаете с {current}.\nПереключит�
 MSG_CONTINUE_WITH = "Продолжаем работу с {name}."
 
 # Deletion confirmation
-MSG_CONFIRM_DELETE_SEATS = "Удалить места:\nРяд {row}: {seats}\n"
+MSG_CONFIRM_DELETE_SEATS = "Удалить места:\nРяд {row}, места: {seats}\n"
 
 # Reserve management
-MSG_CONFIRM_UNRESERVE = "Снять резерв:\nРяд {row}: {seats}\n\nПодтвердить?"
+MSG_CONFIRM_UNRESERVE = "Снять резерв:\nРяд {row}, места: {seats}\n\nПодтвердить?"
 MSG_RESERVE_CREATED = "Резерв создан:\nРяд {row}, места: {seats}\nКомментарий: {comment}"
 MSG_RESERVE_ACTION_HEADER = "{reserves}\n\nУправление резервами:"
 

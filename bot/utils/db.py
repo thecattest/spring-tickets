@@ -1308,3 +1308,16 @@ def get_reserved_seats_in_row(row: int) -> list[int]:
             .where(SeatAssignment.reservation_id.is_(None))
         )
         return [r[0] for r in session.execute(stmt).all()]
+
+
+def get_reserve_notes(row: int, seats: list[int]) -> dict[int, str | None]:
+    """Return {seat_number: note} for active reserved seats in a row."""
+    with SessionLocal() as session:
+        stmt = (
+            select(SeatAssignment.seat_number, SeatAssignment.note)
+            .where(SeatAssignment.row_number == row)
+            .where(SeatAssignment.seat_number.in_(seats))
+            .where(SeatAssignment.status == SeatStatus.RESERVED)
+            .where(SeatAssignment.released_at.is_(None))
+        )
+        return {r[0]: r[1] for r in session.execute(stmt).all()}

@@ -89,7 +89,7 @@ def format_seat_list(seats: List[SeatAssignment]) -> str:
     for row in sorted(seats_by_row.keys()):
         row_seats = sorted(seats_by_row[row])
         seats_str = ", ".join(map(str, row_seats))
-        lines.append(f"Ряд {row}: {seats_str}")
+        lines.append(f"Ряд {row}, места: {seats_str}")
 
     return "\n".join(lines)
 
@@ -155,7 +155,7 @@ def format_reservation_seats(seats: List[SeatAssignment]) -> str:
             else:  # RESERVED
                 status_text = "🔒Резерв"
 
-            lines.append(f"Ряд {row_num}: {seat_range} {status_text}")
+            lines.append(f"Ряд {row_num}, места: {seat_range} {status_text}")
 
     return "\n".join(lines)
 
@@ -187,7 +187,7 @@ def format_reserves_list(reserves: list) -> str:
                 lines.append("")  # blank line between groups
             lines.append(f"📌 {note}")
             current_note = note
-        lines.append(f"  Ряд {r['row']}: {seats_str}")
+        lines.append(f"  Ряд {r['row']:>2}, места: {seats_str}")
 
     return "\n".join(lines)
 
