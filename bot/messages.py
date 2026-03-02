@@ -57,10 +57,9 @@ def generate_reservation_script(
     script = f"""Места забронированы.
 
 Ваша бронь:
-
 {seats_text}
 
-Всего {total_seats} {pluralize_seats(total_seats)}
+Всего {total_seats} {pluralize_seats(total_seats)}.
 К оплате: {total_price} руб.
 
 Спасибо за бронь!
