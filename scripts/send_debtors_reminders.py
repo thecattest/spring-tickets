@@ -19,10 +19,11 @@ import sys
 from pathlib import Path
 
 # Make project root importable regardless of working directory
-sys.path.insert(0, str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(PROJECT_ROOT / ".env")
 
 from vkbottle.bot import Bot
 from vkbottle import VKAPIError
