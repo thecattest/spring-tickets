@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import func
@@ -39,6 +39,15 @@ COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
 
 serializer = URLSafeTimedSerializer(COOKIE_SECRET)
 COOKIE_NAME = "payments_auth"
+
+
+_FAVICON_PATH = Path(__file__).parent / "favicon.png"
+
+
+@app.get("/favicon.ico")
+@app.get("/favicon.png")
+def favicon():
+    return FileResponse(_FAVICON_PATH, media_type="image/png")
 
 
 def is_authenticated(request: Request) -> bool:
