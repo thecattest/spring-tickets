@@ -117,23 +117,43 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             await message.answer(texts.ERR_NOT_REGISTERED)
             return
 
-        # Get VK user ID from forwarded/replied message
-        buyer_vk_id = forwarded.from_id
         is_receipt = forwarded_has_receipt_attachment(forwarded)
 
-        logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
+        # If accompanying text contains a VK link/mention, use it instead of forwarded sender
+        from bot.utils.vk_link import parse_vk_link
+        vk_id_from_text = parse_vk_link(message.text or "")
 
-        # Fetch VK user name via VK API (single location)
-        try:
-            vk_users = await message.ctx_api.users.get(user_ids=[buyer_vk_id])
-            if vk_users:
+        if vk_id_from_text:
+            # Resolve link/mention from text
+            try:
+                vk_users = await message.ctx_api.users.get(user_ids=[vk_id_from_text])
+                if not vk_users:
+                    await message.answer("Пользователь VK не найден.")
+                    return
                 vk_info = vk_users[0]
+                buyer_vk_id = vk_info.id
                 display_name = f"{vk_info.first_name} {vk_info.last_name}"
-            else:
+            except Exception as e:
+                logger.warning(f"Failed to resolve VK link '{vk_id_from_text}': {e}")
+                await message.answer("Не удалось найти пользователя VK по ссылке.")
+                return
+            logger.info(f"Seller {message.from_id} forwarded message with VK link override for buyer {buyer_vk_id} ({display_name}, is_receipt={is_receipt})")
+        else:
+            # Default: use forwarded message sender
+            buyer_vk_id = forwarded.from_id
+            logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
+
+            # Fetch VK user name via VK API
+            try:
+                vk_users = await message.ctx_api.users.get(user_ids=[buyer_vk_id])
+                if vk_users:
+                    vk_info = vk_users[0]
+                    display_name = f"{vk_info.first_name} {vk_info.last_name}"
+                else:
+                    display_name = f"VK User {buyer_vk_id}"
+            except Exception as e:
+                logger.warning(f"Failed to fetch VK user info for {buyer_vk_id}: {e}")
                 display_name = f"VK User {buyer_vk_id}"
-        except Exception as e:
-            logger.warning(f"Failed to fetch VK user info for {buyer_vk_id}: {e}")
-            display_name = f"VK User {buyer_vk_id}"
 
     # Check current FSM state
     state_peer = await storage.get(message.from_id)
