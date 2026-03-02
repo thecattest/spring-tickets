@@ -30,14 +30,28 @@ python test_db.py  # manual integration test
 
 # Debtors reminders (cron)
 python scripts/send_debtors_reminders.py
+
+# Deploy (run locally — SSHes into server, pulls, installs deps, migrates DB, restarts services)
+bash deploy/deploy.sh
 ```
+
+## Deployment
+
+Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`.
+
+- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull` → `pip install` → `python database.py` → `systemctl --user restart tickets-bot tickets-web`
+- `deploy/install.sh` — one-time server setup: installs systemd user services, nginx config, bash aliases, enables linger
+- `deploy/aliases.sh` — adds `start`/`stop`/`restart`/`status`/`tw-log`/`tb-log` aliases to server `.bashrc`
+- `deploy/setup-ssl.sh` — SSL certificate setup
+- `deploy/setup-cron.sh` — cron jobs setup
+- Services run as systemd **user** units (`systemctl --user`), no sudo needed
 
 ## Architecture
 
 Two interfaces share the same database and models:
 
 - **Bot** (`bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `bot/handlers/` orchestrate conversations; business logic lives in `bot/utils/db.py`.
-- **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`.
+- **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`.
 - **Models** (`models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
 - **Database** (`database.py`) — Engine, `SessionLocal` factory, `init_db()`. SQLite with foreign keys enabled via PRAGMA.
 
