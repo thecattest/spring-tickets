@@ -6,11 +6,8 @@
 """
 
 import logging
-from io import BytesIO
-
 import aiohttp
 from vkbottle import ABCAPI
-from vkbottle.tools import PhotoMessageUploader
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +43,66 @@ def get_attachment_urls(forwarded) -> list[dict]:
                     "title": title,
                 })
     return result
+
+
+async def _upload_photo_manual(
+    api: ABCAPI,
+    data: bytes,
+    peer_id: int,
+) -> str | None:
+    """
+    Загрузить фото через VK Upload API вручную.
+
+    vkbottle PhotoMessageUploader не выставляет расширение файла,
+    из-за чего VK Upload Server возвращает photo=undefined.
+
+    Returns:
+        Attachment string (например "photo-123_456") или None при ошибке.
+    """
+    try:
+        # 1. Получить upload URL
+        server_resp = await api.request(
+            "photos.getMessagesUploadServer",
+            {"peer_id": peer_id},
+        )
+        upload_url = server_resp["response"]["upload_url"]
+
+        # 2. Загрузить файл — поле "photo", filename с расширением .jpg
+        form = aiohttp.FormData()
+        form.add_field(
+            "photo",
+            data,
+            filename="photo.jpg",
+            content_type="image/jpeg",
+        )
+        async with aiohttp.ClientSession() as session:
+            async with session.post(upload_url, data=form) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Photo upload HTTP error: {resp.status}")
+                    return None
+                upload_result = await resp.json()
+
+        if not upload_result or not upload_result.get("photo"):
+            logger.warning(f"Photo upload empty response: {upload_result}")
+            return None
+
+        # 3. Сохранить фото
+        save_resp = await api.request(
+            "photos.saveMessagesPhoto",
+            {
+                "server": upload_result["server"],
+                "photo": upload_result["photo"],
+                "hash": upload_result["hash"],
+            },
+        )
+        photo = save_resp["response"][0]
+        access_key = photo.get("access_key", "")
+        ak_suffix = f"_{access_key}" if access_key else ""
+        return f"photo{photo['owner_id']}_{photo['id']}{ak_suffix}"
+
+    except Exception as e:
+        logger.warning(f"Manual photo upload failed: {e}")
+        return None
 
 
 async def _upload_doc_manual(
@@ -124,7 +181,6 @@ async def reupload_attachments(
         peer_id: ID диалога, куда будут отправлены вложения
     """
     result = []
-    photo_uploader = PhotoMessageUploader(api)
 
     async with aiohttp.ClientSession() as session:
         for att in attachment_urls:
@@ -142,10 +198,12 @@ async def reupload_attachments(
                 logger.info(f"Downloaded attachment: type={att['type']}, size={len(data)}, title={att.get('title')}")
 
                 if att["type"] == "photo":
-                    # Передаём raw bytes — uploader сам обернёт в BytesIO и выставит .name
-                    attachment_str = await photo_uploader.upload(
-                        data, peer_id=peer_id
+                    # Ручной upload фото через VK API (обходит проблему с именем файла)
+                    attachment_str = await _upload_photo_manual(
+                        api, data, peer_id
                     )
+                    if not attachment_str:
+                        continue
                 else:
                     # Ручной upload документа через VK API (обходит проблему пустого ответа)
                     attachment_str = await _upload_doc_manual(
