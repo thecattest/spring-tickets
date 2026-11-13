@@ -24,9 +24,13 @@ python -m bot
 ./web/run.sh
 # or: uvicorn web.app:app --host 0.0.0.0 --port 8080
 
-# Run tests
+# Run tests (isolated temp DB via root conftest.py — safe to run anytime)
 pytest
-python test_db.py  # manual integration test
+# test_redis_fsm needs a running Redis
+
+# Manual integration test — run as a script it bypasses conftest.py and
+# writes to the real DB from .env. Prefer `pytest test_db.py`.
+python test_db.py
 
 # Debtors reminders (cron)
 python scripts/send_debtors_reminders.py
@@ -87,3 +91,10 @@ All state changes are recorded in the `AuditLog` table.
 Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT_TOKEN`, `VK_GROUP_ID`, `REDIS_*`, `DATABASE_URL`, `SEAT_PRICE`, `PAYMENTS_PASSWORD`, `SQL_ECHO`.
 
 Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE_URL` and `SQL_ECHO` directly from env.
+
+`database.py` loads the project-root `.env` itself (`override=False`), so every entry point — bot, web, scripts, `python database.py` — sees the same `DATABASE_URL`. Variables already set in the environment win (Docker `--env-file`/`environment:`, `conftest.py` in tests). Fallback without any `DATABASE_URL`: `sqlite:///tickets.db`. Relative SQLite paths (three slashes, e.g. `sqlite:///data/tickets.db`) are resolved against the project root, not the current working directory — cron jobs run from `$HOME`. `database.SQLITE_PATH` exposes the resolved file path (`scripts/backup_db.py` uses it).
+
+## Testing
+
+- Root `conftest.py` sets `DATABASE_URL` to a temp SQLite file before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it), and recreates the schema before every test. It asserts the engine points at the temp DB — tests never touch `data/tickets.db` or `./tickets.db`.
+- Don't override `DATABASE_URL` inside test fixtures: the engine already exists by then, the override has no effect.
