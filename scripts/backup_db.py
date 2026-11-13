@@ -3,7 +3,7 @@
 Standalone cron script for backing up the SQLite database.
 
 1. Copies the DB file to ~/tickets-backup/ with timestamp name (dd.MM-HH.mm.db)
-2. Sends the backup file to a VK user via bot message
+2. Sends the backup file to every project owner (OWNER_VK_IDS) via bot message
 
 Crontab entry (every hour):
   0 * * * * /path/to/venv/bin/python /path/to/project/scripts/backup_db.py >> /path/to/logs/backup.log 2>&1
@@ -26,6 +26,7 @@ load_dotenv(PROJECT_ROOT / ".env")
 import os
 from vkbottle.bot import Bot
 
+from bot.config import OWNER_VK_IDS
 from database import SQLITE_PATH
 
 logging.basicConfig(
@@ -35,7 +36,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 VK_BOT_TOKEN = os.getenv("VK_BOT_TOKEN", "")
-RECIPIENT_VK_ID = 498417215
 DB_PATH = SQLITE_PATH  # из DATABASE_URL, относительные пути — от корня проекта
 BACKUP_DIR = Path.home() / "tickets-backup"
 
@@ -68,43 +68,46 @@ async def main():
     dst.close()
     logger.info(f"Backup created: {backup_path}")
 
-    # Send via VK bot
+    if not OWNER_VK_IDS:
+        logger.warning("OWNER_VK_IDS not set, backup is not sent")
+        return
+
+    # Send via VK bot to every owner (document upload is per recipient)
     bot = Bot(token=VK_BOT_TOKEN)
     try:
-        # Upload document
-        upload_server = await bot.api.docs.get_messages_upload_server(
-            type="doc", peer_id=RECIPIENT_VK_ID,
-        )
-        upload_url = upload_server.upload_url
-
-        import aiohttp
-        async with aiohttp.ClientSession() as session:
-            with open(backup_path, "rb") as f:
-                form = aiohttp.FormData()
-                form.add_field("file", f, filename=backup_name)
-                async with session.post(upload_url, data=form) as resp:
-                    upload_result = await resp.json()
-
-        if "file" not in upload_result:
-            logger.error(f"Upload failed: {upload_result}")
-            return
-
-        saved = await bot.api.docs.save(file=upload_result["file"], title=backup_name)
-        doc = saved.doc
-        attachment = f"doc{doc.owner_id}_{doc.id}"
-
-        await bot.api.messages.send(
-            peer_id=RECIPIENT_VK_ID,
-            message=f"Бэкап БД: {backup_name}",
-            attachment=attachment,
-            random_id=0,
-        )
-        logger.info(f"Backup sent to VK user {RECIPIENT_VK_ID}")
-
-    except Exception as e:
-        logger.error(f"Failed to send backup via VK: {e}")
+        for owner_vk_id in OWNER_VK_IDS:
+            try:
+                await _send_backup(bot, owner_vk_id, backup_path, backup_name)
+                logger.info(f"Backup sent to VK user {owner_vk_id}")
+            except Exception as e:
+                logger.error(f"Failed to send backup to VK user {owner_vk_id}: {e}")
     finally:
         await bot.api.http_client.close()
+
+
+async def _send_backup(bot: Bot, peer_id: int, backup_path: Path, backup_name: str) -> None:
+    import aiohttp
+
+    upload_server = await bot.api.docs.get_messages_upload_server(type="doc", peer_id=peer_id)
+
+    async with aiohttp.ClientSession() as session:
+        with open(backup_path, "rb") as f:
+            form = aiohttp.FormData()
+            form.add_field("file", f, filename=backup_name)
+            async with session.post(upload_server.upload_url, data=form) as resp:
+                upload_result = await resp.json()
+
+    if "file" not in upload_result:
+        raise RuntimeError(f"Upload failed: {upload_result}")
+
+    saved = await bot.api.docs.save(file=upload_result["file"], title=backup_name)
+    doc = saved.doc
+    await bot.api.messages.send(
+        peer_id=peer_id,
+        message=f"Бэкап БД: {backup_name}",
+        attachment=f"doc{doc.owner_id}_{doc.id}",
+        random_id=0,
+    )
 
 
 if __name__ == "__main__":

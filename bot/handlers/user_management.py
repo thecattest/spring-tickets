@@ -1,13 +1,13 @@
 """
 Команды управления пользователями: /addadmin, /addseller, /removeuser, /users.
 
-Доступны только администраторам.
+Доступны только владельцу проекта (OWNER_VK_IDS в конфиге).
 """
 
 import logging
 from vkbottle.bot import Message
 
-from bot import texts
+from bot import config, texts
 from bot.utils import db
 from bot.keyboards import commands_keyboard
 from models.base import UserRole
@@ -17,9 +17,9 @@ logger = logging.getLogger(__name__)
 
 async def _add_user(message: Message, role: UserRole) -> None:
     """Общая логика для /addadmin и /addseller."""
-    # Проверяем, что отправитель — админ
-    if not db.is_user_admin(message.from_id):
-        await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
+    # Проверяем, что отправитель — владелец
+    if not config.is_owner(message.from_id):
+        await message.answer(texts.ERR_OWNER_ONLY)
         return
 
     # Проверяем наличие пересланного или ответного сообщения
@@ -72,7 +72,7 @@ async def _add_user(message: Message, role: UserRole) -> None:
         msg.format(name=display_name, vk_id=target_vk_id),
         keyboard=commands_keyboard(),
     )
-    logger.info(f"Admin {message.from_id} added VK {target_vk_id} ({display_name}) as {role.value}")
+    logger.info(f"Owner {message.from_id} added VK {target_vk_id} ({display_name}) as {role.value}")
 
 
 async def add_admin_handler(message: Message) -> None:
@@ -87,8 +87,8 @@ async def add_seller_handler(message: Message) -> None:
 
 async def remove_user_handler(message: Message) -> None:
     """/removeuser — удалить пользователя из системы."""
-    if not db.is_user_admin(message.from_id):
-        await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
+    if not config.is_owner(message.from_id):
+        await message.answer(texts.ERR_OWNER_ONLY)
         return
 
     from bot.handlers.reservation import get_forwarded_or_reply
@@ -122,13 +122,13 @@ async def remove_user_handler(message: Message) -> None:
         texts.MSG_USER_REMOVED.format(name=existing.display_name, vk_id=target_vk_id),
         keyboard=commands_keyboard(),
     )
-    logger.info(f"Admin {message.from_id} removed VK {target_vk_id} ({existing.display_name})")
+    logger.info(f"Owner {message.from_id} removed VK {target_vk_id} ({existing.display_name})")
 
 
 async def list_users_handler(message: Message) -> None:
     """/users — список всех пользователей системы."""
-    if not db.is_user_admin(message.from_id):
-        await message.answer(texts.ERR_ADD_USER_ADMIN_ONLY)
+    if not config.is_owner(message.from_id):
+        await message.answer(texts.ERR_OWNER_ONLY)
         return
 
     users = db.get_all_app_users()

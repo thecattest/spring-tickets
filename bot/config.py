@@ -25,6 +25,19 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 # Database Configuration
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tickets.db")
 
+# Владельцы проекта (технический ответственный): управление пользователями
+# и технические уведомления (бэкапы, алерты). Список VK ID через запятую.
+# Это настройка, а не роль в БД — логические админы сюда не входят.
+OWNER_VK_IDS = [
+    int(part) for part in os.getenv("OWNER_VK_IDS", "").replace(" ", "").split(",") if part
+]
+
+
+def is_owner(vk_user_id: int) -> bool:
+    """Является ли VK-пользователь владельцем проекта."""
+    return vk_user_id in OWNER_VK_IDS
+
+
 # Business Logic Configuration
 SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
 DEBTORS_REMINDER_MIN_DAYS = int(os.getenv("DEBTORS_REMINDER_MIN_DAYS", "7"))
@@ -74,6 +87,9 @@ def validate_config():
     if not VK_GROUP_ID:
         errors.append("VK_GROUP_ID is required")
 
+    if not OWNER_VK_IDS:
+        errors.append("OWNER_VK_IDS is required (comma-separated VK IDs)")
+
     if not LAYOUT_FILE.exists():
         errors.append(f"Layout file not found: {LAYOUT_FILE}")
 
@@ -89,6 +105,7 @@ if __name__ == "__main__":
     logger.info("Configuration loaded:")
     logger.info(f"  VK_BOT_TOKEN: {'*' * len(VK_BOT_TOKEN) if VK_BOT_TOKEN else 'NOT SET'}")
     logger.info(f"  VK_GROUP_ID: {VK_GROUP_ID}")
+    logger.info(f"  OWNER_VK_IDS: {OWNER_VK_IDS}")
     logger.info(f"  REDIS_HOST: {REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
     logger.info(f"  DATABASE_URL: {DATABASE_URL}")
     logger.info(f"  SEAT_PRICE: {SEAT_PRICE}")
