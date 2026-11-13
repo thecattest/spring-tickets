@@ -14,14 +14,49 @@ Usage:
 """
 
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+
+# .env из корня проекта — чтобы DATABASE_URL был одинаковым, кто бы ни
+# импортировал database первым (бот, веб, скрипты, python database.py).
+# Уже заданные переменные окружения не перезаписываются: значения из Docker
+# (--env-file / environment:) и из conftest.py в тестах имеют приоритет.
+load_dotenv(PROJECT_ROOT / ".env")
+
+
+def _resolve_sqlite_path(url: str) -> str:
+    """
+    Относительный путь SQLite (три слэша) считаем от корня проекта, а не от
+    текущей папки: cron запускает скрипты из домашней директории, и
+    sqlite:///data/tickets.db иначе указывал бы на ~/data/tickets.db.
+    """
+    parsed = make_url(url)
+    if not parsed.drivername.startswith("sqlite"):
+        return url
+    db = parsed.database
+    if not db or db == ":memory:" or Path(db).is_absolute():
+        return url
+    return parsed.set(database=str(PROJECT_ROOT / db)).render_as_string(hide_password=False)
 
 
 # Database URL from environment variable or default SQLite for MVP
-DATABASE_URL = os.getenv(
+DATABASE_URL = _resolve_sqlite_path(os.getenv(
     "DATABASE_URL",
     "sqlite:///tickets.db"
+))
+
+# Путь к файлу SQLite (None для in-memory и других СУБД) — например, для бэкапа
+_db_name = make_url(DATABASE_URL).database
+SQLITE_PATH = (
+    Path(_db_name)
+    if DATABASE_URL.startswith("sqlite") and _db_name not in (None, "", ":memory:")
+    else None
 )
 
 # Create engine
