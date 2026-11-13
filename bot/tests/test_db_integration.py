@@ -10,11 +10,7 @@ Tests:
 """
 
 import pytest
-import os
-import tempfile
 from datetime import datetime
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
 
 from models.base import Base, SeatStatus, ReservationState
 from models.vk_user import VkUser
@@ -28,27 +24,15 @@ from bot.utils import db
 @pytest.fixture(scope="function")
 def test_db():
     """
-    Create a temporary test database.
+    Engine временной тестовой базы.
+
+    Саму базу подменяет и очищает перед каждым тестом корневой conftest.py.
 
     Yields:
         Database engine
     """
-    # Create temporary database file
-    fd, db_path = tempfile.mkstemp(suffix=".db")
-    os.close(fd)
-
-    # Override database URL
-    test_db_url = f"sqlite:///{db_path}"
-    os.environ["DATABASE_URL"] = test_db_url
-
-    # Create engine and tables
     from database import engine
-    Base.metadata.create_all(bind=engine)
-
     yield engine
-
-    # Cleanup
-    os.unlink(db_path)
 
 
 @pytest.fixture(scope="function")
