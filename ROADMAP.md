@@ -16,13 +16,13 @@
 - [ ] **uv вместо pip.** Зависимости в `pyproject.toml` (`[project.dependencies]`), pytest и линтеры — в `[dependency-groups] dev`, точные версии всего дерева в `uv.lock` (коммитится). Локально `uv sync`, в образе `uv sync --frozen --no-dev`, обновление — `uv lock --upgrade-package <имя>`. `requirements.txt` удалить.
 - [ ] **Python 3.12 везде:** `.python-version`, `requires-python = ">=3.12,<3.13"`, `.venv` пересоздать через `uv sync`, Dockerfile, версия в CLAUDE.md.
 - [ ] **Проект как пакет `tickets`** (`package = true` в uv) — подготовка к новой структуре (→ Архитектура).
-- [ ] **Владелец — настройка `OWNER_VK_IDS`** вместо захардкоженного `498417215` (`scripts/backup_db.py`). Используется для технических уведомлений и прав владельца.
-- [ ] **Управление пользователями только владельцу:** `/addadmin`, `/addseller`, `/removeuser`, `/users` проверяют `OWNER_VK_IDS`, а не роль `ADMIN`. Логические админы сохраняют бизнес-права. Первого админа владелец создаёт через бота → удалить `scripts/create_admin.py`.
-- [ ] **Безопасность `/payments`:** `COOKIE_SECRET` обязателен (не выводится из пароля), `secrets.compare_digest` вместо `==`, cookie `secure=True` (отключаемо настройкой для локального HTTP), `limit_req` на `/payments/login` в nginx на хосте. Учёток в вебе не будет — один админский режим.
-- [ ] **Единое логирование:** одна `setup_logging()` для бота, веба и задач; только stdout; уровень `LOG_LEVEL` (по умолчанию `INFO`); текстовый формат `время уровень модуль: сообщение`; убрать остальные `basicConfig`, `print` в боте → `logger`.
-- [ ] **Показ времени в Europe/Moscow** на странице оплат (сейчас UTC выдаётся за московское). Полный переход на aware-даты — на этапе 1 (→ Даты).
-- [ ] **Уборка:** удалить `tickets.db~`, `migrations/001_add_payment_amount_fields.sql`, `test_db.py` (нужное — в тесты), `REFACTORING_PLAN.md`, `SQLITE_MIGRATION.md`, `README_MODELS.md` (полезное про сессии — в README/CLAUDE.md), `DB_SCHEMA.md`, `.planning/`. `TZ.md` → `docs/`.
-- [ ] **Починить 2 падающих теста:** `test_redis_fsm` (нужен Redis), `test_negative_seat`.
+- [x] **Владелец — настройка `OWNER_VK_IDS`** вместо захардкоженного `498417215` (`scripts/backup_db.py`). Используется для технических уведомлений и прав владельца.
+- [x] **Управление пользователями только владельцу:** `/addadmin`, `/addseller`, `/removeuser`, `/users` проверяют `OWNER_VK_IDS`, а не роль `ADMIN`. Логические админы сохраняют бизнес-права. Первого админа владелец создаёт через бота → удалить `scripts/create_admin.py`.
+- [x] **Безопасность `/payments`:** `COOKIE_SECRET` обязателен (не выводится из пароля), `secrets.compare_digest` вместо `==`, cookie `secure=True` (отключаемо настройкой для локального HTTP), `limit_req` на `/payments/login` в nginx на хосте (в `deploy/tickets-nginx.conf`; на сервере применить вручную — там файл дополнен certbot). Учёток в вебе не будет — один админский режим.
+- [x] **Единое логирование:** одна `setup_logging()` для бота, веба и задач; только stdout; уровень `LOG_LEVEL` (по умолчанию `INFO`); текстовый формат `время уровень модуль: сообщение`; убрать остальные `basicConfig`, `print` в боте → `logger`.
+- [x] **Показ времени в Europe/Moscow** на странице оплат (сейчас UTC выдаётся за московское). Полный переход на aware-даты — на этапе 1 (→ Даты).
+- [x] **Уборка:** удалить `tickets.db~`, `migrations/001_add_payment_amount_fields.sql`, `test_db.py` (нужное — в тесты), `REFACTORING_PLAN.md`, `SQLITE_MIGRATION.md`, `README_MODELS.md` (полезное про сессии — в README/CLAUDE.md), `DB_SCHEMA.md`, `.planning/`. `TZ.md` → `docs/`.
+- [x] **Починить 2 падающих теста:** `test_redis_fsm` (нужен Redis), `test_negative_seat`.
 - [ ] **ruff + pre-commit:** ruff как линтер и форматтер (умеренный набор правил), одно автоформатирование всего кода до рефакторинга; pre-commit с локальными хуками `uv run ruff` (версия из `uv.lock`); настройки в `pyproject.toml`; `.vscode/settings.json` для Cursor (ruff-форматтер, format on save, fixAll/organizeImports, `ruff.importStrategy = fromEnvironment`).
 
 ## Этап 1. Postgres

@@ -4,6 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
+Plan of the ongoing cleanup and refactor: `ROADMAP.md` (check items off as they are done).
+
 Concert ticket management system for VK (VKontakte). Ticketers create seat reservations, record payments, and manage bookings via a VK bot. A web UI shows a public hall map and admin payments dashboard.
 
 **Stack**: Python 3.14+, SQLAlchemy 2.0+, vkbottle (VK bot), FastAPI (web), Redis (bot FSM state), SQLite (MVP).
@@ -14,7 +16,7 @@ Concert ticket management system for VK (VKontakte). Ticketers create seat reser
 # Setup
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env  # fill in VK_BOT_TOKEN, VK_GROUP_ID, REDIS_PASSWORD, PAYMENTS_PASSWORD
+cp .env.example .env  # fill in VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
 python database.py    # create tables
 
 # Run bot (requires Redis + VK token)
@@ -26,11 +28,7 @@ python -m bot
 
 # Run tests (isolated temp DB via root conftest.py — safe to run anytime)
 pytest
-# test_redis_fsm needs a running Redis
-
-# Manual integration test — run as a script it bypasses conftest.py and
-# writes to the real DB from .env. Prefer `pytest test_db.py`.
-python test_db.py
+# test_redis_fsm uses local Redis db 15 and is skipped when Redis is not running
 
 # Debtors reminders (cron)
 python scripts/send_debtors_reminders.py
@@ -74,7 +72,8 @@ All state changes are recorded in the `AuditLog` table.
 - **SeatAssignment**: source of truth for seat occupancy. Statuses: `booked`, `paid`, `reserved`. Soft-deleted via `released_at` timestamp.
 - **Reservation**: groups seats for one buyer. One active reservation per VK user. Tracks `last_activity_at` for 7-day debtor detection.
 - **Payment/PaymentSeat**: supports partial payments (pay for N of M seats). Deterministic seat selection (row ASC, seat ASC).
-- **ReconcileCheckpoint**: marks a point-in-time for financial reconciliation on the payments page.
+- **ReconcileCheckpoint**: unused leftover (payments page uses `Payment.is_verified`); to be removed (ROADMAP stage 1).
+- **Owners vs admins**: `ADMIN` is a business role in the DB. Project owners are `OWNER_VK_IDS` in config, not a role: only owners run `/addadmin`, `/addseller`, `/removeuser`, `/users` and receive technical messages (backups). `bot.config.is_owner()`.
 - **layout.json**: defines hall geometry (24 rows, variable seats, aisles). Used by both bot (validation) and web (rendering).
 
 ## Code Conventions
@@ -88,7 +87,11 @@ All state changes are recorded in the `AuditLog` table.
 
 ## Configuration
 
-Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT_TOKEN`, `VK_GROUP_ID`, `REDIS_*`, `DATABASE_URL`, `SEAT_PRICE`, `PAYMENTS_PASSWORD`, `SQL_ECHO`.
+Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT_TOKEN`, `VK_GROUP_ID`, `OWNER_VK_IDS`, `REDIS_*`, `DATABASE_URL`, `SEAT_PRICE`, `PAYMENTS_PASSWORD`, `COOKIE_SECRET`, `COOKIE_SECURE`, `DISPLAY_TZ`, `LOG_LEVEL`, `SQL_ECHO`.
+
+- `web/app.py` refuses to start without `PAYMENTS_PASSWORD` and `COOKIE_SECRET`. `COOKIE_SECURE=false` is needed for local HTTP (default `true`, Secure cookie behind HTTPS).
+- Timestamps are stored as naive UTC; the web shows them in `DISPLAY_TZ` (default `Europe/Moscow`) via the `local_dt` Jinja filter.
+- Logging: call `logging_config.setup_logging()` once at process start (bot, web, scripts already do); no other `basicConfig`. stdout only, level from `LOG_LEVEL`.
 
 Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE_URL` and `SQL_ECHO` directly from env.
 
