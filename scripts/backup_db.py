@@ -29,10 +29,9 @@ from vkbottle.bot import Bot
 from bot.config import OWNER_VK_IDS
 from database import SQLITE_PATH
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+from logging_config import setup_logging
+
+setup_logging()
 logger = logging.getLogger(__name__)
 
 VK_BOT_TOKEN = os.getenv("VK_BOT_TOKEN", "")

@@ -28,7 +28,10 @@ from models.seat_assignment import SeatAssignment
 from models.user import AppUser
 from models.vk_user import VkUser
 
+from logging_config import setup_logging
+
 load_dotenv()
+setup_logging()
 
 app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")

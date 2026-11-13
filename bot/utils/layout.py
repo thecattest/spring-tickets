@@ -160,30 +160,3 @@ def clear_cache():
     global _layout_cache
     _layout_cache = None
     logger.debug("Layout cache cleared")
-
-
-if __name__ == "__main__":
-    # Test layout loading
-    logging.basicConfig(level=logging.INFO)
-
-    try:
-        layout = load_layout()
-        print(f"Layout loaded successfully!")
-        print(f"Total rows: {len(layout['rows'])}")
-
-        min_row, max_row = get_row_range()
-        print(f"Row range: {min_row}-{max_row}")
-
-        # Test some rows
-        for test_row in [1, 10, 24]:
-            if is_valid_row(test_row):
-                seat_count = get_seat_count(test_row)
-                print(f"Row {test_row}: {seat_count} seats")
-
-                # Test seat validation
-                print(f"  - Seat 1 valid: {is_valid_seat(test_row, 1)}")
-                print(f"  - Seat {seat_count} valid: {is_valid_seat(test_row, seat_count)}")
-                print(f"  - Seat {seat_count + 1} valid: {is_valid_seat(test_row, seat_count + 1)}")
-
-    except LayoutError as e:
-        print(f"Error: {e}")

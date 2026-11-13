@@ -123,7 +123,12 @@ def _run_migrations() -> None:
 
 
 if __name__ == "__main__":
-    # Quick test: initialize database
-    print(f"Connecting to: {DATABASE_URL}")
+    import logging
+
+    from logging_config import setup_logging
+
+    setup_logging()
+    log = logging.getLogger("database")
+    log.info("Initializing database: %s", make_url(DATABASE_URL).render_as_string(hide_password=True))
     init_db()
-    print("Database initialized successfully!")
+    log.info("Database initialized")
