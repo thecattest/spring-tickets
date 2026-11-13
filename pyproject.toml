@@ -20,11 +20,37 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.7.0",
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23",
+    "ruff>=0.17.5",
 ]
 
 [tool.uv]
 # Пока проект — набор модулей в корне, не устанавливаемый пакет.
 # Пакет `tickets` появится на этапе 7 ROADMAP (тогда — package = true).
 package = false
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["data", "backups"]
+
+[tool.ruff.lint]
+# Умеренный набор: ошибки, импорты, устаревший синтаксис, частые баги, упрощения
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = [
+    "E501",  # длину строк держит форматтер; длинные строки текста не ломаем
+    "B008",  # вызовы в аргументах по умолчанию — штатный паттерн FastAPI (Form(...))
+    "E712",  # `column == True` — штатный способ сравнения в SQLAlchemy-запросах
+    "UP042", # (str, Enum) → StrEnum меняет str(): код сравнивает str(BotState...) — этап 7
+]
+
+[tool.ruff.lint.per-file-ignores]
+# sys.path.insert и load_dotenv до импортов — уйдёт с переходом на python -m (этап 4)
+"scripts/*" = ["E402"]
+# raise без from в старом слое БД — переписывается в сервисы на этапе 7
+"bot/utils/db.py" = ["B904"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config"]

@@ -9,7 +9,7 @@ import json
 import os
 import secrets
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -18,19 +18,18 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import func
 
 from bot.utils.layout import get_layout
 from database import SessionLocal
+from logging_config import setup_logging
 from models.base import SeatStatus
 from models.payment import Payment, PaymentSeat
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.user import AppUser
 from models.vk_user import VkUser
-
-from logging_config import setup_logging
 
 load_dotenv()
 setup_logging()
@@ -47,7 +46,7 @@ def local_dt(value: datetime | None, fmt: str = "%d.%m.%Y %H:%M") -> str:
     if value is None:
         return ""
     if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
+        value = value.replace(tzinfo=UTC)
     return value.astimezone(DISPLAY_TZ).strftime(fmt)
 
 
@@ -500,9 +499,9 @@ def bulk_verify(request: Request):
         return RedirectResponse("/payments/login", status_code=303)
 
     with SessionLocal() as session:
-        updated = (
+        (
             session.query(Payment)
-            .filter(Payment.is_verified == False)
+            .filter(Payment.is_verified.is_(False))
             .update({"is_verified": True})
         )
         session.commit()

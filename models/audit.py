@@ -3,27 +3,28 @@ AuditLog model - аудит-лог (полная история действий
 """
 
 from datetime import datetime
-from typing import Optional
-from sqlalchemy import ForeignKey, Index, Integer, JSON, Text
+
+from sqlalchemy import JSON, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from models.base import Base, ActorType
+
+from models.base import ActorType, Base
 
 
 class AuditLog(Base):
     """Аудит-лог (полная история действий пользователей и системы)."""
-    
+
     __tablename__ = "audit_log"
-    
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
-    
+
     actor_type: Mapped[ActorType] = mapped_column(nullable=False)
-    actor_user_id: Mapped[Optional[int]] = mapped_column(
+    actor_user_id: Mapped[int | None] = mapped_column(
         Integer,
         ForeignKey("app_users.id"),
         nullable=True
     )
-    
+
     action_type: Mapped[str] = mapped_column(
         Text,
         nullable=False,
@@ -34,18 +35,18 @@ class AuditLog(Base):
         nullable=False,
         comment="reservation/payment/expense/seat_assignment/..."
     )
-    entity_id: Mapped[Optional[str]] = mapped_column(
+    entity_id: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
         comment="Строкой (на случай разных типов id)"
     )
-    
+
     payload: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,
         default=dict
     )
-    
+
     __table_args__ = (
         # Быстрая прокрутка/фильтрация по времени
         Index("audit_log_created_at_idx", "created_at"),
@@ -56,7 +57,7 @@ class AuditLog(Base):
         # Фильтр по пользователю (кто делал)
         Index("audit_log_actor_user_idx", "actor_user_id"),
     )
-    
+
     def __repr__(self) -> str:
         return (
             f"AuditLog(id={self.id!r}, action_type={self.action_type!r}, "

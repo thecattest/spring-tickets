@@ -9,20 +9,24 @@ Handles:
 """
 
 import logging
-from vkbottle.bot import Message
-from vkbottle import VKAPIError
 
+from vkbottle.bot import Message
+
+from bot import texts
+from bot.constants import Btn
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.utils import db
-from bot.utils.layout import get_seat_count
-from bot.keyboards import seat_addition_menu_keyboard, get_empty_keyboard, context_switch_keyboard, main_menu_keyboard
-from bot.messages import generate_reservation_script
-from models.base import SeatStatus
 from bot.handlers.menu import show_main_menu
+from bot.keyboards import (
+    context_switch_keyboard,
+    get_empty_keyboard,
+    seat_addition_menu_keyboard,
+)
+from bot.messages import generate_reservation_script
+from bot.utils import db
 from bot.utils.formatting import pluralize_seats
-from bot.constants import Btn
-from bot import texts
+from bot.utils.layout import get_seat_count
+from models.base import SeatStatus
 
 logger = logging.getLogger(__name__)
 
@@ -31,10 +35,7 @@ def forwarded_has_receipt_attachment(forwarded) -> bool:
     """Check if forwarded message has photo or document attachment (receipt indicator)."""
     if not hasattr(forwarded, 'attachments') or not forwarded.attachments:
         return False
-    for att in forwarded.attachments:
-        if att.photo is not None or att.doc is not None:
-            return True
-    return False
+    return any(att.photo is not None or att.doc is not None for att in forwarded.attachments)
 
 
 def extract_attachment_urls(forwarded) -> list[dict]:
@@ -44,7 +45,6 @@ def extract_attachment_urls(forwarded) -> list[dict]:
     """
     from bot.utils.attachments import get_attachment_urls
     return get_attachment_urls(forwarded)
-    return result
 
 
 def get_forwarded_or_reply(message: Message):
@@ -479,7 +479,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
     # All seats available - add them
     try:
         seller_id = db.get_seller_id(message.from_id)
-        assignments = db.add_seats_to_reservation(reservation_id, row, seats, seller_id)
+        db.add_seats_to_reservation(reservation_id, row, seats, seller_id)
 
         # Get total seat count for reservation
         all_seats = db.get_reservation_seats(reservation_id)

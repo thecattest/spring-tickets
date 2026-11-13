@@ -10,21 +10,22 @@ Reserves are SeatAssignment rows with status=RESERVED, reservation_id=None, and 
 """
 
 import logging
+
 from vkbottle.bot import Message
 
+from bot import texts
+from bot.constants import Btn
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.utils import db
-from bot.utils.layout import get_seat_count
 from bot.keyboards import (
-    reserve_action_keyboard,
     confirmation_keyboard,
     get_empty_keyboard,
+    reserve_action_keyboard,
 )
 from bot.messages import format_reserves_list
+from bot.utils import db
 from bot.utils.formatting import format_seat_ranges, pluralize_seats
-from bot.constants import Btn
-from bot import texts
+from bot.utils.layout import get_seat_count
 from models.base import SeatStatus
 
 logger = logging.getLogger(__name__)

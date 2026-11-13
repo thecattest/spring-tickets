@@ -9,16 +9,15 @@ Tests:
 - Conflict handling
 """
 
-import pytest
-from datetime import datetime
 
-from models.base import Base, SeatStatus, ReservationState
-from models.vk_user import VkUser
-from models.user import AppUser, UserRole
-from models.reservation import Reservation
-from models.seat_assignment import SeatAssignment
-from database import SessionLocal
+import contextlib
+
+import pytest
+
 from bot.utils import db
+from database import SessionLocal
+from models.base import ReservationState
+from models.user import AppUser, UserRole
 
 
 @pytest.fixture(scope="function")
@@ -189,10 +188,8 @@ class TestSeatOperations:
         reservation2 = db.create_reservation(vk_user2.id, test_seller.id)
 
         # Try to add multiple seats where one is occupied
-        try:
+        with contextlib.suppress(db.SeatOccupiedError):
             db.add_seats_to_reservation(reservation2.id, 1, [4, 5, 6], test_seller.id)
-        except db.SeatOccupiedError:
-            pass
 
         # Verify no seats were added (atomicity)
         assert db.is_seat_available(1, 4) is True
@@ -242,7 +239,7 @@ class TestLayoutIntegration:
 
     def test_layout_loading(self):
         """Test that layout can be loaded."""
-        from bot.utils.layout import load_layout, get_seat_count, is_valid_seat
+        from bot.utils.layout import get_seat_count, is_valid_seat, load_layout
 
         layout = load_layout()
         assert "rows" in layout

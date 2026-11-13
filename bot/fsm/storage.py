@@ -7,11 +7,12 @@ No TTL: states persist until explicitly cleared
 
 import json
 import logging
-from typing import Optional, Any, Dict
+from typing import Any
+
 from redis.asyncio import Redis
+from vkbottle import BaseStateGroup
 from vkbottle.dispatch.dispenser import ABCStateDispenser
 from vkbottle.dispatch.dispenser.builtin import StatePeer
-from vkbottle import BaseStateGroup
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class RedisStorage(ABCStateDispenser):
         host: str = "localhost",
         port: int = 6379,
         db: int = 0,
-        password: Optional[str] = None,
+        password: str | None = None,
     ):
         """
         Initialize Redis storage.
@@ -49,7 +50,7 @@ class RedisStorage(ABCStateDispenser):
         self.port = port
         self.db = db
         self.password = password
-        self.redis: Optional[Redis] = None
+        self.redis: Redis | None = None
 
     async def connect(self):
         """
@@ -89,7 +90,7 @@ class RedisStorage(ABCStateDispenser):
         """
         return f"bot:fsm:{peer_id}"
 
-    async def get(self, peer_id: int) -> Optional[StatePeer]:
+    async def get(self, peer_id: int) -> StatePeer | None:
         """
         Get StatePeer for user.
 
@@ -185,7 +186,7 @@ class RedisStorage(ABCStateDispenser):
 
     # Helper methods for context access (using StatePeer.payload)
 
-    async def get_context(self, peer_id: int) -> Dict[str, Any]:
+    async def get_context(self, peer_id: int) -> dict[str, Any]:
         """
         Get context data (payload) for user.
 

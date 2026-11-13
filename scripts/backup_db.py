@@ -21,14 +21,15 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
 import os
+
 from vkbottle.bot import Bot
 
 from bot.config import OWNER_VK_IDS
 from database import SQLITE_PATH
-
 from logging_config import setup_logging
 
 setup_logging()

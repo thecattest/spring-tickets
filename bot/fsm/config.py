@@ -13,8 +13,9 @@ Phase 12 /cancel reads back_state for step-back navigation.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Literal, Optional
+from typing import Literal
 
 from bot.fsm.states import BotState
 
@@ -32,10 +33,10 @@ class StateConfig:
     auth_guard: Literal["any", "seller", "admin"]
     """Minimum role required to reach this state."""
 
-    handler: Optional[Callable] = None
+    handler: Callable | None = None
     """Actual handler function — left None in Phase 9. Phase 10 Router wires handlers."""
 
-    back_state: Optional[BotState] = None
+    back_state: BotState | None = None
     """State to return to on /cancel. Phase 12 resolves ambiguous cases via context."""
 
     forward_states: list[BotState] = field(default_factory=list)

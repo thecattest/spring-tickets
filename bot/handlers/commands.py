@@ -5,6 +5,7 @@ These commands are available in any state.
 """
 
 import logging
+
 from vkbottle.bot import Message
 
 from bot import texts
@@ -121,9 +122,9 @@ async def cancel_handler(message: Message, storage):
                 buyer_vk_api_id=state_peer.payload["buyer_vk_api_id"],
             )
         elif back_state == BotState.RESERVE_ACTION:
-            from bot.utils import db
-            from bot.messages import format_reserves_list
             from bot.keyboards import reserve_action_keyboard
+            from bot.messages import format_reserves_list
+            from bot.utils import db
             reserves = db.get_active_reserves()
             reserves_text = format_reserves_list(reserves)
             await message.answer(

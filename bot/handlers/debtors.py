@@ -15,12 +15,13 @@ Cron reminders use min_days from config (default 7).
 """
 
 import logging
+
 from vkbottle.bot import Message
 
 from bot import texts
-from bot.utils import db
 from bot.keyboards import debtors_keyboard
 from bot.messages import format_debtors_list
+from bot.utils import db
 from models.base import UserRole
 
 logger = logging.getLogger(__name__)
@@ -46,10 +47,7 @@ async def _show_debtors(message: Message):
         return
 
     # Admin sees all debtors; seller sees only their own
-    if app_user.role == UserRole.ADMIN:
-        seller_id = None
-    else:
-        seller_id = app_user.id
+    seller_id = None if app_user.role == UserRole.ADMIN else app_user.id
 
     try:
         debtors = db.get_debtors(seller_id=seller_id)

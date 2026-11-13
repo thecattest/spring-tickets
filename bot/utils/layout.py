@@ -7,15 +7,13 @@ The layout is cached in memory after first load.
 
 import json
 import logging
-from typing import Dict, Optional
-from pathlib import Path
 
 from bot.config import LAYOUT_FILE
 
 logger = logging.getLogger(__name__)
 
 # Global layout cache
-_layout_cache: Optional[Dict] = None
+_layout_cache: dict | None = None
 
 
 class LayoutError(Exception):
@@ -23,7 +21,7 @@ class LayoutError(Exception):
     pass
 
 
-def load_layout() -> Dict:
+def load_layout() -> dict:
     """
     Load hall layout from layout.json.
 
@@ -39,7 +37,7 @@ def load_layout() -> Dict:
         return _layout_cache
 
     try:
-        with open(LAYOUT_FILE, 'r', encoding='utf-8') as f:
+        with open(LAYOUT_FILE, encoding='utf-8') as f:
             layout = json.load(f)
 
         # Validate layout structure
@@ -63,13 +61,13 @@ def load_layout() -> Dict:
 
         return layout
 
-    except FileNotFoundError:
-        raise LayoutError(f"Layout file not found: {LAYOUT_FILE}")
+    except FileNotFoundError as e:
+        raise LayoutError(f"Layout file not found: {LAYOUT_FILE}") from e
     except json.JSONDecodeError as e:
-        raise LayoutError(f"Invalid JSON in layout file: {e}")
+        raise LayoutError(f"Invalid JSON in layout file: {e}") from e
 
 
-def get_layout() -> Dict:
+def get_layout() -> dict:
     """
     Get cached layout (loads if not already loaded).
 
@@ -149,7 +147,7 @@ def get_row_range() -> tuple[int, int]:
     """
     layout = get_layout()
     rows = layout["rows"]
-    row_numbers = [int(r) for r in rows.keys()]
+    row_numbers = [int(r) for r in rows]
     return min(row_numbers), max(row_numbers)
 
 

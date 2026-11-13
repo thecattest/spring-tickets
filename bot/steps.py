@@ -10,7 +10,7 @@ All functions are fully synchronous — no async, no await.
 
 import logging
 from dataclasses import dataclass
-from typing import Optional, Literal
+from typing import Literal
 
 logger = logging.getLogger(__name__)
 
@@ -18,20 +18,20 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RowResult:
     ok: bool
-    row: Optional[int] = None
-    error_text: Optional[str] = None
+    row: int | None = None
+    error_text: str | None = None
 
 
 @dataclass
 class SeatResult:
     ok: bool
-    seats: Optional[list[int]] = None
-    error_text: Optional[str] = None
+    seats: list[int] | None = None
+    error_text: str | None = None
 
 
 def handle_row_input(text: str) -> RowResult:
-    from bot.utils.layout import is_valid_row, get_row_range
     from bot import texts
+    from bot.utils.layout import get_row_range, is_valid_row
 
     stripped = text.strip()
     try:
@@ -55,11 +55,11 @@ def handle_seat_input(
     text: str,
     row: int,
     mode: Literal["layout_only", "availability", "membership"],
-    reservation_id: Optional[int] = None,
+    reservation_id: int | None = None,
 ) -> SeatResult:
-    from bot.utils.seat_parser import parse_seats, SeatParseError
-    from bot.utils.layout import is_valid_seat, get_seat_count
     from bot import texts
+    from bot.utils.layout import get_seat_count, is_valid_seat
+    from bot.utils.seat_parser import SeatParseError, parse_seats
 
     # Step 1: Parse
     try:
@@ -129,7 +129,7 @@ def handle_seat_input(
     raise ValueError(f"Unknown mode: {mode}")
 
 
-def handle_confirmation(text: str) -> Optional[bool]:
+def handle_confirmation(text: str) -> bool | None:
     from bot.constants import Btn
     stripped = text.strip()
     if stripped == Btn.CONFIRM:

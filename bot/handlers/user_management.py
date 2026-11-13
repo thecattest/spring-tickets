@@ -5,11 +5,12 @@
 """
 
 import logging
+
 from vkbottle.bot import Message
 
 from bot import config, texts
-from bot.utils import db
 from bot.keyboards import commands_keyboard
+from bot.utils import db
 from models.base import UserRole
 
 logger = logging.getLogger(__name__)
@@ -63,10 +64,7 @@ async def _add_user(message: Message, role: UserRole) -> None:
             msg = texts.MSG_USER_UPDATED_SELLER
     else:
         # Новый пользователь (или роль не изменилась)
-        if role == UserRole.ADMIN:
-            msg = texts.MSG_USER_ADDED_ADMIN
-        else:
-            msg = texts.MSG_USER_ADDED_SELLER
+        msg = texts.MSG_USER_ADDED_ADMIN if role == UserRole.ADMIN else texts.MSG_USER_ADDED_SELLER
 
     await message.answer(
         msg.format(name=display_name, vk_id=target_vk_id),

@@ -23,14 +23,15 @@ PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
-from vkbottle.bot import Bot
 from vkbottle import VKAPIError
+from vkbottle.bot import Bot
 
-from bot.config import VK_BOT_TOKEN, DEBTORS_REMINDER_MIN_DAYS
-from bot.utils.db import get_debtors, get_all_active_sellers, log_reminder_sent
+from bot.config import DEBTORS_REMINDER_MIN_DAYS, VK_BOT_TOKEN
 from bot.messages import format_reminder
+from bot.utils.db import get_all_active_sellers, get_debtors, log_reminder_sent
 from database import init_db
 
 

@@ -6,6 +6,7 @@
 """
 
 import logging
+
 import aiohttp
 from vkbottle import ABCAPI
 
@@ -31,17 +32,16 @@ def get_attachment_urls(forwarded) -> list[dict]:
                 url = best.url or best.src
                 if url:
                     result.append({"type": "photo", "url": url, "title": "photo.jpg"})
-        elif att.doc is not None:
-            if att.doc.url:
-                # Сохраняем ext для корректного content-type при загрузке
-                title = att.doc.title or "document"
-                if att.doc.ext and "." not in title:
-                    title = f"{title}.{att.doc.ext}"
-                result.append({
-                    "type": "doc",
-                    "url": att.doc.url,
-                    "title": title,
-                })
+        elif att.doc is not None and att.doc.url:
+            # Сохраняем ext для корректного content-type при загрузке
+            title = att.doc.title or "document"
+            if att.doc.ext and "." not in title:
+                title = f"{title}.{att.doc.ext}"
+            result.append({
+                "type": "doc",
+                "url": att.doc.url,
+                "title": title,
+            })
     return result
 
 
@@ -75,12 +75,14 @@ async def _upload_photo_manual(
             filename="photo.jpg",
             content_type="image/jpeg",
         )
-        async with aiohttp.ClientSession() as session:
-            async with session.post(upload_url, data=form) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Photo upload HTTP error: {resp.status}")
-                    return None
-                upload_result = await resp.json()
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(upload_url, data=form) as resp,
+        ):
+            if resp.status != 200:
+                logger.warning(f"Photo upload HTTP error: {resp.status}")
+                return None
+            upload_result = await resp.json()
 
         if not upload_result or not upload_result.get("photo"):
             logger.warning(f"Photo upload empty response: {upload_result}")
@@ -136,12 +138,14 @@ async def _upload_doc_manual(
             filename=title,
             content_type="application/octet-stream",
         )
-        async with aiohttp.ClientSession() as session:
-            async with session.post(upload_url, data=form) as resp:
-                if resp.status != 200:
-                    logger.warning(f"Doc upload HTTP error: {resp.status}")
-                    return None
-                upload_result = await resp.json()
+        async with (
+            aiohttp.ClientSession() as session,
+            session.post(upload_url, data=form) as resp,
+        ):
+            if resp.status != 200:
+                logger.warning(f"Doc upload HTTP error: {resp.status}")
+                return None
+            upload_result = await resp.json()
 
         if not upload_result or not upload_result.get("file"):
             logger.warning(f"Doc upload empty response: {upload_result}")

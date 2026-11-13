@@ -13,15 +13,15 @@ This file handles the state handlers that process user input AFTER those transit
 """
 
 import logging
+
 from vkbottle.bot import Message
 
+from bot import texts
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.utils import db
-from bot.keyboards import confirmation_keyboard, get_empty_keyboard
 from bot.handlers.menu import show_main_menu
-from bot.utils.formatting import pluralize_seats
-from bot import texts
+from bot.keyboards import confirmation_keyboard, get_empty_keyboard
+from bot.utils import db
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,6 @@ async def deleting_row_handler(message: Message, storage: RedisStorage):
         storage: Redis storage instance
     """
     from bot.steps import handle_row_input
-    from bot.utils.layout import get_seat_count
 
     result = handle_row_input(message.text)
     if not result.ok:

@@ -8,15 +8,21 @@ Handles:
 """
 
 import logging
+
 from vkbottle.bot import Message
 
-from bot.constants import Btn
 from bot import texts
+from bot.constants import Btn
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.utils import db
-from bot.keyboards import main_menu_keyboard, confirmation_keyboard, get_empty_keyboard, context_switch_keyboard
+from bot.keyboards import (
+    confirmation_keyboard,
+    context_switch_keyboard,
+    get_empty_keyboard,
+    main_menu_keyboard,
+)
 from bot.messages import format_reservation_seats
+from bot.utils import db
 from bot.utils.formatting import pluralize_seats
 from models.base import SeatStatus
 

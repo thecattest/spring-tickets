@@ -3,7 +3,7 @@ Base declarative class and ENUM types for SQLAlchemy ORM models.
 """
 
 import enum
-from sqlalchemy import Enum as SQLEnum
+
 from sqlalchemy.orm import DeclarativeBase
 
 

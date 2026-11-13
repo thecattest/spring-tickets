@@ -18,12 +18,13 @@ Storage injection:
 """
 
 import logging
-from vkbottle.framework.labeler.bot import BotLabeler
-from vkbottle.bot import Message
 
+from vkbottle.bot import Message
+from vkbottle.framework.labeler.bot import BotLabeler
+
+from bot.fsm.config import FSM_CONFIG
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.fsm.config import FSM_CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +141,11 @@ class Router:
         Both text= and func= filters are combined — handler matches only when
         the message text is the command AND fwd_messages are present.
         """
-        from bot.handlers.user_management import add_admin_handler, add_seller_handler, remove_user_handler
+        from bot.handlers.user_management import (
+            add_admin_handler,
+            add_seller_handler,
+            remove_user_handler,
+        )
 
         self.labeler.message(text=["addadmin", "/addadmin"])(add_admin_handler)
         self.labeler.message(text=["addseller", "/addseller"])(add_seller_handler)
@@ -180,9 +185,9 @@ class Router:
           debtors_command_handler(message)  — stateless, no storage
           refresh_debtors_handler(message)  — stateless, no storage
         """
-        from bot.handlers.commands import start_handler, help_handler, cancel_handler, exit_handler
-        from bot.handlers.reserve import reserve_command_handler
+        from bot.handlers.commands import cancel_handler, exit_handler, help_handler, start_handler
         from bot.handlers.debtors import debtors_command_handler, refresh_debtors_handler
+        from bot.handlers.reserve import reserve_command_handler
         from bot.handlers.user_management import list_users_handler
 
         self.labeler.message(text=["/start", "start"])(start_handler)
@@ -212,30 +217,30 @@ class Router:
 
         IDLE is skipped — it is handled by the forwarded message handler above.
         """
+        from bot.handlers.deletion import (
+            cancel_confirm_handler,
+            deleting_row_handler,
+            deleting_seats_handler,
+            deletion_confirm_handler,
+        )
+        from bot.handlers.menu import (
+            context_switch_handler,
+            main_menu_handler,
+        )
+        from bot.handlers.payment import payment_quantity_handler
         from bot.handlers.reservation import (
             awaiting_row_handler,
             awaiting_seats_handler,
             seat_addition_menu_handler,
         )
-        from bot.handlers.menu import (
-            main_menu_handler,
-            context_switch_handler,
-        )
-        from bot.handlers.deletion import (
-            deleting_row_handler,
-            deleting_seats_handler,
-            deletion_confirm_handler,
-            cancel_confirm_handler,
-        )
-        from bot.handlers.payment import payment_quantity_handler
         from bot.handlers.reserve import (
             reserve_action_handler,
             reserve_adding_row_handler,
             reserve_adding_seats_handler,
             reserve_comment_handler,
+            reserve_remove_confirm_handler,
             reserve_removing_row_handler,
             reserve_removing_seats_handler,
-            reserve_remove_confirm_handler,
         )
 
         # Handler lookup — maps BotState to handler function.
@@ -260,7 +265,7 @@ class Router:
             BotState.RESERVE_REMOVE_CONFIRM: reserve_remove_confirm_handler,
         }
 
-        for state, config in FSM_CONFIG.items():
+        for state in FSM_CONFIG:
             if state not in handler_map:
                 continue  # IDLE — no state handler
             handler_func = handler_map[state]

@@ -12,20 +12,19 @@ Provides high-level functions for:
 import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Optional, List
-from sqlalchemy import select, func
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
+
+from bot.config import SEAT_PRICE
 from database import SessionLocal
-from models.vk_user import VkUser
-from models.user import AppUser
+from models.audit import AuditLog
+from models.base import ActorType, ReservationState, SeatStatus, UserRole
+from models.payment import Payment, PaymentSeat
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
-from models.payment import Payment, PaymentSeat
-from models.audit import AuditLog
-from models.base import SeatStatus, ReservationState, ActorType, UserRole
-from bot.config import SEAT_PRICE
+from models.user import AppUser
+from models.vk_user import VkUser
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +108,7 @@ def get_or_create_vk_user(vk_id: int, display_name: str) -> VkUser:
             raise DatabaseError(f"Failed to get/create VK user: {e}")
 
 
-def get_active_reservation(vk_user_id: int) -> Optional[Reservation]:
+def get_active_reservation(vk_user_id: int) -> Reservation | None:
     """
     Get active reservation for VK user (by internal ID).
 
@@ -216,7 +215,7 @@ def is_seat_available(row: int, seat: int) -> bool:
             raise DatabaseError(f"Failed to check seat availability: {e}")
 
 
-def get_seat_assignment(row: int, seat: int) -> Optional[SeatAssignment]:
+def get_seat_assignment(row: int, seat: int) -> SeatAssignment | None:
     """
     Get current seat assignment if exists.
 
@@ -246,9 +245,9 @@ def get_seat_assignment(row: int, seat: int) -> Optional[SeatAssignment]:
 def add_seats_to_reservation(
     reservation_id: int,
     row: int,
-    seats: List[int],
+    seats: list[int],
     user_id: int
-) -> List[SeatAssignment]:
+) -> list[SeatAssignment]:
     """
     Add seats to reservation (atomic operation).
 
@@ -348,7 +347,7 @@ def add_seats_to_reservation(
             raise DatabaseError(f"Failed to add seats: {e}")
 
 
-def get_reservation_seats(reservation_id: int) -> List[SeatAssignment]:
+def get_reservation_seats(reservation_id: int) -> list[SeatAssignment]:
     """
     Get all active seats for a reservation.
 
@@ -432,7 +431,7 @@ def is_user_admin(vk_user_id: int) -> bool:
         return user is not None and user.role == UserRole.ADMIN
 
 
-def get_user_role(vk_user_id: int) -> Optional[UserRole]:
+def get_user_role(vk_user_id: int) -> UserRole | None:
     """
     Get the role of a VK user.
 
@@ -448,7 +447,7 @@ def get_user_role(vk_user_id: int) -> Optional[UserRole]:
         return session.execute(stmt).scalar_one_or_none()
 
 
-def get_all_admin_vk_ids() -> List[int]:
+def get_all_admin_vk_ids() -> list[int]:
     """Get VK user IDs of all active admins."""
     with SessionLocal() as session:
         stmt = (
@@ -459,7 +458,7 @@ def get_all_admin_vk_ids() -> List[int]:
         return list(session.execute(stmt).scalars().all())
 
 
-def get_reservation_with_seats(reservation_id: int) -> tuple[Optional[Reservation], List[SeatAssignment]]:
+def get_reservation_with_seats(reservation_id: int) -> tuple[Reservation | None, list[SeatAssignment]]:
     """
     Get reservation and its active seats.
 
@@ -497,7 +496,7 @@ def get_reservation_with_seats(reservation_id: int) -> tuple[Optional[Reservatio
 def release_seats(
     reservation_id: int,
     row: int,
-    seats: List[int],
+    seats: list[int],
     user_id: int
 ) -> int:
     """
@@ -669,10 +668,10 @@ def record_payment(
     reservation_id: int,
     seat_count: int,
     user_id: int,
-    vk_message_url: Optional[str] = None,
-    vk_message_ts: Optional[datetime] = None,
-    receipt_attachments: Optional[str] = None,
-) -> tuple[Payment, List[SeatAssignment]]:
+    vk_message_url: str | None = None,
+    vk_message_ts: datetime | None = None,
+    receipt_attachments: str | None = None,
+) -> tuple[Payment, list[SeatAssignment]]:
     """
     Record payment for N seats in a reservation (atomic operation).
 
@@ -780,7 +779,7 @@ def record_payment(
             raise DatabaseError(f"Failed to record payment: {e}")
 
 
-def get_app_user_by_vk_id(vk_user_id: int) -> Optional[AppUser]:
+def get_app_user_by_vk_id(vk_user_id: int) -> AppUser | None:
     """
     Get AppUser by VK user ID.
 
@@ -811,7 +810,7 @@ def get_app_user_by_vk_id(vk_user_id: int) -> Optional[AppUser]:
             raise DatabaseError(f"Failed to get AppUser by VK user ID: {e}")
 
 
-def get_active_reserves() -> List[dict]:
+def get_active_reserves() -> list[dict]:
     """
     Get all active reserved seats grouped by row and comment.
 
@@ -847,7 +846,7 @@ def get_active_reserves() -> List[dict]:
             raise DatabaseError(f"Failed to get active reserves: {e}")
 
 
-def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[SeatAssignment]:
+def add_reserve(row: int, seats: list[int], comment: str, user_id: int) -> list[SeatAssignment]:
     """
     Add reserved seats (atomic operation, admin-only).
 
@@ -944,7 +943,7 @@ def add_reserve(row: int, seats: List[int], comment: str, user_id: int) -> List[
             raise DatabaseError(f"Failed to add reserve: {e}")
 
 
-def release_reserve(row: int, seats: List[int], user_id: int) -> List[dict]:
+def release_reserve(row: int, seats: list[int], user_id: int) -> list[dict]:
     """
     Release reserved seats (atomic operation, admin-only).
 
@@ -1023,7 +1022,7 @@ def release_reserve(row: int, seats: List[int], user_id: int) -> List[dict]:
             raise DatabaseError(f"Failed to release reserve: {e}")
 
 
-def get_debtors(seller_id: Optional[int] = None, min_days: int = 0) -> List[dict]:
+def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
     """
     Get list of debtors: reservations with BOOKED (unpaid) seats.
 
@@ -1106,7 +1105,7 @@ def get_debtors(seller_id: Optional[int] = None, min_days: int = 0) -> List[dict
             raise DatabaseError(f"Failed to get debtors: {e}")
 
 
-def get_all_active_sellers() -> List[AppUser]:
+def get_all_active_sellers() -> list[AppUser]:
     """
     Get all active sellers (AppUsers with vk_user_id set).
 
@@ -1283,7 +1282,7 @@ def deactivate_app_user(vk_user_id: int) -> None:
             raise DatabaseError(f"Failed to deactivate app user: {e}")
 
 
-def get_all_app_users() -> List[AppUser]:
+def get_all_app_users() -> list[AppUser]:
     """Все активные пользователи системы, админы первыми."""
     with SessionLocal() as session:
         stmt = (

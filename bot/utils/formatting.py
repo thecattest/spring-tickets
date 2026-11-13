@@ -7,7 +7,6 @@ Provides range formatting for consecutive seat numbers.
 from itertools import groupby
 from operator import itemgetter
 
-
 __all__ = ["format_seat_ranges", "pluralize_seats"]
 
 

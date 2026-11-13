@@ -10,7 +10,6 @@ Two formats are tested:
 - Legacy format:  "<value>"           (plain enum value, for backward compat)
 """
 
-import pytest
 from bot.fsm.states import BotState
 
 
@@ -72,7 +71,7 @@ class TestIdleGuardLogic:
         assert plain_idle == "idle"
 
         # The guard `original_state != "idle"` works for the plain legacy format
-        assert not (plain_idle != "idle")
+        assert plain_idle == "idle"
 
         # The modern format "BotState:idle" passes the guard (!=), but the
         # extracted value IS "idle", which means BotState("idle") == BotState.IDLE

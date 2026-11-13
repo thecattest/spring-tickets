@@ -4,10 +4,11 @@ Configuration management for the VK bot.
 Loads settings from environment variables and provides centralized configuration.
 """
 
-import os
 import logging
-from dotenv import load_dotenv
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Load .env file
 load_dotenv()

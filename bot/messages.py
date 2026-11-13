@@ -4,20 +4,19 @@ Message templates for the VK bot.
 Provides script generation and formatted messages.
 """
 
-from typing import List
 from collections import defaultdict
 from decimal import Decimal
 from itertools import groupby
 
-from models.seat_assignment import SeatAssignment
-from models.base import SeatStatus
 from bot.config import SEAT_PRICE
 from bot.utils.formatting import format_seat_ranges, pluralize_seats
+from models.base import SeatStatus
+from models.seat_assignment import SeatAssignment
 
 
 def generate_reservation_script(
     buyer_display_name: str,
-    seats: List[SeatAssignment],
+    seats: list[SeatAssignment],
 ) -> str:
     """
     Generate script for sending to customer.
@@ -68,7 +67,7 @@ def generate_reservation_script(
     return script
 
 
-def format_seat_list(seats: List[SeatAssignment]) -> str:
+def format_seat_list(seats: list[SeatAssignment]) -> str:
     """
     Format seat list as text.
 
@@ -94,7 +93,7 @@ def format_seat_list(seats: List[SeatAssignment]) -> str:
     return "\n".join(lines)
 
 
-def format_reservation_seats(seats: List[SeatAssignment]) -> str:
+def format_reservation_seats(seats: list[SeatAssignment]) -> str:
     """
     Format all seats grouped by row and status, with emoji indicators.
 
@@ -251,8 +250,8 @@ def format_reminder(debtors: list) -> str:
 
 
 def format_payment_confirmation(
-    paid_seats: List[SeatAssignment],
-    remaining_seats: List[SeatAssignment],
+    paid_seats: list[SeatAssignment],
+    remaining_seats: list[SeatAssignment],
     payment_amount: Decimal,
     buyer_display_name: str,
 ) -> str:

@@ -10,7 +10,8 @@ Tests all supported input formats:
 """
 
 import pytest
-from bot.utils.seat_parser import parse_seats, SeatParseError
+
+from bot.utils.seat_parser import SeatParseError, parse_seats
 
 
 class TestSeatParser:

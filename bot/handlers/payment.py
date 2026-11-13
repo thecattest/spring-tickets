@@ -11,16 +11,15 @@ from datetime import datetime
 
 from vkbottle.bot import Message
 
-from bot.constants import Btn
 from bot import texts
+from bot.constants import Btn
 from bot.fsm.states import BotState
 from bot.fsm.storage import RedisStorage
-from bot.utils import db
-from bot.keyboards import payment_quantity_keyboard, main_menu_keyboard, get_empty_keyboard
+from bot.keyboards import main_menu_keyboard, payment_quantity_keyboard
 from bot.messages import format_payment_confirmation, format_reservation_seats
+from bot.utils import db
 from bot.utils.formatting import pluralize_seats
 from models.base import SeatStatus
-from bot.config import SEAT_PRICE
 
 logger = logging.getLogger(__name__)
 

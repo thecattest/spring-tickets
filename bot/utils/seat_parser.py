@@ -9,9 +9,8 @@ Supports multiple input formats:
 - Complex: "1-3, 5, 7-9" -> [1, 2, 3, 5, 7, 8, 9]
 """
 
-import re
 import logging
-from typing import List
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +20,7 @@ class SeatParseError(Exception):
     pass
 
 
-def parse_seats(text: str) -> List[int]:
+def parse_seats(text: str) -> list[int]:
     """
     Parse seat numbers from text input.
 
@@ -85,10 +84,10 @@ def parse_seats(text: str) -> List[int]:
                 try:
                     start = int(start_str)
                     end = int(end_str)
-                except ValueError:
+                except ValueError as e:
                     raise SeatParseError(
                         f"Неверный диапазон: '{part}'. Начало и конец должны быть числами"
-                    )
+                    ) from e
 
                 if start <= 0 or end <= 0:
                     raise SeatParseError(
@@ -106,7 +105,7 @@ def parse_seats(text: str) -> List[int]:
             except SeatParseError:
                 raise
             except Exception as e:
-                raise SeatParseError(f"Ошибка обработки диапазона '{part}': {e}")
+                raise SeatParseError(f"Ошибка обработки диапазона '{part}': {e}") from e
 
         else:
             # Single seat number
@@ -120,8 +119,8 @@ def parse_seats(text: str) -> List[int]:
 
                 seats.append(seat)
 
-            except ValueError:
-                raise SeatParseError(f"Неверный номер места: '{part}'. Ожидается число")
+            except ValueError as e:
+                raise SeatParseError(f"Неверный номер места: '{part}'. Ожидается число") from e
 
     if not seats:
         raise SeatParseError("Не найдено ни одного номера места")

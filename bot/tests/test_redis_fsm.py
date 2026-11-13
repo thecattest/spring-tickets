@@ -8,10 +8,10 @@ import asyncio
 
 import pytest
 import redis.exceptions
-
-from bot.fsm.storage import RedisStorage
-from bot.fsm.states import BotState
 from vkbottle.dispatch.dispenser.builtin import StatePeer
+
+from bot.fsm.states import BotState
+from bot.fsm.storage import RedisStorage
 
 
 @pytest.mark.asyncio
