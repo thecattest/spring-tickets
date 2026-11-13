@@ -5,7 +5,10 @@ Verifies that StatePeer objects are correctly stored and retrieved.
 """
 
 import asyncio
+
 import pytest
+import redis.exceptions
+
 from bot.fsm.storage import RedisStorage
 from bot.fsm.states import BotState
 from vkbottle.dispatch.dispenser.builtin import StatePeer
@@ -15,9 +18,13 @@ from vkbottle.dispatch.dispenser.builtin import StatePeer
 async def test_redis_state_peer_storage():
     """Test that RedisStorage properly stores and retrieves StatePeer objects."""
 
-    # Initialize storage
-    storage = RedisStorage(host="localhost", port=6379, db=0)
-    await storage.connect()
+    # Отдельная БД Redis (15), чтобы не задеть реальные FSM-состояния в db 0.
+    # Без запущенного Redis тест пропускается (testcontainers — в этапе 8 ROADMAP).
+    storage = RedisStorage(host="localhost", port=6379, db=15)
+    try:
+        await storage.connect()
+    except (redis.exceptions.ConnectionError, redis.exceptions.AuthenticationError) as e:
+        pytest.skip(f"Redis is not available on localhost:6379: {e}")
 
     try:
         peer_id = 999999  # Test user ID

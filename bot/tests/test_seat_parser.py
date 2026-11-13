@@ -117,9 +117,10 @@ class TestSeatParser:
 
     def test_negative_seat(self):
         """Test negative seat number raises error."""
-        with pytest.raises(SeatParseError, match="Неверный формат"):
+        # «-1» парсится как диапазон с пустым началом — ошибка про диапазон
+        with pytest.raises(SeatParseError, match="Неверный диапазон: '-1'"):
             parse_seats("-1")
-        with pytest.raises(SeatParseError, match="Неверный формат"):
+        with pytest.raises(SeatParseError, match="Неверный диапазон: '-3'"):
             parse_seats("5, -3")
 
     def test_triple_range(self):
