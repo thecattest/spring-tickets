@@ -103,8 +103,7 @@ def hall(request: Request):
         start = int(a["rows"].split("-")[0])
         aisle_row_start = min(aisle_row_start, start)
 
-    return templates.TemplateResponse("hall.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "hall.html", {
         "rows": rows_data,
         "layout_meta": {
             **layout_meta,
@@ -285,8 +284,7 @@ def concert_day(request: Request):
     # Default sort: alphabetical by display name
     entries.sort(key=lambda e: e["buyer_name"].lower())
 
-    return templates.TemplateResponse("concert_day.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "concert_day.html", {
         "entries": entries,
         "entries_json": json.dumps(entries, ensure_ascii=False),
         "total_entries": len(entries),
@@ -300,8 +298,7 @@ def concert_day(request: Request):
 
 @app.get("/payments/login")
 def payments_login(request: Request, error: str = ""):
-    return templates.TemplateResponse("payments_login.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments_login.html", {
         "error": error,
     })
 
@@ -319,8 +316,7 @@ def payments_login_post(request: Request, password: str = Form(...)):
             samesite="lax",
         )
         return response
-    return templates.TemplateResponse("payments_login.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments_login.html", {
         "error": "Неверный пароль",
     })
 
@@ -436,8 +432,7 @@ def payments_page(request: Request):
         else:
             unverified_payments.append(row)
 
-    return templates.TemplateResponse("payments.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "payments.html", {
         "unverified_payments": unverified_payments,
         "verified_payments": verified_payments,
         "seat_stats": seat_stats,
