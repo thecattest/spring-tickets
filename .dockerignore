@@ -24,7 +24,5 @@ Dockerfile
 *.md
 /deploy
 /tests
-test_db.py
 .claude
-.planning
 .playwright-mcp

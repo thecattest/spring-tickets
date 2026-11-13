@@ -12,7 +12,7 @@ class Base(DeclarativeBase):
     pass
 
 
-# ENUM types matching DB_SCHEMA.md
+# ENUM types
 
 class UserRole(str, enum.Enum):
     """Роли пользователей системы (админ/билетер)."""
