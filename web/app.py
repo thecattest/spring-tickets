@@ -61,10 +61,14 @@ COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
 COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
 
 # Без пароля вход проходил бы с пустой строкой, без секрета — cookie подделываемы
-_missing = [name for name, value in (
-    ("PAYMENTS_PASSWORD", PAYMENTS_PASSWORD),
-    ("COOKIE_SECRET", COOKIE_SECRET),
-) if not value]
+_missing = [
+    name
+    for name, value in (
+        ("PAYMENTS_PASSWORD", PAYMENTS_PASSWORD),
+        ("COOKIE_SECRET", COOKIE_SECRET),
+    )
+    if not value
+]
 if _missing:
     raise RuntimeError(f"Required environment variables are not set: {', '.join(_missing)}")
 
@@ -95,6 +99,7 @@ def is_authenticated(request: Request) -> bool:
 # ---------------------------------------------------------------------------
 # Hall map (public)
 # ---------------------------------------------------------------------------
+
 
 @app.get("/")
 def hall(request: Request):
@@ -134,18 +139,22 @@ def hall(request: Request):
         start = int(a["rows"].split("-")[0])
         aisle_row_start = min(aisle_row_start, start)
 
-    return templates.TemplateResponse(request, "hall.html", {
-        "rows": rows_data,
-        "layout_meta": {
-            **layout_meta,
-            "max_seat_count": max_seat_count,
-            "aisle_seats": aisle_seats,
-            "aisle_row_start": aisle_row_start,
+    return templates.TemplateResponse(
+        request,
+        "hall.html",
+        {
+            "rows": rows_data,
+            "layout_meta": {
+                **layout_meta,
+                "max_seat_count": max_seat_count,
+                "aisle_seats": aisle_seats,
+                "aisle_row_start": aisle_row_start,
+            },
+            "total_seats": total_seats,
+            "total_occupied": total_occupied,
+            "total_free": total_seats - total_occupied,
         },
-        "total_seats": total_seats,
-        "total_occupied": total_occupied,
-        "total_free": total_seats - total_occupied,
-    })
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -259,8 +268,8 @@ def concert_day(request: Request):
     # Build entries from bookings
     entries = []
     for rid, info in reservations.items():
-        seat_lines, seats_search, total_seats, first_row, first_seat = (
-            _build_seat_lines(seats_by_res[rid])
+        seat_lines, seats_search, total_seats, first_row, first_seat = _build_seat_lines(
+            seats_by_res[rid]
         )
 
         # Payment status
@@ -283,55 +292,68 @@ def concert_day(request: Request):
         else:
             display_name = info["buyer_name"]
 
-        entries.append({
-            "buyer_name": display_name,
-            "buyer_profile_url": info["buyer_profile_url"],
-            "seat_lines": seat_lines,
-            "seats_search": seats_search,
-            "seat_count": total_seats,
-            "status_text": status_text,
-            "status_key": status_key,
-            "first_row": first_row,
-            "first_seat": first_seat,
-        })
+        entries.append(
+            {
+                "buyer_name": display_name,
+                "buyer_profile_url": info["buyer_profile_url"],
+                "seat_lines": seat_lines,
+                "seats_search": seats_search,
+                "seat_count": total_seats,
+                "status_text": status_text,
+                "status_key": status_key,
+                "first_row": first_row,
+                "first_seat": first_seat,
+            }
+        )
 
     # Build entries from reserves
     for note, seats_by_row in reserves_by_note.items():
-        seat_lines, seats_search, total_seats, first_row, first_seat = (
-            _build_seat_lines(seats_by_row)
+        seat_lines, seats_search, total_seats, first_row, first_seat = _build_seat_lines(
+            seats_by_row
         )
-        entries.append({
-            "buyer_name": note,
-            "buyer_profile_url": None,
-            "seat_lines": seat_lines,
-            "seats_search": seats_search,
-            "seat_count": total_seats,
-            "status_text": "резерв",
-            "status_key": "reserved",
-            "first_row": first_row,
-            "first_seat": first_seat,
-        })
+        entries.append(
+            {
+                "buyer_name": note,
+                "buyer_profile_url": None,
+                "seat_lines": seat_lines,
+                "seats_search": seats_search,
+                "seat_count": total_seats,
+                "status_text": "резерв",
+                "status_key": "reserved",
+                "first_row": first_row,
+                "first_seat": first_seat,
+            }
+        )
 
     # Default sort: alphabetical by display name
     entries.sort(key=lambda e: e["buyer_name"].lower())
 
-    return templates.TemplateResponse(request, "concert_day.html", {
-        "entries": entries,
-        "entries_json": json.dumps(entries, ensure_ascii=False),
-        "total_entries": len(entries),
-        "total_seats": sum(e["seat_count"] for e in entries),
-    })
+    return templates.TemplateResponse(
+        request,
+        "concert_day.html",
+        {
+            "entries": entries,
+            "entries_json": json.dumps(entries, ensure_ascii=False),
+            "total_entries": len(entries),
+            "total_seats": sum(e["seat_count"] for e in entries),
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Payments auth
 # ---------------------------------------------------------------------------
 
+
 @app.get("/payments/login")
 def payments_login(request: Request, error: str = ""):
-    return templates.TemplateResponse(request, "payments_login.html", {
-        "error": error,
-    })
+    return templates.TemplateResponse(
+        request,
+        "payments_login.html",
+        {
+            "error": error,
+        },
+    )
 
 
 @app.post("/payments/login")
@@ -349,14 +371,19 @@ def payments_login_post(request: Request, password: str = Form(...)):
             samesite="lax",
         )
         return response
-    return templates.TemplateResponse(request, "payments_login.html", {
-        "error": "Неверный пароль",
-    })
+    return templates.TemplateResponse(
+        request,
+        "payments_login.html",
+        {
+            "error": "Неверный пароль",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Payments page
 # ---------------------------------------------------------------------------
+
 
 @app.get("/payments")
 def payments_page(request: Request):
@@ -465,18 +492,23 @@ def payments_page(request: Request):
         else:
             unverified_payments.append(row)
 
-    return templates.TemplateResponse(request, "payments.html", {
-        "unverified_payments": unverified_payments,
-        "verified_payments": verified_payments,
-        "seat_stats": seat_stats,
-        "money_stats": money_stats,
-        "seat_price": SEAT_PRICE,
-    })
+    return templates.TemplateResponse(
+        request,
+        "payments.html",
+        {
+            "unverified_payments": unverified_payments,
+            "verified_payments": verified_payments,
+            "seat_stats": seat_stats,
+            "money_stats": money_stats,
+            "seat_price": SEAT_PRICE,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
 # Payment verification
 # ---------------------------------------------------------------------------
+
 
 @app.post("/payments/{payment_id}/verify")
 def toggle_verify(request: Request, payment_id: int):

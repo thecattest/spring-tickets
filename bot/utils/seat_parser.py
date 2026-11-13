@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SeatParseError(Exception):
     """Exception raised for seat parsing errors."""
+
     pass
 
 
@@ -45,17 +46,17 @@ def parse_seats(text: str) -> list[int]:
     text = text.strip()
 
     # Validate allowed characters: digits, spaces, commas, hyphens
-    if not re.match(r'^[\d\s,\-]+$', text):
+    if not re.match(r"^[\d\s,\-]+$", text):
         raise SeatParseError(
             "Неверный формат. Используйте только цифры, пробелы, запятые и тире. "
             "Примеры: '5 6 7' или '5, 6, 7' или '5-7'"
         )
 
     # Normalize: replace commas with spaces, collapse multiple spaces
-    normalized = re.sub(r'[,\s]+', ' ', text).strip()
+    normalized = re.sub(r"[,\s]+", " ", text).strip()
 
     # Split by spaces
-    parts = normalized.split(' ')
+    parts = normalized.split(" ")
 
     seats = []
 
@@ -65,9 +66,9 @@ def parse_seats(text: str) -> list[int]:
             continue
 
         # Check if it's a range (e.g., "5-7")
-        if '-' in part:
+        if "-" in part:
             try:
-                range_parts = part.split('-')
+                range_parts = part.split("-")
 
                 if len(range_parts) != 2:
                     raise SeatParseError(

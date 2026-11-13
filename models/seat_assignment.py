@@ -25,14 +25,10 @@ class SeatAssignment(Base):
 
     # Координаты места (валидируются дополнительно по JSON layout)
     row_number: Mapped[int] = mapped_column(
-        Integer,
-        CheckConstraint("row_number BETWEEN 1 AND 24"),
-        nullable=False
+        Integer, CheckConstraint("row_number BETWEEN 1 AND 24"), nullable=False
     )
     seat_number: Mapped[int] = mapped_column(
-        Integer,
-        CheckConstraint("seat_number BETWEEN 1 AND 28"),
-        nullable=False
+        Integer, CheckConstraint("seat_number BETWEEN 1 AND 28"), nullable=False
     )
 
     # reserved используется для резерва; booked/paid — для брони
@@ -40,24 +36,18 @@ class SeatAssignment(Base):
 
     # Если место относится к брони, заполняется reservation_id
     reservation_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("reservations.id", ondelete="CASCADE"),
-        nullable=True
+        Integer, ForeignKey("reservations.id", ondelete="CASCADE"), nullable=True
     )
 
     # Кто и когда сделал занятие/снятие
     created_by_user_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=True
+        Integer, ForeignKey("app_users.id"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
 
     released_at: Mapped[datetime | None] = mapped_column(nullable=True)
     released_by_user_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=True
+        Integer, ForeignKey("app_users.id"), nullable=True
     )
 
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -17,15 +17,10 @@ class Reservation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     buyer_vk_user_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("vk_users.id"),
-        nullable=False
+        Integer, ForeignKey("vk_users.id"), nullable=False
     )
     sold_by_user_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=False,
-        comment="Кто оформил бронь"
+        Integer, ForeignKey("app_users.id"), nullable=False, comment="Кто оформил бронь"
     )
 
     state: Mapped[ReservationState] = mapped_column(nullable=False, default=ReservationState.ACTIVE)
@@ -34,7 +29,7 @@ class Reservation(Base):
     last_activity_at: Mapped[datetime] = mapped_column(
         nullable=False,
         default=datetime.utcnow,
-        comment="Для напоминаний: 7 дней после последнего действия"
+        comment="Для напоминаний: 7 дней после последнего действия",
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(nullable=True)
 

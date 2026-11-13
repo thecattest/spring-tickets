@@ -29,7 +29,9 @@ def commands_keyboard() -> str:
     keyboard.add(Text(Btn.RESERVE_CMD), color=KeyboardButtonColor.POSITIVE)
     keyboard.row()
     keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/payments", label="Оплаты"))
-    keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/concert-day", label="День концерта"))
+    keyboard.add(
+        OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/concert-day", label="День концерта")
+    )
 
     return keyboard.get_json()
 
@@ -169,7 +171,9 @@ def payment_quantity_keyboard(booked_count: int) -> str:
 
     if show_all_button:
         keyboard.row()
-        keyboard.add(Text(f"{Btn.PAY_ALL_PREFIX}{booked_count}"), color=KeyboardButtonColor.POSITIVE)
+        keyboard.add(
+            Text(f"{Btn.PAY_ALL_PREFIX}{booked_count}"), color=KeyboardButtonColor.POSITIVE
+        )
 
     # Отмена always on its own row
     keyboard.row()

@@ -64,10 +64,12 @@ async def cancel_handler(message: Message, storage):
         # Step 2: Convert state string to BotState enum
         # vkbottle stores state as "BotState:awaiting_row" format
         from bot.fsm.states import BotState
+
         current_state = BotState(state_peer.state.split(":")[-1])
 
         # Step 3: Look up back_state from FSM_CONFIG
         from bot.fsm.config import FSM_CONFIG
+
         config = FSM_CONFIG.get(current_state)
         back_state = config.back_state if config else None
 
@@ -97,6 +99,7 @@ async def cancel_handler(message: Message, storage):
             from_main_menu = state_peer.payload.get("from_main_menu", False)
             if from_main_menu:
                 from bot.handlers.menu import show_main_menu
+
                 await show_main_menu(
                     message,
                     storage,
@@ -113,6 +116,7 @@ async def cancel_handler(message: Message, storage):
         # Step 7: Generic back_state navigation
         if back_state == BotState.MAIN_MENU:
             from bot.handlers.menu import show_main_menu
+
             await show_main_menu(
                 message,
                 storage,
@@ -125,6 +129,7 @@ async def cancel_handler(message: Message, storage):
             from bot.keyboards import reserve_action_keyboard
             from bot.messages import format_reserves_list
             from bot.utils import db
+
             reserves = db.get_active_reserves()
             reserves_text = format_reserves_list(reserves)
             await message.answer(
@@ -135,6 +140,7 @@ async def cancel_handler(message: Message, storage):
         else:
             # Prompt lookup for row-entry states
             from bot.keyboards import get_empty_keyboard
+
             _BACK_PROMPTS = {
                 BotState.AWAITING_ROW: texts.PROMPT_ENTER_ROW,
                 BotState.DELETING_ROW: texts.PROMPT_ENTER_ROW_DELETE,

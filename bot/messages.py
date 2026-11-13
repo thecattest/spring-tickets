@@ -173,14 +173,14 @@ def format_reserves_list(reserves: list) -> str:
     if not reserves:
         return "Активных резервов нет."
 
-    total_seats = sum(len(r['seats']) for r in reserves)
+    total_seats = sum(len(r["seats"]) for r in reserves)
     lines = [f"🔒 Активные резервы ({total_seats} {pluralize_seats(total_seats)}):", ""]
 
     # Group consecutive entries by note for readability
     current_note = None
     for r in reserves:
-        seats_str = format_seat_ranges(r['seats'])
-        note = r['note'] or "без комментария"
+        seats_str = format_seat_ranges(r["seats"])
+        note = r["note"] or "без комментария"
         if note != current_note:
             if current_note is not None:
                 lines.append("")  # blank line between groups
@@ -207,8 +207,8 @@ def format_debtors_list(debtors: list) -> str:
     lines = [f"Должники ({count}):", ""]
 
     for debtor in debtors:
-        vk_id = debtor.get('buyer_vk_id')
-        name = debtor['buyer_display_name']
+        vk_id = debtor.get("buyer_vk_id")
+        name = debtor["buyer_display_name"]
         header = f"{name} (vk.com/id{vk_id})" if vk_id else name
         lines.append(header)
         lines.append(
@@ -236,8 +236,8 @@ def format_reminder(debtors: list) -> str:
     lines = [f"Напоминание о должниках ({count}):", ""]
 
     for debtor in debtors:
-        vk_id = debtor.get('buyer_vk_id')
-        name = debtor['buyer_display_name']
+        vk_id = debtor.get("buyer_vk_id")
+        name = debtor["buyer_display_name"]
         header = f"{name} (vk.com/id{vk_id})" if vk_id else name
         lines.append(
             f"{header} -- "

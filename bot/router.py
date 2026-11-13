@@ -104,6 +104,7 @@ class Router:
             # No auth check needed — just inject storage
             async def wrapped(message: Message):
                 await handler_func(message, storage)
+
             wrapped.__name__ = handler_func.__name__ + "_wrapped"
             return wrapped
 
@@ -198,7 +199,9 @@ class Router:
 
         self.labeler.message(text=["Выход", "/exit", "exit"])(self._wrap(exit_handler))
 
-        self.labeler.message(text=["Резерв", "/reserve", "reserve"])(self._wrap(reserve_command_handler))
+        self.labeler.message(text=["Резерв", "/reserve", "reserve"])(
+            self._wrap(reserve_command_handler)
+        )
 
         self.labeler.message(text=["Должники", "/debtors", "debtors"])(debtors_command_handler)
 

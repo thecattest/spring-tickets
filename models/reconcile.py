@@ -17,9 +17,7 @@ class ReconcileCheckpoint(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     checked_by_user_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=True
+        Integer, ForeignKey("app_users.id"), nullable=True
     )
     checked_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)

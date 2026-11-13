@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 def forwarded_has_receipt_attachment(forwarded) -> bool:
     """Check if forwarded message has photo or document attachment (receipt indicator)."""
-    if not hasattr(forwarded, 'attachments') or not forwarded.attachments:
+    if not hasattr(forwarded, "attachments") or not forwarded.attachments:
         return False
     return any(att.photo is not None or att.doc is not None for att in forwarded.attachments)
 
@@ -44,6 +44,7 @@ def extract_attachment_urls(forwarded) -> list[dict]:
     Returns list of dicts: [{"type": "photo"|"doc", "url": "...", "title": "..."}]
     """
     from bot.utils.attachments import get_attachment_urls
+
     return get_attachment_urls(forwarded)
 
 
@@ -83,6 +84,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     if not forwarded:
         # No forwarded message — try parsing VK profile link from text
         from bot.utils.vk_link import parse_vk_link
+
         vk_id_or_screen = parse_vk_link(message.text or "")
         if not vk_id_or_screen:
             return
@@ -108,7 +110,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             return
 
         is_receipt = False
-        logger.info(f"Seller {message.from_id} sent VK link for buyer {buyer_vk_id} ({display_name})")
+        logger.info(
+            f"Seller {message.from_id} sent VK link for buyer {buyer_vk_id} ({display_name})"
+        )
 
     else:
         # Permission check: only sellers and admins can use forwarded messages
@@ -121,6 +125,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
         # If accompanying text contains a VK link/mention, use it instead of forwarded sender
         from bot.utils.vk_link import parse_vk_link
+
         vk_id_from_text = parse_vk_link(message.text or "")
 
         if vk_id_from_text:
@@ -137,11 +142,15 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 logger.warning(f"Failed to resolve VK link '{vk_id_from_text}': {e}")
                 await message.answer("Не удалось найти пользователя VK по ссылке.")
                 return
-            logger.info(f"Seller {message.from_id} forwarded message with VK link override for buyer {buyer_vk_id} ({display_name}, is_receipt={is_receipt})")
+            logger.info(
+                f"Seller {message.from_id} forwarded message with VK link override for buyer {buyer_vk_id} ({display_name}, is_receipt={is_receipt})"
+            )
         else:
             # Default: use forwarded message sender
             buyer_vk_id = forwarded.from_id
-            logger.info(f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})")
+            logger.info(
+                f"Seller {message.from_id} forwarded message from buyer {buyer_vk_id} (is_receipt={is_receipt})"
+            )
 
             # Fetch VK user name via VK API
             try:
@@ -171,13 +180,18 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 if is_receipt:
                     # Receipt from same client -> payment flow
                     from bot.handlers.payment import start_payment_flow
+
                     reservation_id = current_context.get("reservation_id")
                     vk_message_ts = None
                     if forwarded.date:
                         from datetime import datetime as dt
+
                         vk_message_ts = dt.utcfromtimestamp(forwarded.date)
                     await start_payment_flow(
-                        message, storage, reservation_id, display_name,
+                        message,
+                        storage,
+                        reservation_id,
+                        display_name,
                         vk_message_url=None,
                         vk_message_ts=vk_message_ts,
                         receipt_attachments=extract_attachment_urls(forwarded),
@@ -187,8 +201,12 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     reservation_id = current_context.get("reservation_id")
                     buyer_vk_user_id = current_context.get("buyer_vk_user_id")
                     await show_main_menu(
-                        message, storage, reservation_id,
-                        buyer_vk_user_id, display_name, buyer_vk_id,
+                        message,
+                        storage,
+                        reservation_id,
+                        buyer_vk_user_id,
+                        display_name,
+                        buyer_vk_id,
                     )
                 return
 
@@ -200,16 +218,21 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
                         existing_reservation = db.get_active_reservation(vk_user.id)
 
-                        current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
+                        current_buyer_name = current_context.get(
+                            "buyer_display_name", "текущего клиента"
+                        )
                         await message.answer(
-                            texts.MSG_SWITCH_RECEIPT.format(name=display_name, current=current_buyer_name),
-                            keyboard=context_switch_keyboard()
+                            texts.MSG_SWITCH_RECEIPT.format(
+                                name=display_name, current=current_buyer_name
+                            ),
+                            keyboard=context_switch_keyboard(),
                         )
 
                         # Build vk_message_ts for pending receipt context
                         vk_message_ts_iso = None
                         if forwarded.date:
                             from datetime import datetime as dt
+
                             vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
 
                         await storage.set(
@@ -219,7 +242,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                             pending_buyer_vk_api_id=buyer_vk_id,
                             pending_buyer_display_name=display_name,
                             pending_has_reservation=bool(existing_reservation),
-                            pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                            pending_reservation_id=existing_reservation.id
+                            if existing_reservation
+                            else None,
                             pending_is_receipt=True,
                             pending_receipt_vk_message_ts=vk_message_ts_iso,
                             pending_receipt_attachments=extract_attachment_urls(forwarded),
@@ -235,10 +260,14 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
                         existing_reservation = db.get_active_reservation(vk_user.id)
 
-                        current_buyer_name = current_context.get("buyer_display_name", "текущего клиента")
+                        current_buyer_name = current_context.get(
+                            "buyer_display_name", "текущего клиента"
+                        )
                         await message.answer(
-                            texts.MSG_SWITCH_PLAIN.format(current=current_buyer_name, name=display_name),
-                            keyboard=context_switch_keyboard()
+                            texts.MSG_SWITCH_PLAIN.format(
+                                current=current_buyer_name, name=display_name
+                            ),
+                            keyboard=context_switch_keyboard(),
                         )
 
                         await storage.set(
@@ -248,7 +277,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                             pending_buyer_vk_api_id=buyer_vk_id,
                             pending_buyer_display_name=display_name,
                             pending_has_reservation=bool(existing_reservation),
-                            pending_reservation_id=existing_reservation.id if existing_reservation else None,
+                            pending_reservation_id=existing_reservation.id
+                            if existing_reservation
+                            else None,
                             pending_is_receipt=False,
                             original_state=current_state,
                             original_context=current_context,
@@ -273,12 +304,17 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     from_main_menu=True,
                 )
                 from bot.handlers.payment import start_payment_flow
+
                 vk_message_ts = None
                 if forwarded.date:
                     from datetime import datetime as dt
+
                     vk_message_ts = dt.utcfromtimestamp(forwarded.date)
                 await start_payment_flow(
-                    message, storage, reservation_id, display_name,
+                    message,
+                    storage,
+                    reservation_id,
+                    display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
                     receipt_attachments=extract_attachment_urls(forwarded),
@@ -292,7 +328,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
         await message.answer(
             texts.MSG_SWITCH_TO_CLIENT.format(name=display_name, current=current_buyer_name),
-            keyboard=context_switch_keyboard()
+            keyboard=context_switch_keyboard(),
         )
 
         # Get or create VK user to check for existing reservation
@@ -304,6 +340,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             vk_message_ts_iso = None
             if is_receipt and forwarded.date:
                 from datetime import datetime as dt
+
                 vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
 
             # Save pending switch info
@@ -318,7 +355,9 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 pending_reservation_id=existing_reservation.id if existing_reservation else None,
                 pending_is_receipt=is_receipt,
                 pending_receipt_vk_message_ts=vk_message_ts_iso if is_receipt else None,
-                pending_receipt_attachments=extract_attachment_urls(forwarded) if is_receipt else [],
+                pending_receipt_attachments=extract_attachment_urls(forwarded)
+                if is_receipt
+                else [],
                 # Original context to restore on "Нет"
                 original_state=current_state,
                 original_context=current_context,
@@ -351,12 +390,17 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     from_main_menu=True,
                 )
                 from bot.handlers.payment import start_payment_flow
+
                 vk_message_ts = None
                 if forwarded.date:
                     from datetime import datetime as dt
+
                     vk_message_ts = dt.utcfromtimestamp(forwarded.date)
                 await start_payment_flow(
-                    message, storage, existing.id, display_name,
+                    message,
+                    storage,
+                    existing.id,
+                    display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
                     receipt_attachments=extract_attachment_urls(forwarded),
@@ -427,22 +471,28 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
     context = await storage.get_context(message.from_id)
 
     # Update context with new row (replaces old current_row if exists)
-    context['current_row'] = row
+    context["current_row"] = row
 
     # Transition to AWAITING_SEATS with occupied seats info
     seat_count = get_seat_count(row)
     occupied = sorted(set(range(1, seat_count + 1)) - set(available))
     if occupied:
         from bot.utils.formatting import format_seat_ranges
+
         occupied_str = format_seat_ranges(occupied)
         await message.answer(
             texts.MSG_ROW_SEAT_COUNT_WITH_OCCUPIED.format(
-                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count), occupied=occupied_str
+                row=row,
+                seat_count=seat_count,
+                seat_count_word=pluralize_seats(seat_count),
+                occupied=occupied_str,
             )
         )
     else:
         await message.answer(
-            texts.MSG_ROW_SEAT_COUNT.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
+            texts.MSG_ROW_SEAT_COUNT.format(
+                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count)
+            )
         )
 
     await storage.set(message.from_id, BotState.AWAITING_SEATS, **context)
@@ -487,6 +537,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
 
         # Success message
         from bot.utils.formatting import pluralize_seats
+
         await message.answer(
             texts.MSG_SEATS_ADDED.format(
                 count=len(seats),
@@ -496,7 +547,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
                 total=total_count,
                 total_word=pluralize_seats(total_count),
             ),
-            keyboard=seat_addition_menu_keyboard()
+            keyboard=seat_addition_menu_keyboard(),
         )
 
         # Transition to SEAT_ADDITION_MENU (preserve context)
@@ -506,13 +557,13 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         # Show all conflicting seats at once (race condition guard — steps.py already checked availability)
         error_lines = ["Места уже заняты:"]
         for c in e.conflicts:
-            if c['status'] == SeatStatus.RESERVED:
+            if c["status"] == SeatStatus.RESERVED:
                 status_text = "Резерв"
-                detail = c['note'] or "без комментария"
+                detail = c["note"] or "без комментария"
             else:
-                status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
+                status_text = "Бронь" if c["status"] == SeatStatus.BOOKED else "Оплачено"
                 try:
-                    res_seats = db.get_reservation_seats(c['reservation_id'])
+                    res_seats = db.get_reservation_seats(c["reservation_id"])
                     detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
@@ -545,10 +596,7 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
 
     if text == Btn.ADD_MORE:
         # Return to AWAITING_ROW (preserve context including from_main_menu)
-        await message.answer(
-            texts.PROMPT_ENTER_ROW,
-            keyboard=get_empty_keyboard()
-        )
+        await message.answer(texts.PROMPT_ENTER_ROW, keyboard=get_empty_keyboard())
         await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
     elif text == Btn.DONE:
@@ -591,7 +639,4 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
 
     else:
         # Unknown button
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=seat_addition_menu_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=seat_addition_menu_keyboard())

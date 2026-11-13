@@ -25,6 +25,7 @@ async def _add_user(message: Message, role: UserRole) -> None:
 
     # Проверяем наличие пересланного или ответного сообщения
     from bot.handlers.reservation import get_forwarded_or_reply
+
     forwarded = get_forwarded_or_reply(message)
     if not forwarded:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)
@@ -90,6 +91,7 @@ async def remove_user_handler(message: Message) -> None:
         return
 
     from bot.handlers.reservation import get_forwarded_or_reply
+
     forwarded = get_forwarded_or_reply(message)
     if not forwarded:
         await message.answer(texts.ERR_ADD_USER_NO_FORWARD)

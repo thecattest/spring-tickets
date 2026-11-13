@@ -12,31 +12,31 @@ class Btn(StrEnum):
     """Метки кнопок клавиатуры. Используются в Text(...) и сравнениях if text == ..."""
 
     # commands_keyboard
-    CANCEL_CMD  = "Отмена"
-    HELP_CMD    = "Справка"
+    CANCEL_CMD = "Отмена"
+    HELP_CMD = "Справка"
     DEBTORS_CMD = "Должники"
     RESERVE_CMD = "Резерв"
 
     # main_menu_keyboard
-    ADD         = "Добавить"
-    DELETE      = "Удалить"
-    DELETE_ALL  = "Удалить все"
-    PAYMENT     = "Оплата"
+    ADD = "Добавить"
+    DELETE = "Удалить"
+    DELETE_ALL = "Удалить все"
+    PAYMENT = "Оплата"
 
     # seat_addition_menu_keyboard
-    ADD_MORE    = "Добавить еще"
-    DONE        = "Готово"
+    ADD_MORE = "Добавить еще"
+    DONE = "Готово"
 
     # confirmation_keyboard
-    CONFIRM     = "Подтвердить"
-    CANCEL      = "Отмена"
+    CONFIRM = "Подтвердить"
+    CANCEL = "Отмена"
 
     # context_switch_keyboard
-    YES         = "Да"
-    NO          = "Нет"
+    YES = "Да"
+    NO = "Нет"
 
     # debtors_keyboard
-    REFRESH     = "Обновить"
+    REFRESH = "Обновить"
 
     # payment_quantity_keyboard (префикс динамической кнопки "Все N")
     # Используется с text.startswith(Btn.PAY_ALL_PREFIX), не как полная метка кнопки
@@ -46,15 +46,15 @@ class Btn(StrEnum):
 class Cmd(StrEnum):
     """Команды бота. Используются в text= регистрациях и inline-диспетчеризации."""
 
-    START       = "start"
-    HELP        = "Справка"
-    HELP_EN     = "help"
-    CANCEL      = "Отмена"
-    CANCEL_EN   = "cancel"
-    DEBTORS     = "Должники"
-    DEBTORS_EN  = "debtors"
-    RESERVE     = "Резерв"
-    RESERVE_EN  = "reserve"
+    START = "start"
+    HELP = "Справка"
+    HELP_EN = "help"
+    CANCEL = "Отмена"
+    CANCEL_EN = "cancel"
+    DEBTORS = "Должники"
+    DEBTORS_EN = "debtors"
+    RESERVE = "Резерв"
+    RESERVE_EN = "reserve"
 
 
 # Все известные команды бота — для O(1) проверки `text in ALL_COMMANDS`

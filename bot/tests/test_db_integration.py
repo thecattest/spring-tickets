@@ -9,7 +9,6 @@ Tests:
 - Conflict handling
 """
 
-
 import contextlib
 
 import pytest
@@ -31,6 +30,7 @@ def test_db():
         Database engine
     """
     from database import engine
+
     yield engine
 
 
@@ -173,8 +173,8 @@ class TestSeatOperations:
             db.add_seats_to_reservation(reservation2.id, 1, [5], test_seller.id)
 
         assert len(exc_info.value.conflicts) == 1
-        assert exc_info.value.conflicts[0]['row'] == 1
-        assert exc_info.value.conflicts[0]['seat'] == 5
+        assert exc_info.value.conflicts[0]["row"] == 1
+        assert exc_info.value.conflicts[0]["seat"] == 5
 
     def test_add_seats_atomic(self, test_db, test_seller):
         """Test that seat addition is atomic."""
@@ -225,6 +225,7 @@ class TestSeatOperations:
 
         # Add seats
         import time
+
         time.sleep(0.1)  # Small delay to ensure time difference
         db.add_seats_to_reservation(reservation.id, 1, [5], test_seller.id)
 

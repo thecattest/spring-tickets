@@ -27,8 +27,7 @@ class TestBotStateRestorationFromModernFormat:
             extracted_value = modern_string.split(":")[-1]
             restored = BotState(extracted_value)
             assert restored == member, (
-                f"Failed to restore {member!r} from '{modern_string}': "
-                f"got {restored!r}"
+                f"Failed to restore {member!r} from '{modern_string}': got {restored!r}"
             )
 
 
@@ -43,8 +42,7 @@ class TestBotStateRestorationFromLegacyFormat:
         for member in BotState:
             restored = BotState(member.value)
             assert restored == member, (
-                f"Failed to restore {member!r} from plain value '{member.value}': "
-                f"got {restored!r}"
+                f"Failed to restore {member!r} from plain value '{member.value}': got {restored!r}"
             )
 
 

@@ -38,10 +38,7 @@ async def test_redis_state_peer_storage():
 
         # Test 2: set() stores a StatePeer
         await storage.set(
-            peer_id,
-            BotState.AWAITING_ROW,
-            reservation_id=123,
-            buyer_name="Test User"
+            peer_id, BotState.AWAITING_ROW, reservation_id=123, buyer_name="Test User"
         )
 
         # Test 3: get() returns StatePeer object
@@ -49,7 +46,9 @@ async def test_redis_state_peer_storage():
         assert result is not None, "Expected StatePeer object"
         assert isinstance(result, StatePeer), f"Expected StatePeer, got {type(result)}"
         assert result.peer_id == peer_id, f"Expected peer_id={peer_id}, got {result.peer_id}"
-        assert result.state == "BotState:awaiting_row", f"Expected state='BotState:awaiting_row', got {result.state}"
+        assert result.state == "BotState:awaiting_row", (
+            f"Expected state='BotState:awaiting_row', got {result.state}"
+        )
         assert result.payload["reservation_id"] == 123, "Expected reservation_id in payload"
         assert result.payload["buyer_name"] == "Test User", "Expected buyer_name in payload"
 
@@ -63,7 +62,7 @@ async def test_redis_state_peer_storage():
             BotState.AWAITING_SEATS,
             reservation_id=123,
             buyer_name="Test User",
-            current_row=5
+            current_row=5,
         )
 
         result = await storage.get(peer_id)

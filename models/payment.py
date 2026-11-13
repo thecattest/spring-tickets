@@ -22,41 +22,32 @@ class Payment(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     reservation_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("reservations.id"),
-        nullable=False
+        Integer, ForeignKey("reservations.id"), nullable=False
     )
     recorded_by_user_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=False,
-        comment="Кто отметил оплату"
+        Integer, ForeignKey("app_users.id"), nullable=False, comment="Кто отметил оплату"
     )
 
     vk_message_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     vk_message_ts: Mapped[datetime | None] = mapped_column(
-        nullable=True,
-        comment="Дата отправки чека"
+        nullable=True, comment="Дата отправки чека"
     )
 
     payment_amount: Mapped[Decimal] = mapped_column(
-        Numeric(10, 2),
-        nullable=False,
-        comment="Сумма оплаты (руб.)"
+        Numeric(10, 2), nullable=False, comment="Сумма оплаты (руб.)"
     )
     seat_count: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
-        comment="Количество оплаченных мест"
+        Integer, nullable=False, comment="Количество оплаченных мест"
     )
 
     recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
 
-    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    is_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_attachments: Mapped[str | None] = mapped_column(
-        Text, nullable=True,
-        comment="VK media IDs чеков через запятую (photo-123_456,doc-789_012)"
+        Text, nullable=True, comment="VK media IDs чеков через запятую (photo-123_456,doc-789_012)"
     )
 
     __table_args__ = (
@@ -80,14 +71,10 @@ class PaymentSeat(Base):
     __tablename__ = "payment_seats"
 
     payment_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("payments.id", ondelete="CASCADE"),
-        primary_key=True
+        Integer, ForeignKey("payments.id", ondelete="CASCADE"), primary_key=True
     )
     seat_assignment_id: Mapped[int] = mapped_column(
-        Integer,
-        ForeignKey("seat_assignments.id"),
-        primary_key=True
+        Integer, ForeignKey("seat_assignments.id"), primary_key=True
     )
 
     __table_args__ = (

@@ -57,14 +57,13 @@ async def deleting_row_handler(message: Message, storage: RedisStorage):
         return
 
     # Update context with current_row
-    context['current_row'] = row
+    context["current_row"] = row
 
     # Transition to DELETING_SEATS — show which seats from this reservation are in the row
     from bot.utils.formatting import format_seat_ranges
+
     booked_str = format_seat_ranges(sorted(booked))
-    await message.answer(
-        texts.MSG_ENTER_SEATS_DELETE_WITH_BOOKED.format(row=row, seats=booked_str)
-    )
+    await message.answer(texts.MSG_ENTER_SEATS_DELETE_WITH_BOOKED.format(row=row, seats=booked_str))
 
     await storage.set(message.from_id, BotState.DELETING_SEATS, **context)
 
@@ -89,18 +88,20 @@ async def deleting_seats_handler(message: Message, storage: RedisStorage):
 
     from bot.steps import handle_seat_input
 
-    result = handle_seat_input(message.text, row=row, mode="membership", reservation_id=reservation_id)
+    result = handle_seat_input(
+        message.text, row=row, mode="membership", reservation_id=reservation_id
+    )
     if not result.ok:
         await message.answer(result.error_text)
         return
     seats = result.seats
 
     # All seats are BOOKED and belong to reservation - proceed to confirmation
-    context['seats_to_delete'] = seats
+    context["seats_to_delete"] = seats
 
     await message.answer(
         texts.MSG_CONFIRM_DELETE_SEATS.format(row=row, seats=", ".join(map(str, seats))),
-        keyboard=confirmation_keyboard()
+        keyboard=confirmation_keyboard(),
     )
 
     await storage.set(message.from_id, BotState.DELETION_CONFIRM, **context)
@@ -138,15 +139,19 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
             released_count = db.release_seats(reservation_id, row, seats, seller_id)
 
             from bot.utils.formatting import pluralize_seats
+
             await message.answer(
-                texts.MSG_SEATS_DELETED.format(count=released_count, count_word=pluralize_seats(released_count)),
-                keyboard=get_empty_keyboard()
+                texts.MSG_SEATS_DELETED.format(
+                    count=released_count, count_word=pluralize_seats(released_count)
+                ),
+                keyboard=get_empty_keyboard(),
             )
 
             # Send updated client script if seats remain
             remaining = db.get_reservation_seats(reservation_id)
             if remaining:
                 from bot.messages import generate_reservation_script
+
                 script = generate_reservation_script(
                     buyer_display_name=buyer_display_name,
                     seats=remaining,
@@ -166,8 +171,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
         except db.DatabaseError as e:
             logger.error(f"Error releasing seats: {e}")
             await message.answer(
-                texts.ERR_DELETE_SEATS.format(error=e),
-                keyboard=get_empty_keyboard()
+                texts.ERR_DELETE_SEATS.format(error=e), keyboard=get_empty_keyboard()
             )
 
             # Return to main menu anyway
@@ -195,10 +199,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
 
     else:
         # Unknown input - re-show keyboard
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=confirmation_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
 
 
 async def cancel_confirm_handler(message: Message, storage: RedisStorage):
@@ -232,19 +233,13 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
             seller_id = db.get_seller_id(message.from_id)
             db.cancel_reservation(reservation_id, seller_id, is_admin)
 
-            await message.answer(
-                texts.MSG_BOOKING_CANCELLED,
-                keyboard=get_empty_keyboard()
-            )
+            await message.answer(texts.MSG_BOOKING_CANCELLED, keyboard=get_empty_keyboard())
 
             # Clear FSM state (return to IDLE)
             await storage.delete(message.from_id)
 
         except db.PermissionError:
-            await message.answer(
-                texts.ERR_PAID_CANCEL_ADMIN_ONLY,
-                keyboard=get_empty_keyboard()
-            )
+            await message.answer(texts.ERR_PAID_CANCEL_ADMIN_ONLY, keyboard=get_empty_keyboard())
 
             # Return to main menu
             await show_main_menu(
@@ -259,8 +254,7 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
         except db.DatabaseError as e:
             logger.error(f"Error cancelling reservation: {e}")
             await message.answer(
-                texts.ERR_CANCEL_BOOKING.format(error=e),
-                keyboard=get_empty_keyboard()
+                texts.ERR_CANCEL_BOOKING.format(error=e), keyboard=get_empty_keyboard()
             )
 
             # Return to main menu
@@ -288,7 +282,4 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
 
     else:
         # Unknown input - re-show keyboard
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=confirmation_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())

@@ -67,7 +67,9 @@ async def main() -> None:
 
         if not debtors:
             skipped_count += 1
-            logger.debug(f"Seller {seller.id} (vk_user_id={seller.vk_user_id}): no debtors, skipping")
+            logger.debug(
+                f"Seller {seller.id} (vk_user_id={seller.vk_user_id}): no debtors, skipping"
+            )
             continue
 
         message_text = format_reminder(debtors)
@@ -88,8 +90,7 @@ async def main() -> None:
         except VKAPIError as e:
             error_count += 1
             logger.error(
-                f"VK API error sending to seller {seller.id} "
-                f"(vk_user_id={seller.vk_user_id}): {e}"
+                f"VK API error sending to seller {seller.id} (vk_user_id={seller.vk_user_id}): {e}"
             )
             # Continue processing remaining sellers
 
@@ -101,9 +102,7 @@ async def main() -> None:
             )
             # Continue processing remaining sellers
 
-    logger.info(
-        f"Done. Sent: {sent_count}, Skipped: {skipped_count}, Errors: {error_count}"
-    )
+    logger.info(f"Done. Sent: {sent_count}, Skipped: {skipped_count}, Errors: {error_count}")
 
 
 if __name__ == "__main__":

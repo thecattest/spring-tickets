@@ -54,7 +54,7 @@ async def reserve_command_handler(message: Message, storage: RedisStorage):
 
     await message.answer(
         texts.MSG_RESERVE_ACTION_HEADER.format(reserves=reserves_text),
-        keyboard=reserve_action_keyboard()
+        keyboard=reserve_action_keyboard(),
     )
     await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=app_user.id)
 
@@ -69,24 +69,15 @@ async def reserve_action_handler(message: Message, storage: RedisStorage):
     context = await storage.get_context(message.from_id)
 
     if text == Btn.ADD:
-        await message.answer(
-            texts.PROMPT_ENTER_ROW,
-            keyboard=get_empty_keyboard()
-        )
+        await message.answer(texts.PROMPT_ENTER_ROW, keyboard=get_empty_keyboard())
         await storage.set(message.from_id, BotState.RESERVE_ADDING_ROW, **context)
 
     elif text == Btn.DELETE:
-        await message.answer(
-            texts.PROMPT_ENTER_ROW,
-            keyboard=get_empty_keyboard()
-        )
+        await message.answer(texts.PROMPT_ENTER_ROW, keyboard=get_empty_keyboard())
         await storage.set(message.from_id, BotState.RESERVE_REMOVING_ROW, **context)
 
     else:
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=reserve_action_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=reserve_action_keyboard())
 
 
 async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
@@ -109,21 +100,27 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
 
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)
-    context['current_row'] = row
+    context["current_row"] = row
 
     seat_count = get_seat_count(row)
     occupied = sorted(set(range(1, seat_count + 1)) - set(available))
     if occupied:
         from bot.utils.formatting import format_seat_ranges
+
         occupied_str = format_seat_ranges(occupied)
         await message.answer(
             texts.MSG_ENTER_SEATS_RESERVE_WITH_OCCUPIED.format(
-                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count), occupied=occupied_str
+                row=row,
+                seat_count=seat_count,
+                seat_count_word=pluralize_seats(seat_count),
+                occupied=occupied_str,
             )
         )
     else:
         await message.answer(
-            texts.MSG_ENTER_SEATS_RESERVE.format(row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count))
+            texts.MSG_ENTER_SEATS_RESERVE.format(
+                row=row, seat_count=seat_count, seat_count_word=pluralize_seats(seat_count)
+            )
         )
     await storage.set(message.from_id, BotState.RESERVE_ADDING_SEATS, **context)
 
@@ -149,7 +146,7 @@ async def reserve_adding_seats_handler(message: Message, storage: RedisStorage):
     seats = result.seats
 
     # Store seats and prompt for comment
-    context['reserve_seats'] = seats
+    context["reserve_seats"] = seats
     await message.answer(texts.PROMPT_ENTER_COMMENT)
     await storage.set(message.from_id, BotState.RESERVE_COMMENT, **context)
 
@@ -180,7 +177,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
         seats_str = format_seat_ranges(sorted(seats))
         await message.answer(
             texts.MSG_RESERVE_CREATED.format(row=row, seats=seats_str, comment=comment),
-            keyboard=reserve_action_keyboard()
+            keyboard=reserve_action_keyboard(),
         )
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
@@ -188,13 +185,13 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
         # Show all occupied seats at once
         error_lines = ["Места уже заняты:"]
         for c in e.conflicts:
-            if c['status'] == SeatStatus.RESERVED:
+            if c["status"] == SeatStatus.RESERVED:
                 status_text = "Резерв"
-                detail = c['note'] or "без комментария"
+                detail = c["note"] or "без комментария"
             else:
-                status_text = "Бронь" if c['status'] == SeatStatus.BOOKED else "Оплачено"
+                status_text = "Бронь" if c["status"] == SeatStatus.BOOKED else "Оплачено"
                 try:
-                    res_seats = db.get_reservation_seats(c['reservation_id'])
+                    res_seats = db.get_reservation_seats(c["reservation_id"])
                     detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
@@ -204,14 +201,13 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
 
         # Re-prompt for seats (go back to RESERVE_ADDING_SEATS)
         # Remove reserve_seats from context so user enters new ones
-        context.pop('reserve_seats', None)
+        context.pop("reserve_seats", None)
         await storage.set(message.from_id, BotState.RESERVE_ADDING_SEATS, **context)
 
     except db.DatabaseError as e:
         logger.error(f"Error adding reserve: {e}")
         await message.answer(
-            texts.ERR_RESERVE_CREATE.format(error=e),
-            keyboard=reserve_action_keyboard()
+            texts.ERR_RESERVE_CREATE.format(error=e), keyboard=reserve_action_keyboard()
         )
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
@@ -236,7 +232,7 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
 
     # Get existing context to preserve admin_user_id
     context = await storage.get_context(message.from_id)
-    context['current_row'] = row
+    context["current_row"] = row
 
     reserved_str = format_seat_ranges(sorted(reserved))
     await message.answer(
@@ -266,7 +262,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
     seats = result.seats
 
     # Store seats and show confirmation with notes
-    context['reserve_seats_to_remove'] = seats
+    context["reserve_seats_to_remove"] = seats
     seats_str = format_seat_ranges(sorted(seats))
 
     # Fetch notes for the seats being removed
@@ -278,7 +274,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
 
     await message.answer(
         texts.MSG_CONFIRM_UNRESERVE.format(row=row, seats=seats_str) + note_text,
-        keyboard=confirmation_keyboard()
+        keyboard=confirmation_keyboard(),
     )
     await storage.set(message.from_id, BotState.RESERVE_REMOVE_CONFIRM, **context)
 
@@ -315,30 +311,20 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
                 for note_info in notes_with_content:
                     result_text += f"\n• Место {note_info['seat']}: {note_info['note']}"
 
-            await message.answer(
-                result_text,
-                keyboard=reserve_action_keyboard()
-            )
+            await message.answer(result_text, keyboard=reserve_action_keyboard())
             await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
         except db.DatabaseError as e:
             logger.error(f"Error releasing reserve: {e}")
             await message.answer(
-                texts.ERR_RESERVE_REMOVE.format(error=e),
-                keyboard=reserve_action_keyboard()
+                texts.ERR_RESERVE_REMOVE.format(error=e), keyboard=reserve_action_keyboard()
             )
             await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
     elif confirmed is False:
-        await message.answer(
-            texts.MSG_CANCELLED_BRIEF,
-            keyboard=reserve_action_keyboard()
-        )
+        await message.answer(texts.MSG_CANCELLED_BRIEF, keyboard=reserve_action_keyboard())
         await storage.set(message.from_id, BotState.RESERVE_ACTION, admin_user_id=admin_user_id)
 
     else:
         # Unknown input - re-show keyboard
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=confirmation_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())

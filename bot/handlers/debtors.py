@@ -59,10 +59,7 @@ async def _show_debtors(message: Message):
     if not debtors:
         await message.answer(texts.MSG_NO_DEBTORS, keyboard=debtors_keyboard())
     else:
-        await message.answer(
-            format_debtors_list(debtors),
-            keyboard=debtors_keyboard()
-        )
+        await message.answer(format_debtors_list(debtors), keyboard=debtors_keyboard())
 
 
 async def debtors_command_handler(message: Message):

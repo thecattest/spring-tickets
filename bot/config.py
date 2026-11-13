@@ -49,7 +49,6 @@ PROJECT_ROOT = Path(__file__).parent.parent
 LAYOUT_FILE = PROJECT_ROOT / "layout.json"
 
 
-
 def validate_config():
     """
     Validate required configuration is present.

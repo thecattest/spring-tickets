@@ -105,10 +105,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
 
     if text == Btn.ADD:
         # Transition to AWAITING_ROW (preserve context including from_main_menu=True)
-        await message.answer(
-            texts.PROMPT_ENTER_ROW,
-            keyboard=get_empty_keyboard()
-        )
+        await message.answer(texts.PROMPT_ENTER_ROW, keyboard=get_empty_keyboard())
         await storage.set(message.from_id, BotState.AWAITING_ROW, **context)
 
     elif text == Btn.DELETE:
@@ -117,25 +114,16 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             seats = db.get_reservation_seats(reservation_id)
 
             if not seats:
-                await message.answer(
-                    texts.ERR_NO_SEATS_TO_DELETE,
-                    keyboard=main_menu_keyboard()
-                )
+                await message.answer(texts.ERR_NO_SEATS_TO_DELETE, keyboard=main_menu_keyboard())
                 return
 
             # Transition to DELETING_ROW
-            await message.answer(
-                texts.PROMPT_ENTER_ROW_DELETE,
-                keyboard=get_empty_keyboard()
-            )
+            await message.answer(texts.PROMPT_ENTER_ROW_DELETE, keyboard=get_empty_keyboard())
             await storage.set(message.from_id, BotState.DELETING_ROW, **context)
 
         except db.DatabaseError as e:
             logger.error(f"Error checking seats for deletion: {e}")
-            await message.answer(
-                texts.ERR_DB_CHECK_SEATS,
-                keyboard=main_menu_keyboard()
-            )
+            await message.answer(texts.ERR_DB_CHECK_SEATS, keyboard=main_menu_keyboard())
 
     elif text == Btn.DELETE_ALL:
         # Check if reservation has any seats
@@ -143,10 +131,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
             seats = db.get_reservation_seats(reservation_id)
 
             if not seats:
-                await message.answer(
-                    texts.ERR_NO_SEATS,
-                    keyboard=main_menu_keyboard()
-                )
+                await message.answer(texts.ERR_NO_SEATS, keyboard=main_menu_keyboard())
                 return
 
             # Count by status
@@ -158,8 +143,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
                 is_admin = db.is_user_admin(message.from_id)
                 if not is_admin:
                     await message.answer(
-                        texts.ERR_PAID_CANCEL_ADMIN_ONLY,
-                        keyboard=main_menu_keyboard()
+                        texts.ERR_PAID_CANCEL_ADMIN_ONLY, keyboard=main_menu_keyboard()
                     )
                     return
                 # Admin — show confirmation with paid seats warning
@@ -180,24 +164,15 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
 
         except db.DatabaseError as e:
             logger.error(f"Error checking seats for cancellation: {e}")
-            await message.answer(
-                texts.ERR_DB_CHECK_SEATS,
-                keyboard=main_menu_keyboard()
-            )
+            await message.answer(texts.ERR_DB_CHECK_SEATS, keyboard=main_menu_keyboard())
 
     elif text == Btn.PAYMENT:
         # Show info message — actual payment flow starts when seller sends a receipt (photo/doc)
-        await message.answer(
-            texts.MSG_PAYMENT_SEND_RECEIPT,
-            keyboard=main_menu_keyboard()
-        )
+        await message.answer(texts.MSG_PAYMENT_SEND_RECEIPT, keyboard=main_menu_keyboard())
 
     else:
         # Unknown text - re-show keyboard
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=main_menu_keyboard()
-        )
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=main_menu_keyboard())
 
 
 async def context_switch_handler(message: Message, storage: RedisStorage):
@@ -243,15 +218,19 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                     from_main_menu=True,
                 )
                 from bot.handlers.payment import start_payment_flow
+
                 vk_message_ts = None
                 if pending_receipt_vk_message_ts:
                     from datetime import datetime
+
                     try:
                         vk_message_ts = datetime.fromisoformat(pending_receipt_vk_message_ts)
                     except (ValueError, TypeError):
                         vk_message_ts = None
                 await start_payment_flow(
-                    message, storage, pending_reservation_id,
+                    message,
+                    storage,
+                    pending_reservation_id,
                     pending_buyer_display_name,
                     vk_message_url=None,
                     vk_message_ts=vk_message_ts,
@@ -279,7 +258,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                             name=pending_buyer_display_name,
                             id=reservation.id,
                         ),
-                        keyboard=get_empty_keyboard()
+                        keyboard=get_empty_keyboard(),
                     )
 
                     await storage.set(
@@ -304,7 +283,7 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                             name=pending_buyer_display_name,
                             id=reservation.id,
                         ),
-                        keyboard=get_empty_keyboard()
+                        keyboard=get_empty_keyboard(),
                     )
 
                     await storage.set(
@@ -337,8 +316,4 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
 
     else:
         # Unknown response - re-show options
-        await message.answer(
-            texts.PROMPT_SELECT_ACTION,
-            keyboard=context_switch_keyboard()
-        )
-
+        await message.answer(texts.PROMPT_SELECT_ACTION, keyboard=context_switch_keyboard())

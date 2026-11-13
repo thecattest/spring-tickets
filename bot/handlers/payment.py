@@ -53,17 +53,13 @@ async def start_payment_flow(
         if len(booked_seats) == 0:
             await message.answer(
                 texts.MSG_NO_SEATS_FOR_PAYMENT.format(name=buyer_display_name),
-                keyboard=main_menu_keyboard()
+                keyboard=main_menu_keyboard(),
             )
             return
 
         formatted_seats = format_reservation_seats(seats)
 
-        prompt = (
-            f"Бронь — {buyer_display_name}\n\n"
-            f"{formatted_seats}\n\n"
-            f"Сколько мест оплачено?"
-        )
+        prompt = f"Бронь — {buyer_display_name}\n\n{formatted_seats}\n\nСколько мест оплачено?"
         await message.answer(prompt, keyboard=payment_quantity_keyboard(len(booked_seats)))
 
         # Preserve existing context, add payment-specific fields
@@ -84,10 +80,7 @@ async def start_payment_flow(
 
     except db.DatabaseError as e:
         logger.error(f"Database error starting payment flow: {e}")
-        await message.answer(
-            texts.ERR_DB_LOAD_BOOKING,
-            keyboard=main_menu_keyboard()
-        )
+        await message.answer(texts.ERR_DB_LOAD_BOOKING, keyboard=main_menu_keyboard())
 
 
 async def payment_quantity_handler(message: Message, storage: RedisStorage):
@@ -118,9 +111,14 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     # "Отмена" button - return to main menu
     if text == Btn.CANCEL:
         from bot.handlers.menu import show_main_menu
+
         await show_main_menu(
-            message, storage, reservation_id,
-            buyer_vk_user_id, buyer_display_name, buyer_vk_api_id,
+            message,
+            storage,
+            reservation_id,
+            buyer_vk_user_id,
+            buyer_display_name,
+            buyer_vk_api_id,
         )
         return
 
@@ -130,7 +128,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     if text.startswith(Btn.PAY_ALL_PREFIX):
         # "Все N" button — pay all booked seats
         try:
-            quantity = int(text[len(Btn.PAY_ALL_PREFIX):])
+            quantity = int(text[len(Btn.PAY_ALL_PREFIX) :])
         except ValueError:
             await message.answer(texts.PROMPT_SELECT_QUANTITY)
             return
@@ -144,7 +142,9 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                 booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
                 await message.answer(
                     texts.PROMPT_SELECT_QUANTITY,
-                    keyboard=payment_quantity_keyboard(booked_count) if booked_count > 0 else main_menu_keyboard()
+                    keyboard=payment_quantity_keyboard(booked_count)
+                    if booked_count > 0
+                    else main_menu_keyboard(),
                 )
             except db.DatabaseError:
                 await message.answer(texts.PROMPT_SELECT_QUANTITY)
@@ -157,7 +157,9 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
             booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
             await message.answer(
                 texts.PROMPT_MIN_QUANTITY,
-                keyboard=payment_quantity_keyboard(booked_count) if booked_count > 0 else main_menu_keyboard()
+                keyboard=payment_quantity_keyboard(booked_count)
+                if booked_count > 0
+                else main_menu_keyboard(),
             )
         except db.DatabaseError:
             await message.answer(texts.PROMPT_MIN_QUANTITY)
@@ -171,16 +173,13 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         if quantity > len(booked_seats):
             await message.answer(
                 texts.ERR_QTY_EXCEEDS.format(available=len(booked_seats)),
-                keyboard=payment_quantity_keyboard(len(booked_seats))
+                keyboard=payment_quantity_keyboard(len(booked_seats)),
             )
             return
 
     except db.DatabaseError as e:
         logger.error(f"Database error fetching seats for validation: {e}")
-        await message.answer(
-            texts.ERR_DB_CHECK_SEATS,
-            keyboard=main_menu_keyboard()
-        )
+        await message.answer(texts.ERR_DB_CHECK_SEATS, keyboard=main_menu_keyboard())
         return
 
     # Record payment
@@ -201,8 +200,11 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         if receipt_attachment_urls:
             try:
                 from bot.utils.attachments import reupload_attachments
+
                 reuploaded_ids = await reupload_attachments(
-                    message.ctx_api, receipt_attachment_urls, peer_id=message.from_id,
+                    message.ctx_api,
+                    receipt_attachment_urls,
+                    peer_id=message.from_id,
                 )
             except Exception as e:
                 logger.warning(f"Failed to reupload receipt attachments: {e}")
@@ -273,18 +275,23 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         )
 
     except db.InsufficientSeatsError as e:
-        logger.warning(f"Insufficient seats for payment: requested {e.requested}, available {e.available}")
+        logger.warning(
+            f"Insufficient seats for payment: requested {e.requested}, available {e.available}"
+        )
         await message.answer(
-            texts.ERR_INSUFFICIENT_SEATS.format(requested=e.requested, requested_word=pluralize_seats(e.requested), available=e.available),
-            keyboard=payment_quantity_keyboard(e.available) if e.available > 0 else main_menu_keyboard()
+            texts.ERR_INSUFFICIENT_SEATS.format(
+                requested=e.requested,
+                requested_word=pluralize_seats(e.requested),
+                available=e.available,
+            ),
+            keyboard=payment_quantity_keyboard(e.available)
+            if e.available > 0
+            else main_menu_keyboard(),
         )
 
     except db.DatabaseError as e:
         logger.error(f"Database error recording payment: {e}")
-        await message.answer(
-            texts.ERR_DB_RECORD_PAYMENT,
-            keyboard=main_menu_keyboard()
-        )
+        await message.answer(texts.ERR_DB_RECORD_PAYMENT, keyboard=main_menu_keyboard())
         # Return to MAIN_MENU on database error
         await storage.set(
             message.from_id,

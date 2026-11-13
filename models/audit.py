@@ -20,32 +20,20 @@ class AuditLog(Base):
 
     actor_type: Mapped[ActorType] = mapped_column(nullable=False)
     actor_user_id: Mapped[int | None] = mapped_column(
-        Integer,
-        ForeignKey("app_users.id"),
-        nullable=True
+        Integer, ForeignKey("app_users.id"), nullable=True
     )
 
     action_type: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        comment="Каталог типов действий уточняется позже"
+        Text, nullable=False, comment="Каталог типов действий уточняется позже"
     )
     entity_type: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-        comment="reservation/payment/expense/seat_assignment/..."
+        Text, nullable=False, comment="reservation/payment/expense/seat_assignment/..."
     )
     entity_id: Mapped[str | None] = mapped_column(
-        Text,
-        nullable=True,
-        comment="Строкой (на случай разных типов id)"
+        Text, nullable=True, comment="Строкой (на случай разных типов id)"
     )
 
-    payload: Mapped[dict] = mapped_column(
-        JSON,
-        nullable=False,
-        default=dict
-    )
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     __table_args__ = (
         # Быстрая прокрутка/фильтрация по времени

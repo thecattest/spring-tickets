@@ -31,11 +31,13 @@ logger = logging.getLogger(__name__)
 
 class DatabaseError(Exception):
     """Base exception for database operations."""
+
     pass
 
 
 class PermissionError(DatabaseError):
     """Exception raised when user lacks permission for operation."""
+
     pass
 
 
@@ -171,7 +173,7 @@ def create_reservation(buyer_vk_user_id: int, sold_by_user_id: int) -> Reservati
                 payload={
                     "buyer_vk_user_id": buyer_vk_user_id,
                     "sold_by_user_id": sold_by_user_id,
-                }
+                },
             )
             session.add(audit)
             session.commit()
@@ -243,10 +245,7 @@ def get_seat_assignment(row: int, seat: int) -> SeatAssignment | None:
 
 
 def add_seats_to_reservation(
-    reservation_id: int,
-    row: int,
-    seats: list[int],
-    user_id: int
+    reservation_id: int, row: int, seats: list[int], user_id: int
 ) -> list[SeatAssignment]:
     """
     Add seats to reservation (atomic operation).
@@ -279,13 +278,15 @@ def add_seats_to_reservation(
                 )
                 assignment = session.execute(stmt).scalars().first()
                 if assignment:
-                    conflicts.append({
-                        'row': row,
-                        'seat': seat,
-                        'status': assignment.status,
-                        'note': assignment.note,
-                        'reservation_id': assignment.reservation_id,
-                    })
+                    conflicts.append(
+                        {
+                            "row": row,
+                            "seat": seat,
+                            "status": assignment.status,
+                            "note": assignment.note,
+                            "reservation_id": assignment.reservation_id,
+                        }
+                    )
 
             if conflicts:
                 raise SeatOccupiedError(conflicts)
@@ -326,12 +327,14 @@ def add_seats_to_reservation(
                     "row": row,
                     "seats": seats,
                     "count": len(seats),
-                }
+                },
             )
             session.add(audit)
             session.commit()
 
-            logger.info(f"Added {len(seats)} seats to reservation {reservation_id}: row {row}, seats {seats}")
+            logger.info(
+                f"Added {len(seats)} seats to reservation {reservation_id}: row {row}, seats {seats}"
+            )
             return assignments
 
         except SeatOccupiedError:
@@ -423,9 +426,7 @@ def is_user_admin(vk_user_id: int) -> bool:
     """
     with SessionLocal() as session:
         stmt = (
-            select(AppUser)
-            .where(AppUser.vk_user_id == vk_user_id)
-            .where(AppUser.is_active == True)
+            select(AppUser).where(AppUser.vk_user_id == vk_user_id).where(AppUser.is_active == True)
         )
         user = session.execute(stmt).scalar_one_or_none()
         return user is not None and user.role == UserRole.ADMIN
@@ -458,7 +459,9 @@ def get_all_admin_vk_ids() -> list[int]:
         return list(session.execute(stmt).scalars().all())
 
 
-def get_reservation_with_seats(reservation_id: int) -> tuple[Reservation | None, list[SeatAssignment]]:
+def get_reservation_with_seats(
+    reservation_id: int,
+) -> tuple[Reservation | None, list[SeatAssignment]]:
     """
     Get reservation and its active seats.
 
@@ -493,12 +496,7 @@ def get_reservation_with_seats(reservation_id: int) -> tuple[Reservation | None,
             raise DatabaseError(f"Failed to get reservation with seats: {e}")
 
 
-def release_seats(
-    reservation_id: int,
-    row: int,
-    seats: list[int],
-    user_id: int
-) -> int:
+def release_seats(reservation_id: int, row: int, seats: list[int], user_id: int) -> int:
     """
     Release seats from reservation (atomic operation).
 
@@ -562,12 +560,14 @@ def release_seats(
                     "row": row,
                     "seats": seats,
                     "count": len(seats),
-                }
+                },
             )
             session.add(audit)
             session.commit()
 
-            logger.info(f"Released {len(assignments)} seats from reservation {reservation_id}: row {row}, seats {seats}")
+            logger.info(
+                f"Released {len(assignments)} seats from reservation {reservation_id}: row {row}, seats {seats}"
+            )
             return len(assignments)
 
         except DatabaseError:
@@ -579,11 +579,7 @@ def release_seats(
             raise DatabaseError(f"Failed to release seats: {e}")
 
 
-def cancel_reservation(
-    reservation_id: int,
-    user_id: int,
-    is_admin: bool
-) -> bool:
+def cancel_reservation(reservation_id: int, user_id: int, is_admin: bool) -> bool:
     """
     Cancel reservation and release all seats.
 
@@ -647,12 +643,14 @@ def cancel_reservation(
                     "total_seats": len(seats),
                     "paid_seats": len(paid_seats),
                     "is_admin": is_admin,
-                }
+                },
             )
             session.add(audit)
             session.commit()
 
-            logger.info(f"Cancelled reservation {reservation_id}: {len(seats)} seats released (paid: {len(paid_seats)})")
+            logger.info(
+                f"Cancelled reservation {reservation_id}: {len(seats)} seats released (paid: {len(paid_seats)})"
+            )
             return True
 
         except (PermissionError, DatabaseError):
@@ -755,7 +753,7 @@ def record_payment(
                     "payment_amount": float(payment_amount),
                     "seat_ids": [seat.id for seat in selected_seats],
                     "partial": len(remaining_booked) > 0,
-                }
+                },
             )
             session.add(audit)
             session.commit()
@@ -825,19 +823,24 @@ def get_active_reserves() -> list[dict]:
                 .where(SeatAssignment.status == SeatStatus.RESERVED)
                 .where(SeatAssignment.released_at.is_(None))
                 .where(SeatAssignment.reservation_id.is_(None))
-                .order_by(SeatAssignment.note, SeatAssignment.row_number, SeatAssignment.seat_number)
+                .order_by(
+                    SeatAssignment.note, SeatAssignment.row_number, SeatAssignment.seat_number
+                )
             )
             assignments = session.execute(stmt).scalars().all()
 
             # Group by (note, row) — sorted by comment first, then row
             from itertools import groupby as gb
+
             groups = []
             for (note, row), group in gb(assignments, lambda a: (a.note, a.row_number)):
-                groups.append({
-                    'row': row,
-                    'seats': sorted(a.seat_number for a in group),
-                    'note': note or "",
-                })
+                groups.append(
+                    {
+                        "row": row,
+                        "seats": sorted(a.seat_number for a in group),
+                        "note": note or "",
+                    }
+                )
 
             return groups
 
@@ -879,13 +882,15 @@ def add_reserve(row: int, seats: list[int], comment: str, user_id: int) -> list[
                 )
                 assignment = session.execute(stmt).scalars().first()
                 if assignment:
-                    conflicts.append({
-                        'row': row,
-                        'seat': seat,
-                        'status': assignment.status,
-                        'note': assignment.note,
-                        'reservation_id': assignment.reservation_id,
-                    })
+                    conflicts.append(
+                        {
+                            "row": row,
+                            "seat": seat,
+                            "status": assignment.status,
+                            "note": assignment.note,
+                            "reservation_id": assignment.reservation_id,
+                        }
+                    )
 
             if conflicts:
                 raise SeatOccupiedError(conflicts)
@@ -922,12 +927,14 @@ def add_reserve(row: int, seats: list[int], comment: str, user_id: int) -> list[
                     "comment": comment,
                     "user_id": user_id,
                     "count": len(seats),
-                }
+                },
             )
             session.add(audit)
             session.commit()
 
-            logger.info(f"Added reserve: row {row}, seats {seats}, comment={comment!r}, user_id={user_id}")
+            logger.info(
+                f"Added reserve: row {row}, seats {seats}, comment={comment!r}, user_id={user_id}"
+            )
             return assignments
 
         except SeatOccupiedError:
@@ -976,15 +983,10 @@ def release_reserve(row: int, seats: list[int], user_id: int) -> list[dict]:
             if len(assignments) < len(seats):
                 found_seats = {a.seat_number for a in assignments}
                 missing = sorted(set(seats) - found_seats)
-                raise DatabaseError(
-                    f"Seats not found as active RESERVED in row {row}: {missing}"
-                )
+                raise DatabaseError(f"Seats not found as active RESERVED in row {row}: {missing}")
 
             # Collect previous notes before modification
-            previous_notes = [
-                {"seat": a.seat_number, "note": a.note}
-                for a in assignments
-            ]
+            previous_notes = [{"seat": a.seat_number, "note": a.note} for a in assignments]
 
             # Release all seats
             now = datetime.utcnow()
@@ -1005,7 +1007,7 @@ def release_reserve(row: int, seats: list[int], user_id: int) -> list[dict]:
                     "seats": seats,
                     "previous_notes": previous_notes,
                     "user_id": user_id,
-                }
+                },
             )
             session.add(audit)
             session.commit()
@@ -1052,7 +1054,6 @@ def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
     """
     with SessionLocal() as session:
         try:
-
             # Correlated subquery: count BOOKED unreleased seats per reservation
             booked_count_subq = (
                 select(func.count(SeatAssignment.id))
@@ -1085,19 +1086,19 @@ def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
             for reservation, vk_user, booked_count in rows:
                 days_since = (now - reservation.last_activity_at).days
                 debt_amount = Decimal(booked_count) * Decimal(SEAT_PRICE)
-                result.append({
-                    'reservation_id': reservation.id,
-                    'buyer_display_name': vk_user.display_name,
-                    'buyer_vk_id': vk_user.vk_user_id,
-                    'booked_seat_count': booked_count,
-                    'debt_amount': debt_amount,
-                    'days_since_activity': days_since,
-                    'last_activity_at': reservation.last_activity_at,
-                })
+                result.append(
+                    {
+                        "reservation_id": reservation.id,
+                        "buyer_display_name": vk_user.display_name,
+                        "buyer_vk_id": vk_user.vk_user_id,
+                        "booked_seat_count": booked_count,
+                        "debt_amount": debt_amount,
+                        "days_since_activity": days_since,
+                        "last_activity_at": reservation.last_activity_at,
+                    }
+                )
 
-            logger.info(
-                f"get_debtors(seller_id={seller_id}): found {len(result)} debtors"
-            )
+            logger.info(f"get_debtors(seller_id={seller_id}): found {len(result)} debtors")
             return result
 
         except Exception as e:
@@ -1163,9 +1164,7 @@ def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
             session.add(audit)
             session.commit()
 
-            logger.info(
-                f"log_reminder_sent: seller_id={seller_id}, debtor_count={debtor_count}"
-            )
+            logger.info(f"log_reminder_sent: seller_id={seller_id}, debtor_count={debtor_count}")
 
         except Exception as e:
             session.rollback()
@@ -1239,7 +1238,9 @@ def add_app_user(vk_user_id: int, display_name: str, role: UserRole) -> AppUser:
                 user.display_name = display_name
                 session.commit()
                 session.refresh(user)
-                logger.info(f"Updated AppUser {user.id} role to {role.value} for VK ID {vk_user_id}")
+                logger.info(
+                    f"Updated AppUser {user.id} role to {role.value} for VK ID {vk_user_id}"
+                )
                 return user
 
             user = AppUser(

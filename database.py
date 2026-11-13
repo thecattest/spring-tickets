@@ -46,10 +46,7 @@ def _resolve_sqlite_path(url: str) -> str:
 
 
 # Database URL from environment variable or default SQLite for MVP
-DATABASE_URL = _resolve_sqlite_path(os.getenv(
-    "DATABASE_URL",
-    "sqlite:///tickets.db"
-))
+DATABASE_URL = _resolve_sqlite_path(os.getenv("DATABASE_URL", "sqlite:///tickets.db"))
 
 # Путь к файлу SQLite (None для in-memory и других СУБД) — например, для бэкапа
 _db_name = make_url(DATABASE_URL).database
@@ -70,11 +67,13 @@ engine = create_engine(
 
 # Enable foreign keys for SQLite (required for CASCADE deletes)
 if DATABASE_URL.startswith("sqlite"):
+
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_conn, connection_record):
         cursor = dbapi_conn.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
+
 
 # Create sessionmaker factory
 SessionLocal = sessionmaker(
@@ -92,6 +91,7 @@ def init_db() -> None:
     Should be called once when setting up the application.
     """
     from models.base import Base
+
     Base.metadata.create_all(bind=engine)
     _run_migrations()
 
@@ -129,6 +129,8 @@ if __name__ == "__main__":
 
     setup_logging()
     log = logging.getLogger("database")
-    log.info("Initializing database: %s", make_url(DATABASE_URL).render_as_string(hide_password=True))
+    log.info(
+        "Initializing database: %s", make_url(DATABASE_URL).render_as_string(hide_password=True)
+    )
     init_db()
     log.info("Database initialized")

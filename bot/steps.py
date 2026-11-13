@@ -38,15 +38,16 @@ def handle_row_input(text: str) -> RowResult:
         row = int(stripped)
     except ValueError:
         min_row, max_row = get_row_range()
-        return RowResult(ok=False, error_text=texts.ERR_INVALID_ROW_FORMAT.format(
-            min_row=min_row, max_row=max_row
-        ))
+        return RowResult(
+            ok=False,
+            error_text=texts.ERR_INVALID_ROW_FORMAT.format(min_row=min_row, max_row=max_row),
+        )
 
     if not is_valid_row(row):
         min_row, max_row = get_row_range()
-        return RowResult(ok=False, error_text=texts.ERR_INVALID_ROW.format(
-            min_row=min_row, max_row=max_row
-        ))
+        return RowResult(
+            ok=False, error_text=texts.ERR_INVALID_ROW.format(min_row=min_row, max_row=max_row)
+        )
 
     return RowResult(ok=True, row=row)
 
@@ -87,6 +88,7 @@ def handle_seat_input(
     if mode == "availability":
         from bot.utils import db
         from bot.utils.formatting import format_seat_ranges
+
         occupied_seats = []
         for seat in seats:
             assignment = db.get_seat_assignment(row, seat)
@@ -96,13 +98,14 @@ def handle_seat_input(
             seats_str = format_seat_ranges(sorted(occupied_seats))
             return SeatResult(
                 ok=False,
-                error_text=f"Места {seats_str} в ряду {row} недоступны.\n\nВведите другие места:"
+                error_text=f"Места {seats_str} в ряду {row} недоступны.\n\nВведите другие места:",
             )
         return SeatResult(ok=True, seats=seats)
 
     if mode == "membership":
         from bot.utils import db
         from models.base import SeatStatus
+
         all_reservation_seats = db.get_reservation_seats(reservation_id)
         seat_map = {(s.row_number, s.seat_number): s for s in all_reservation_seats}
 
@@ -131,6 +134,7 @@ def handle_seat_input(
 
 def handle_confirmation(text: str) -> bool | None:
     from bot.constants import Btn
+
     stripped = text.strip()
     if stripped == Btn.CONFIRM:
         return True

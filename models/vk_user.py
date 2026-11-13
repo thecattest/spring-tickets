@@ -22,9 +22,7 @@ class VkUser(Base):
 
     created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
-        nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow
+        nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
     def __repr__(self) -> str:

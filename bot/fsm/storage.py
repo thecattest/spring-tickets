@@ -122,7 +122,7 @@ class RedisStorage(ABCStateDispenser):
                     state_peer = StatePeer(
                         peer_id=peer_id,
                         state=old_state if old_state else "idle",
-                        payload=old_context
+                        payload=old_context,
                     )
 
                     # Update Redis with new format
@@ -158,17 +158,15 @@ class RedisStorage(ABCStateDispenser):
         redis_key = self._make_key(peer_id)
 
         # Create StatePeer object
-        state_peer = StatePeer(
-            peer_id=peer_id,
-            state=state,
-            payload=payload
-        )
+        state_peer = StatePeer(peer_id=peer_id, state=state, payload=payload)
 
         # Serialize to JSON
         data = state_peer.model_dump()
         await self.redis.set(redis_key, json.dumps(data))
 
-        logger.info(f"FSM transition: {redis_key} -> {state_peer.state} (payload: {len(payload)} keys)")
+        logger.info(
+            f"FSM transition: {redis_key} -> {state_peer.state} (payload: {len(payload)} keys)"
+        )
 
     async def delete(self, peer_id: int):
         """

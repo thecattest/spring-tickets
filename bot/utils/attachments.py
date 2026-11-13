@@ -37,11 +37,13 @@ def get_attachment_urls(forwarded) -> list[dict]:
             title = att.doc.title or "document"
             if att.doc.ext and "." not in title:
                 title = f"{title}.{att.doc.ext}"
-            result.append({
-                "type": "doc",
-                "url": att.doc.url,
-                "title": title,
-            })
+            result.append(
+                {
+                    "type": "doc",
+                    "url": att.doc.url,
+                    "title": title,
+                }
+            )
     return result
 
 
@@ -199,20 +201,18 @@ async def reupload_attachments(
                     logger.warning(f"Empty data for attachment: {att['url'][:80]}")
                     continue
 
-                logger.info(f"Downloaded attachment: type={att['type']}, size={len(data)}, title={att.get('title')}")
+                logger.info(
+                    f"Downloaded attachment: type={att['type']}, size={len(data)}, title={att.get('title')}"
+                )
 
                 if att["type"] == "photo":
                     # Ручной upload фото через VK API (обходит проблему с именем файла)
-                    attachment_str = await _upload_photo_manual(
-                        api, data, peer_id
-                    )
+                    attachment_str = await _upload_photo_manual(api, data, peer_id)
                     if not attachment_str:
                         continue
                 else:
                     # Ручной upload документа через VK API (обходит проблему пустого ответа)
-                    attachment_str = await _upload_doc_manual(
-                        api, data, att["title"], peer_id
-                    )
+                    attachment_str = await _upload_doc_manual(api, data, att["title"], peer_id)
                     if not attachment_str:
                         continue
 

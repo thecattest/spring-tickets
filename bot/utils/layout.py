@@ -18,6 +18,7 @@ _layout_cache: dict | None = None
 
 class LayoutError(Exception):
     """Exception raised for layout-related errors."""
+
     pass
 
 
@@ -37,7 +38,7 @@ def load_layout() -> dict:
         return _layout_cache
 
     try:
-        with open(LAYOUT_FILE, encoding='utf-8') as f:
+        with open(LAYOUT_FILE, encoding="utf-8") as f:
             layout = json.load(f)
 
         # Validate layout structure

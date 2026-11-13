@@ -66,6 +66,7 @@ async def setup():
 
     # Initialize database
     from database import init_db
+
     try:
         init_db()
         logger.info("Database initialized")
@@ -75,6 +76,7 @@ async def setup():
 
     # Load hall layout
     from bot.utils.layout import load_layout
+
     try:
         load_layout()
         logger.info("Hall layout loaded")
