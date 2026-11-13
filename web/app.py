@@ -7,6 +7,7 @@ Run:
 
 import json
 import os
+import secrets
 from collections import defaultdict
 from decimal import Decimal
 from pathlib import Path
@@ -34,8 +35,19 @@ templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 PAYMENTS_PASSWORD = os.getenv("PAYMENTS_PASSWORD", "")
 SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
-COOKIE_SECRET = os.getenv("COOKIE_SECRET", PAYMENTS_PASSWORD + "_secret")
+# Секрет подписи cookie — отдельный от пароля: зная пароль, нельзя подделать cookie
+COOKIE_SECRET = os.getenv("COOKIE_SECRET", "")
+# По HTTPS (прод) cookie только secure; локально по HTTP — COOKIE_SECURE=false
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
 COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
+
+# Без пароля вход проходил бы с пустой строкой, без секрета — cookie подделываемы
+_missing = [name for name, value in (
+    ("PAYMENTS_PASSWORD", PAYMENTS_PASSWORD),
+    ("COOKIE_SECRET", COOKIE_SECRET),
+) if not value]
+if _missing:
+    raise RuntimeError(f"Required environment variables are not set: {', '.join(_missing)}")
 
 serializer = URLSafeTimedSerializer(COOKIE_SECRET)
 COOKIE_NAME = "payments_auth"
@@ -305,7 +317,8 @@ def payments_login(request: Request, error: str = ""):
 
 @app.post("/payments/login")
 def payments_login_post(request: Request, password: str = Form(...)):
-    if password == PAYMENTS_PASSWORD:
+    # Сравнение за постоянное время; bytes — compare_digest не принимает не-ASCII str
+    if secrets.compare_digest(password.encode(), PAYMENTS_PASSWORD.encode()):
         token = serializer.dumps("authenticated")
         response = RedirectResponse("/payments", status_code=303)
         response.set_cookie(
@@ -313,6 +326,7 @@ def payments_login_post(request: Request, password: str = Form(...)):
             token,
             max_age=COOKIE_MAX_AGE,
             httponly=True,
+            secure=COOKIE_SECURE,
             samesite="lax",
         )
         return response
