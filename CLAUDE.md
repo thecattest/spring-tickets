@@ -8,30 +8,33 @@ Plan of the ongoing cleanup and refactor: `ROADMAP.md` (check items off as they 
 
 Concert ticket management system for VK (VKontakte). Ticketers create seat reservations, record payments, and manage bookings via a VK bot. A web UI shows a public hall map and admin payments dashboard.
 
-**Stack**: Python 3.14+, SQLAlchemy 2.0+, vkbottle (VK bot), FastAPI (web), Redis (bot FSM state), SQLite (MVP).
+**Stack**: Python 3.12 (uv), SQLAlchemy 2.0+, vkbottle (VK bot), FastAPI (web), Redis (bot FSM state), SQLite (MVP).
 
 ## Commands
 
 ```bash
-# Setup
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+# Setup (uv installs Python 3.12 from .python-version and creates .venv)
+uv sync
+uv run pre-commit install   # ruff check/format + requirements.txt sync before each commit
 cp .env.example .env  # fill in VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
-python database.py    # create tables
+uv run python database.py    # create tables
 
 # Run bot (requires Redis + VK token)
-python -m bot
+uv run python -m bot
 
 # Run web UI
 ./web/run.sh
-# or: uvicorn web.app:app --host 0.0.0.0 --port 8080
+# or: uv run uvicorn web.app:app --host 0.0.0.0 --port 8080
 
 # Run tests (isolated temp DB via root conftest.py — safe to run anytime)
-pytest
+uv run pytest
 # test_redis_fsm uses local Redis db 15 and is skipped when Redis is not running
 
 # Debtors reminders (cron)
-python scripts/send_debtors_reminders.py
+uv run python scripts/send_debtors_reminders.py
+
+# Lint / format
+uv run ruff check --fix . && uv run ruff format .
 
 # Deploy (run locally — SSHes into server, pulls, installs deps, migrates DB, restarts services)
 bash deploy/deploy.sh
@@ -76,7 +79,14 @@ All state changes are recorded in the `AuditLog` table.
 - **Owners vs admins**: `ADMIN` is a business role in the DB. Project owners are `OWNER_VK_IDS` in config, not a role: only owners run `/addadmin`, `/addseller`, `/removeuser`, `/users` and receive technical messages (backups). `bot.config.is_owner()`.
 - **layout.json**: defines hall geometry (24 rows, variable seats, aisles). Used by both bot (validation) and web (rendering).
 
+## Dependencies
+
+- `pyproject.toml` + `uv.lock` are the source of truth. Add a dependency: `uv add <pkg>` (dev tools: `uv add --dev <pkg>`); update one: `uv lock --upgrade-package <pkg>`.
+- `requirements.txt` is **generated** from `uv.lock` (no dev deps) for the current pip-based server deploy and Dockerfile. Never edit it by hand — the pre-commit hook regenerates it. It goes away when deploy and Dockerfile move to uv (ROADMAP stages 3 and 5).
+
 ## Code Conventions
+
+- ruff (lint + format, config in `pyproject.toml`) is enforced by pre-commit. `.git-blame-ignore-revs` lists the bulk-format commit.
 
 - Enums in `models/base.py`: `UserRole`, `ReservationState`, `SeatStatus`, `ActorType`
 - Datetime fields use `*_at` suffix (`created_at`, `released_at`, `last_activity_at`)

@@ -13,9 +13,8 @@
 
 ## Этап 0. Гигиена
 
-- [ ] **uv вместо pip.** Зависимости в `pyproject.toml` (`[project.dependencies]`), pytest и линтеры — в `[dependency-groups] dev`, точные версии всего дерева в `uv.lock` (коммитится). Локально `uv sync`, в образе `uv sync --frozen --no-dev`, обновление — `uv lock --upgrade-package <имя>`. `requirements.txt` удалить.
-- [ ] **Python 3.12 везде:** `.python-version`, `requires-python = ">=3.12,<3.13"`, `.venv` пересоздать через `uv sync`, Dockerfile, версия в CLAUDE.md.
-- [ ] **Проект как пакет `tickets`** (`package = true` в uv) — подготовка к новой структуре (→ Архитектура).
+- [x] **uv вместо pip.** Зависимости в `pyproject.toml` (`[project.dependencies]`), pytest и линтеры — в `[dependency-groups] dev`, точные версии всего дерева в `uv.lock` (коммитится). Локально `uv sync`, в образе `uv sync --frozen --no-dev`, обновление — `uv lock --upgrade-package <имя>`. `requirements.txt` пока генерируется из `uv.lock` (хук pre-commit) для текущего pip-деплоя — удалить вместе с переходом образа и деплоя на uv (этапы 3, 5).
+- [x] **Python 3.12 везде:** `.python-version`, `requires-python = ">=3.12,<3.13"`, `.venv` пересоздать через `uv sync`, Dockerfile, версия в CLAUDE.md.
 - [x] **Владелец — настройка `OWNER_VK_IDS`** вместо захардкоженного `498417215` (`scripts/backup_db.py`). Используется для технических уведомлений и прав владельца.
 - [x] **Управление пользователями только владельцу:** `/addadmin`, `/addseller`, `/removeuser`, `/users` проверяют `OWNER_VK_IDS`, а не роль `ADMIN`. Логические админы сохраняют бизнес-права. Первого админа владелец создаёт через бота → удалить `scripts/create_admin.py`.
 - [x] **Безопасность `/payments`:** `COOKIE_SECRET` обязателен (не выводится из пароля), `secrets.compare_digest` вместо `==`, cookie `secure=True` (отключаемо настройкой для локального HTTP), `limit_req` на `/payments/login` в nginx на хосте (в `deploy/tickets-nginx.conf`; на сервере применить вручную — там файл дополнен certbot). Учёток в вебе не будет — один админский режим.
@@ -23,7 +22,7 @@
 - [x] **Показ времени в Europe/Moscow** на странице оплат (сейчас UTC выдаётся за московское). Полный переход на aware-даты — на этапе 1 (→ Даты).
 - [x] **Уборка:** удалить `tickets.db~`, `migrations/001_add_payment_amount_fields.sql`, `test_db.py` (нужное — в тесты), `REFACTORING_PLAN.md`, `SQLITE_MIGRATION.md`, `README_MODELS.md` (полезное про сессии — в README/CLAUDE.md), `DB_SCHEMA.md`, `.planning/`. `TZ.md` → `docs/`.
 - [x] **Починить 2 падающих теста:** `test_redis_fsm` (нужен Redis), `test_negative_seat`.
-- [ ] **ruff + pre-commit:** ruff как линтер и форматтер (умеренный набор правил), одно автоформатирование всего кода до рефакторинга; pre-commit с локальными хуками `uv run ruff` (версия из `uv.lock`); настройки в `pyproject.toml`; `.vscode/settings.json` для Cursor (ruff-форматтер, format on save, fixAll/organizeImports, `ruff.importStrategy = fromEnvironment`).
+- [x] **ruff + pre-commit:** ruff как линтер и форматтер (умеренный набор правил), одно автоформатирование всего кода до рефакторинга; pre-commit с локальными хуками `uv run ruff` (версия из `uv.lock`); настройки в `pyproject.toml`; `.vscode/settings.json` для Cursor (ruff-форматтер, format on save, fixAll/organizeImports, `ruff.importStrategy = fromEnvironment`).
 
 ## Этап 1. Postgres
 
@@ -46,7 +45,7 @@
 
 ## Этап 3. Docker / Compose
 
-- [ ] **Образ:** Python 3.12, `uv sync --frozen --no-dev`, пользователь не root, пакет `tzdata`, клиент `pg_dump` из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер.
+- [ ] **Образ:** Python 3.12, `uv sync --frozen --no-dev` (вместо `pip install -r requirements.txt`), пользователь не root, пакет `tzdata`, клиент `pg_dump` из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер.
 - [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`.
 - [ ] **Порядок старта:** `db-backup` → `migrate` (`alembic upgrade head`, `restart: "no"`) → `web`, `bot`, `cron` через `condition: service_completed_successfully`.
 - [ ] **Healthcheck** у каждого сервиса, `depends_on` с условиями, `restart: unless-stopped` для постоянных сервисов.
@@ -68,7 +67,7 @@
 ## Этап 5. Переезд сервера и уборка легаси
 
 - [ ] **Новый `deploy/deploy.sh`:** `ssh` → `git pull --ff-only` → `docker compose up -d --build` → `docker compose ps` → `docker image prune -f`. Отката пока нет — чиним вперёд.
-- [ ] **Удалить:** `tickets-*.service`, `install.sh`, `aliases.sh`, `bootstrap.sh`, `setup-cron.sh`, `setup-backup-cron.sh`, `web/run.sh`, `deploy/README.md` (→ README). Системный `redis-server` на сервере больше не нужен.
+- [ ] **Удалить:** `tickets-*.service`, `install.sh`, `aliases.sh`, `bootstrap.sh`, `setup-cron.sh`, `setup-backup-cron.sh`, `web/run.sh`, `deploy/README.md` (→ README), сгенерированный `requirements.txt` и хук `uv-export` в `.pre-commit-config.yaml`. Системный `redis-server` на сервере больше не нужен.
 - [ ] **Мониторинг:** `/health` в вебе (приложение + БД) как healthcheck; heartbeat цикла Long Poll для бота; `notify_owner()` для технических алертов (→ Архитектура). Внешнюю проверку доступности пока не делаем.
 - [ ] **Бот остаётся на Long Poll**; источник событий заменяемый (Callback — в бэклоге).
 
@@ -86,7 +85,7 @@
 
 ## Этап 7. Архитектура
 
-- [ ] **Пакет `tickets/`** с подпакетами и правилом зависимостей «только вниз» (→ Архитектура).
+- [ ] **Пакет `tickets/`** с подпакетами и правилом зависимостей «только вниз» (→ Архитектура); `package = true` в `[tool.uv]` (перенесено с этапа 0 — до появления папки `tickets/` включить нельзя).
 - [ ] **Конфиг на `pydantic-settings`** вместо `bot/config.py` и `database.py`.
 - [ ] **Сервисы** из `bot/utils/db.py`: `users`, `reservations`, `seats`, `payments`, `reports`, `audit`.
 - [ ] **Транзакции:** сервисы не коммитят; unit of work на границе; побочные эффекты после коммита; тест-страж.
