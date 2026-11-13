@@ -52,7 +52,10 @@ env/
 .venv
 
 # IDEs
-.vscode/
+.vscode/*
+# Общие настройки редактора для проекта (ruff, интерпретатор .venv)
+!.vscode/settings.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
