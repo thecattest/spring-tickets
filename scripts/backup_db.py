@@ -26,6 +26,8 @@ load_dotenv(PROJECT_ROOT / ".env")
 import os
 from vkbottle.bot import Bot
 
+from database import SQLITE_PATH
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -34,13 +36,17 @@ logger = logging.getLogger(__name__)
 
 VK_BOT_TOKEN = os.getenv("VK_BOT_TOKEN", "")
 RECIPIENT_VK_ID = 498417215
-DB_PATH = PROJECT_ROOT / "tickets.db"
+DB_PATH = SQLITE_PATH  # из DATABASE_URL, относительные пути — от корня проекта
 BACKUP_DIR = Path.home() / "tickets-backup"
 
 
 async def main():
     if not VK_BOT_TOKEN:
         logger.error("VK_BOT_TOKEN not set")
+        sys.exit(1)
+
+    if DB_PATH is None:
+        logger.error("DATABASE_URL is not a file-based SQLite database, nothing to back up")
         sys.exit(1)
 
     if not DB_PATH.exists():
