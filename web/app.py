@@ -9,8 +9,10 @@ import json
 import os
 import secrets
 from collections import defaultdict
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
@@ -35,6 +37,21 @@ setup_logging()
 
 app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+# Время в БД — наивное UTC; показываем в часовом поясе концерта
+DISPLAY_TZ = ZoneInfo(os.getenv("DISPLAY_TZ", "Europe/Moscow"))
+
+
+def local_dt(value: datetime | None, fmt: str = "%d.%m.%Y %H:%M") -> str:
+    """Jinja-фильтр: UTC из БД → DISPLAY_TZ."""
+    if value is None:
+        return ""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(DISPLAY_TZ).strftime(fmt)
+
+
+templates.env.filters["local_dt"] = local_dt
 
 PAYMENTS_PASSWORD = os.getenv("PAYMENTS_PASSWORD", "")
 SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))

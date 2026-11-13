@@ -32,3 +32,6 @@ itsdangerous>=2.1.0
 # aiosqlite>=0.19.0  # for async SQLite
 # asyncpg>=0.29.0    # for async PostgreSQL
 # sqlalchemy[asyncio]>=2.0.0
+
+# IANA time zones for zoneinfo (slim images have no system tz database)
+tzdata>=2024.1
