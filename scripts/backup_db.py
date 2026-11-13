@@ -11,7 +11,7 @@ Crontab entry (every hour):
 
 import asyncio
 import logging
-import shutil
+import sqlite3
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -54,7 +54,12 @@ async def main():
     now = datetime.now()
     backup_name = now.strftime("%d.%m-%H.%M") + ".db"
     backup_path = BACKUP_DIR / backup_name
-    shutil.copy2(DB_PATH, backup_path)
+    src = sqlite3.connect(DB_PATH)
+    dst = sqlite3.connect(backup_path)
+    with dst:
+        src.backup(dst)
+    src.close()
+    dst.close()
     logger.info(f"Backup created: {backup_path}")
 
     # Send via VK bot
