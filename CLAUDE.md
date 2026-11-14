@@ -36,8 +36,9 @@ uv run pytest
 docker compose run --rm web python -m tickets.jobs.backup [--reason pre-migrate]
 docker compose run --rm web python -m tickets.jobs.debtors
 
-# Lint / format
+# Lint / format / types (all three run in pre-commit)
 uv run ruff check --fix . && uv run ruff format .
+uv run mypy
 
 # Deploy (run locally — SSHes into server, git pull, docker compose up --build --wait)
 bash deploy/deploy.sh
@@ -105,7 +106,7 @@ All state changes are recorded in the `AuditLog` table.
 
 ## Code Conventions
 
-- ruff (lint + format, config in `pyproject.toml`) is enforced by pre-commit. `.git-blame-ignore-revs` lists the bulk-format commit.
+- ruff (lint + format) and mypy are enforced by pre-commit, config in `pyproject.toml`. mypy: strict flags for `tickets.services.*` and `tickets.models.*`, `check_untyped_defs` for the rest, pydantic plugin; it checks the whole package (`files = ["src/tickets"]`). Prefer fixing types over `cast`/`# type: ignore`; bot input parsing raises `flows.common.InvalidInput` instead of returning optional values. `.git-blame-ignore-revs` lists the bulk-format commit.
 
 - Enums in `tickets/models/base.py`: `UserRole`, `ReservationState`, `SeatStatus`, `ActorType`, `AuditAction`, `AuditEntity` (all domain enums live there, services import them). A new value = a migration widening its CHECK (expand), written by hand — autogenerate doesn't see CHECKs, `tests/test_migrations.py` fails until it exists. Stored as VARCHAR + CHECK with the enum **values** (`'paid'`), not native Postgres ENUM (configured once in `Base.type_annotation_map`).
 - Times: always aware UTC — `tickets.time.utcnow()`, `tickets.time.from_unix()` for VK dates (accepts int or the `datetime` vkbottle-types already parse); never `datetime.utcnow()`. Every `Mapped[datetime]` column is `timestamptz`.

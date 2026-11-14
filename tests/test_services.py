@@ -173,3 +173,39 @@ async def test_concurrent_payments_of_one_reservation_are_serialized(seller_id):
     assert outcome == ("insufficient", 1)  # осталось одно неоплаченное
     assert await count(Payment) == 1
     assert await active_seats(SeatStatus.PAID) == 2
+
+
+# --- last_activity_at (напоминания о должниках) -----------------------------
+
+
+async def test_last_activity_counts_changes_not_views(seller_id):
+    """
+    Активность брони (отсчёт 7 дней до напоминания) — изменения: места,
+    оплата, отмена. Просмотр меню брони и напоминания её не сдвигают.
+    """
+    from datetime import timedelta
+
+    from tickets.models.reservation import Reservation
+    from tickets.services import reports
+    from tickets.time import utcnow
+
+    rid = await new_reservation(seller_id, 301, 5, [1, 2, 3])
+    long_ago = utcnow() - timedelta(days=30)
+
+    async def activity_after(action) -> bool:
+        """Сдвинулась ли активность после действия (начинаем с «месяц назад»)."""
+        async with unit_of_work() as s:
+            (await s.get(Reservation, rid)).last_activity_at = long_ago
+        async with unit_of_work() as s:
+            await action(s)
+        async with unit_of_work() as s:
+            return (await s.get(Reservation, rid)).last_activity_at > long_ago
+
+    # Чтение — не активность
+    assert not await activity_after(lambda s: seats.of_reservation(s, rid))
+    assert not await activity_after(lambda s: reports.log_reminder_sent(s, seller_id, 1))
+    # Изменения — активность
+    assert await activity_after(lambda s: reservations.add_seats(s, rid, 5, [4], seller_id))
+    assert await activity_after(lambda s: reservations.remove_seats(s, rid, 5, [4], seller_id))
+    assert await activity_after(lambda s: payments.record(s, rid, 1, seller_id))
+    assert await activity_after(lambda s: reservations.cancel(s, rid, seller_id, is_admin=True))
