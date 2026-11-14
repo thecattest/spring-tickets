@@ -21,7 +21,13 @@ Dockerfile
 .idea
 **/.DS_Store
 
+.ruff_cache
+.vscode
+.pre-commit-config.yaml
+.git-blame-ignore-revs
+
 *.md
+/docs
 /deploy
 /tests
 .claude
