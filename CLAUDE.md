@@ -30,8 +30,9 @@ uv run python -m bot
 uv run pytest
 # test_redis_fsm uses local Redis db 15 and is skipped when Redis is not running
 
-# Debtors reminders (cron)
-uv run python scripts/send_debtors_reminders.py
+# Background jobs (normally run by cron; pg_dump is only in the image, so run backup in Compose)
+docker compose run --rm web python -m jobs.backup [--reason pre-migrate]
+docker compose run --rm web python -m jobs.debtors
 
 # Lint / format
 uv run ruff check --fix . && uv run ruff format .
@@ -131,7 +132,7 @@ docker compose logs -f web
 
 Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. Cron, `db-backup` and secrets are not in Compose yet (ROADMAP stages 4–5). On host-only runs (`uv run`) apply migrations yourself.
 
-`scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `scripts/backup_db.py` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer).
+`scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `jobs.backup` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer — the image has 18 from PGDG).
 
 ## Migrations
 

@@ -84,3 +84,62 @@ class TestBackup:
             assert has_pending_migrations()
         finally:
             command.upgrade(cfg, "head")
+
+
+@pytest.mark.asyncio
+class TestDebtors:
+    """Логика рассылки: VK и БД подменены."""
+
+    @pytest.fixture
+    def env(self, monkeypatch):
+        from types import SimpleNamespace
+
+        from jobs import debtors
+
+        sellers = [SimpleNamespace(id=i, vk_user_id=100 + i) for i in (1, 2, 3)]
+        state = {"sent": [], "audited": [], "fail_for": set()}
+
+        class FakeMessages:
+            async def send(self, peer_id, message, random_id):
+                if peer_id in state["fail_for"]:
+                    raise RuntimeError("VK error")
+                assert random_id > 0  # не 0: иначе VK не отбрасывает дубли
+                state["sent"].append(peer_id)
+
+        class FakeAPI:
+            def __init__(self, token):
+                self.messages = FakeMessages()
+                self.http_client = SimpleNamespace(close=_noop)
+
+        monkeypatch.setattr(debtors, "VK_BOT_TOKEN", "vk1.a.fake")
+        monkeypatch.setattr(debtors, "API", FakeAPI)
+        monkeypatch.setattr(debtors, "get_all_active_sellers", lambda: sellers)
+        # У билетёра 2 должников нет
+        monkeypatch.setattr(
+            debtors, "get_debtors", lambda seller_id, min_days: [] if seller_id == 2 else [{}]
+        )
+        monkeypatch.setattr(debtors, "format_reminder", lambda d: "text")
+        monkeypatch.setattr(
+            debtors,
+            "log_reminder_sent",
+            lambda seller_id, debtor_count: state["audited"].append(seller_id),
+        )
+        return debtors, state
+
+    async def test_sends_only_to_sellers_with_debtors(self, env):
+        debtors, state = env
+        await debtors.send_reminders()
+        assert state["sent"] == [101, 103]
+        assert state["audited"] == [1, 3]
+
+    async def test_one_failure_does_not_stop_others_but_fails_job(self, env):
+        debtors, state = env
+        state["fail_for"] = {101}
+        with pytest.raises(RuntimeError, match=r"sellers \[1\]"):
+            await debtors.send_reminders()
+        assert state["sent"] == [103]  # остальным отправлено
+        assert state["audited"] == [3]  # аудит только для отправленных
+
+
+async def _noop():
+    pass
