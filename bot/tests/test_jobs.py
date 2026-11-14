@@ -54,3 +54,33 @@ class TestNotifyOwner:
 
 async def _record(sent: list, text: str) -> None:
     sent.append(text)
+
+
+class TestBackup:
+    def test_rotate_keeps_newest_per_reason(self, tmp_path):
+        from jobs.backup import rotate
+
+        names = [f"tickets-regular-2026111{d}-040000Z.dump" for d in range(5)]
+        names += ["tickets-pre-migrate-20261101-120000Z.dump", "unrelated.txt"]
+        for name in names:
+            (tmp_path / name).touch()
+
+        removed = rotate(tmp_path, "regular", keep=3)
+
+        assert [p.name for p in removed] == names[:2]  # два самых старых
+        left = sorted(p.name for p in tmp_path.iterdir())
+        assert left == sorted(names[2:])  # предмиграционный и чужой файл не тронуты
+
+    def test_pending_migrations(self):
+        from alembic import command
+
+        import database
+        from jobs.backup import has_pending_migrations
+
+        assert not has_pending_migrations()  # тестовая база на head
+        cfg = database.alembic_config()
+        command.downgrade(cfg, "base")
+        try:
+            assert has_pending_migrations()
+        finally:
+            command.upgrade(cfg, "head")

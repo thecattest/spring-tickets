@@ -76,3 +76,6 @@ env/
 # OS
 .DS_Store
 Thumbs.db
+
+# Бэкапы базы (jobs.backup)
+backups/

@@ -3,6 +3,7 @@
 .env.example
 
 /data
+/backups
 **/*.db
 **/*.db~
 **/*.db-journal
