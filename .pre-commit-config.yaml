@@ -17,12 +17,3 @@ repos:
         entry: uv run ruff format
         language: system
         types: [python]
-
-      # requirements.txt генерируется из uv.lock для текущего pip-деплоя
-      # (до перехода деплоя и Dockerfile на uv) — держим их синхронными
-      - id: uv-export
-        name: requirements.txt from uv.lock
-        entry: uv export --no-dev --no-hashes --no-emit-project --quiet -o requirements.txt
-        language: system
-        files: ^(pyproject\.toml|uv\.lock)$
-        pass_filenames: false

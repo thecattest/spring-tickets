@@ -100,7 +100,7 @@ bash deploy/deploy.sh
    crontab -e   # удалить строки tickets: debtor reminders / db backup
    ```
 
-   Строки, которые `deploy/aliases.sh` добавлял в `~/.bashrc`, удалить вручную.
+   Из `~/.bashrc` удалить блок алиасов `systemctl --user` от старого `deploy/aliases.sh` — между строками `# tickets-aliases` и `# end tickets-aliases`.
 
 2. Скопировать `data/tickets.db` в надёжное место (это исходные данные для переноса).
 3. `git pull` и шаги 1, 3–5 первичной настройки. nginx и сертификат на сервере уже есть — не переустанавливать, а в серверном `/etc/nginx/sites-available/tickets` (его правил certbot) руками: `proxy_pass` на `http://127.0.0.1:8000` вместо 8080 и блок `limit_req` для `/payments/login` из `deploy/tickets-nginx.conf`; затем `sudo nginx -t && sudo systemctl reload nginx`.

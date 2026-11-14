@@ -15,7 +15,7 @@ Concert ticket management system for VK (VKontakte). Ticketers create seat reser
 ```bash
 # Setup (uv installs Python 3.12 from .python-version and creates .venv)
 uv sync
-uv run pre-commit install   # ruff check/format + requirements.txt sync before each commit
+uv run pre-commit install   # ruff check/format before each commit
 cp .env.example .env  # non-secret settings; secrets go to ./secrets/ (see Configuration)
 # fill in VK_GROUP_ID, OWNER_VK_IDS
 mkdir -m 700 secrets   # one file per secret, value only; postgres_password=tickets for the local volume
@@ -27,8 +27,7 @@ uv run alembic upgrade head  # create / update the schema
 uv run python -m bot
 
 # Run web UI
-./web/run.sh
-# or: uv run uvicorn web.app:app --host 0.0.0.0 --port 8080
+uv run uvicorn web.app:app --reload --port 8000   # or in Compose: docker compose watch
 
 # Run tests (throwaway Postgres container via testcontainers — needs Docker running)
 uv run pytest
@@ -41,21 +40,18 @@ docker compose run --rm web python -m jobs.debtors
 # Lint / format
 uv run ruff check --fix . && uv run ruff format .
 
-# Deploy (run locally — SSHes into server, pulls, installs deps, migrates DB, restarts services)
+# Deploy (run locally — SSHes into server, git pull, docker compose up --build --wait)
 bash deploy/deploy.sh
 ```
 
 ## Deployment
 
-Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`.
+Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`. Everything runs in Docker Compose (`compose.yaml` only, no dev file); nginx and certbot are on the host. Server setup, HTTPS and the one-time cutover from the old systemd deploy: README, «Сервер».
 
-- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull --ff-only` → `docker compose up -d --build --wait --remove-orphans` (db-backup → migrate → services, fails if anything is not healthy) → `docker compose ps` → `docker image prune -f`. Server setup and the one-time cutover from the old systemd deploy: README, «Сервер».
+- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull --ff-only` → `docker compose up -d --build --wait --remove-orphans` (db-backup → migrate → services, fails if anything is not healthy) → `docker compose ps` → `docker image prune -f`.
 - `deploy/tickets-nginx.conf` — nginx site: proxy to `127.0.0.1:8000`, rate limit on `/payments/login`. The server copy was modified by certbot, so changes are applied there by hand.
-- `deploy/install.sh` — one-time server setup: installs systemd user services, nginx config, bash aliases, enables linger
-- `deploy/aliases.sh` — adds `start`/`stop`/`restart`/`status`/`tw-log`/`tb-log` aliases to server `.bashrc`
-- `deploy/setup-ssl.sh` — SSL certificate setup
-- `deploy/setup-cron.sh` — cron jobs setup
-- Services run as systemd **user** units (`systemctl --user`), no sudo needed
+- `deploy/setup-ssl.sh` — Let's Encrypt certificate via `certbot --nginx` + renewal check. Keep it.
+- On the server: secrets in `~/spring-tickets/secrets/`, non-secret settings in `.env`, both readable by uid 1000 (`app` in the image); dumps in `./backups`.
 
 ## Architecture
 
@@ -88,7 +84,6 @@ All state changes are recorded in the `AuditLog` table.
 ## Dependencies
 
 - `pyproject.toml` + `uv.lock` are the source of truth. Add a dependency: `uv add <pkg>` (dev tools: `uv add --dev <pkg>`); update one: `uv lock --upgrade-package <pkg>`.
-- `requirements.txt` is **generated** from `uv.lock` (no dev deps) only for the old pip-based server deploy (`deploy/deploy.sh`); the Dockerfile uses `uv sync --frozen --no-dev`. Never edit it by hand — the pre-commit hook regenerates it. It goes away with the old deploy (ROADMAP stage 5).
 
 ## Code Conventions
 
