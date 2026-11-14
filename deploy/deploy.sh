@@ -1,33 +1,41 @@
 #!/usr/bin/env bash
+# Деплой: запускается локально, на сервере всё делает по SSH.
+#
+#   bash deploy/deploy.sh
+#
+# На сервере: git pull → сборка образа → db-backup (дамп, если есть миграции)
+# → migrate → перезапуск изменившихся сервисов → ожидание healthy → чистка
+# старых образов. Если что-то не поднялось (бэкап, миграция, healthcheck),
+# скрипт завершается с ошибкой; уже работающие контейнеры старой версии
+# остаются как были. Отката нет — чиним вперёд (ROADMAP).
+#
+# Первичная настройка сервера — README, «Сервер».
 set -euo pipefail
 
-# Деплой на сервер: ssh tickets -> git pull -> pip install -> migrate DB -> restart
-# Использование: bash deploy/deploy.sh
+SSH_HOST="${DEPLOY_HOST:-tickets}"   # Host из ~/.ssh/config
+REMOTE_DIR="${DEPLOY_DIR:-spring-tickets}"
 
-SSH_HOST="tickets"
-REMOTE_DIR="spring-tickets"
+echo "=== Деплой на $SSH_HOST:~/$REMOTE_DIR ==="
 
-echo "=== Деплой на $SSH_HOST ==="
-
-ssh "$SSH_HOST" bash -s <<'REMOTE'
+ssh "$SSH_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
 set -euo pipefail
-cd ~/spring-tickets
+cd ~/"$1"
 
 echo "--- git pull ---"
 git pull --ff-only
 
-echo "--- pip install ---"
-source .venv/bin/activate
-pip install -q -r requirements.txt
-
-echo "--- DB migrate ---"
-alembic upgrade head
-
-echo "--- restart services ---"
-systemctl --user restart tickets-bot tickets-web
+echo "--- docker compose up ---"
+# --wait: дождаться healthy у всех сервисов (разовые — успешного завершения),
+# иначе ошибка. Таймаут с запасом на start_period бота (60 с) и проверки.
+# --remove-orphans: убрать контейнеры сервисов, которых больше нет в compose.yaml
+docker compose up -d --build --wait --wait-timeout 240 --remove-orphans
 
 echo "--- status ---"
-systemctl --user status tickets-bot tickets-web --no-pager -l
+docker compose ps -a
+
+echo "--- cleanup ---"
+# Висячие образы от прошлых сборок; работающие и volumes не трогает
+docker image prune -f
 
 echo "=== Деплой завершён ==="
 REMOTE

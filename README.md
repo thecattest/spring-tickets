@@ -4,6 +4,110 @@
 
 Разработка, команды и устройство проекта — в [CLAUDE.md](CLAUDE.md), план работ — в [ROADMAP.md](ROADMAP.md). Полный README — ROADMAP, раздел «README».
 
+## Сервер
+
+Всё работает в Docker Compose (`compose.yaml`): `postgres`, `redis`, `web`, `bot`, `cron`, разовые `db-backup` и `migrate`. На хосте — только Docker и nginx (HTTPS, прокси на `127.0.0.1:8000`). Каталог проекта — `~/spring-tickets`, SSH-хост на своей машине — `tickets` в `~/.ssh/config`.
+
+### Обновление
+
+С локальной машины:
+
+```bash
+bash deploy/deploy.sh
+```
+
+`git pull` → сборка → `db-backup` (если есть миграции) → `migrate` → перезапуск изменившихся сервисов → ожидание healthy. Не поднялось — скрипт падает с ошибкой, работающие контейнеры старой версии остаются.
+
+### Первичная настройка (один раз)
+
+1. **Docker Engine и плагин Compose** — по [официальной инструкции для Ubuntu](https://docs.docker.com/engine/install/ubuntu/) (apt-репозиторий Docker). Пользователя — в группу `docker`, перелогиниться:
+
+   ```bash
+   sudo usermod -aG docker "$USER"
+   docker compose version
+   ```
+
+2. **Код** — клонировать с deploy key (только чтение):
+
+   ```bash
+   git clone git@github.com:thecattest/spring-tickets.git ~/spring-tickets
+   cd ~/spring-tickets
+   ```
+
+3. **Каталоги.** Процессы в контейнерах работают от пользователя `app` с uid 1000 — ему нужно читать секреты и писать бэкапы. Если `id -u` на сервере не 1000, после шага 4 выполнить `sudo chown -R 1000:1000 secrets backups`.
+
+   ```bash
+   mkdir -m 700 secrets
+   mkdir backups
+   ```
+
+4. **Секреты** — по файлу на секрет, только значение (список — `secrets:` в `compose.yaml`):
+
+   ```bash
+   for name in postgres_password redis_password cookie_secret; do
+     python3 -c "import secrets; print(secrets.token_urlsafe(32))" > "secrets/$name"
+   done
+   nano secrets/vk_bot_token        # токен сообщества VK (Управление → Работа с API)
+   nano secrets/payments_password   # пароль страницы /payments
+   chmod 600 secrets/*
+   ```
+
+   `postgres_password` применяется только при создании пустого volume базы. Сменить потом — `ALTER USER tickets PASSWORD '…'` в базе и новый файл.
+
+5. **`.env`** — несекретные настройки этого сервера (`COMPOSE_FILE` не задавать — на сервере только `compose.yaml`):
+
+   ```bash
+   cat > .env <<'EOF'
+   VK_GROUP_ID=<id сообщества>
+   OWNER_VK_IDS=<ваш VK ID>
+   EOF
+   chmod 600 .env
+   ```
+
+6. **nginx** — сайт из `deploy/tickets-nginx.conf` (прокси на `127.0.0.1:8000`, ограничение попыток входа на `/payments/login`), HTTPS — `bash deploy/setup-ssl.sh`. Если конфиг на сервере уже правил certbot, перенести изменения руками, затем:
+
+   ```bash
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+7. **Первый запуск** — с локальной машины `bash deploy/deploy.sh`. Пустая база получит схему от `migrate`.
+
+### Переезд со старого деплоя (один раз)
+
+Старый деплой — systemd user-сервисы, venv, SQLite `data/tickets.db`, crontab, системный `redis-server`.
+
+1. Остановить старое. Бот — обязательно: два бота с одним токеном делят события сообщества.
+
+   ```bash
+   systemctl --user disable --now tickets-bot tickets-web
+   rm ~/.config/systemd/user/tickets-*.service && systemctl --user daemon-reload
+   crontab -e   # удалить строки tickets: debtor reminders / db backup
+   ```
+
+   Строки, которые `deploy/aliases.sh` добавлял в `~/.bashrc`, удалить вручную.
+
+2. Скопировать `data/tickets.db` в надёжное место (это исходные данные для переноса).
+3. `git pull` и шаги 1, 3–6 первичной настройки.
+4. Перенести данные из SQLite в пустой Postgres (скрипт сам создаёт схему и сверяет количество строк):
+
+   ```bash
+   docker compose up -d postgres
+   docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_to_postgres.py data/tickets.db
+   ```
+
+5. С локальной машины `bash deploy/deploy.sh`, проверить сайт, `/payments` и ответ бота.
+6. Убрать остатки: системный Redis (`sudo apt remove redis-server`), `~/spring-tickets/.venv`, `~/spring-tickets/logs`, старые бэкапы `~/tickets-backup` — когда новые бэкапы приходят.
+
+### Повседневные команды
+
+```bash
+docker compose ps                       # состояние и healthcheck сервисов
+docker compose logs -f --tail 100 bot   # логи (web, bot, cron, postgres, …)
+docker compose restart bot
+docker compose exec redis redis-cli     # пароль подставится сам (REDISCLI_AUTH)
+docker compose exec postgres psql -U tickets
+```
+
 ## Бэкапы
 
 - **Регулярные:** сервис `cron`, каждый день в 04:00 по Москве (`jobs/crontab`). Дамп уходит владельцам (`OWNER_VK_IDS`) в VK; отключить — `BACKUP_SEND_TO_VK=false`.

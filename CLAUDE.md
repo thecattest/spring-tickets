@@ -49,7 +49,8 @@ bash deploy/deploy.sh
 
 Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`.
 
-- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull` → `pip install` → `alembic upgrade head` → `systemctl --user restart tickets-bot tickets-web`
+- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull --ff-only` → `docker compose up -d --build --wait --remove-orphans` (db-backup → migrate → services, fails if anything is not healthy) → `docker compose ps` → `docker image prune -f`. Server setup and the one-time cutover from the old systemd deploy: README, «Сервер».
+- `deploy/tickets-nginx.conf` — nginx site: proxy to `127.0.0.1:8000`, rate limit on `/payments/login`. The server copy was modified by certbot, so changes are applied there by hand.
 - `deploy/install.sh` — one-time server setup: installs systemd user services, nginx config, bash aliases, enables linger
 - `deploy/aliases.sh` — adds `start`/`stop`/`restart`/`status`/`tw-log`/`tb-log` aliases to server `.bashrc`
 - `deploy/setup-ssl.sh` — SSL certificate setup
