@@ -40,6 +40,13 @@ services:
         - *rebuild-pyproject
         - *rebuild-lock
 
+  cron:
+    # Не стартует при обычном up/watch: с боевым токеном из .env задачи
+    # рассылали бы настоящие напоминания билетёрам и бэкапы владельцу.
+    # Включить: docker compose --profile cron up -d cron
+    # Разово, без расписания: docker compose run --rm cron python -m jobs.backup
+    profiles: [ cron ]
+
   postgres:
     # Для uv run на хосте и инструментов БД; на сервере не публикуем
     ports: [ "127.0.0.1:5432:5432" ]

@@ -79,6 +79,20 @@ services:
     init: true
     # Портов нет: Long Poll — исходящие запросы к VK
 
+  # Фоновые задачи по расписанию (jobs/crontab). supercronic — PID 1 сам:
+  # пересылает сигналы задачам и подбирает зомби, поэтому без init: true.
+  # -passthrough-logs: вывод задач в лог как есть, без обёртки supercronic.
+  cron:
+    <<: *app
+    command: supercronic -passthrough-logs jobs/crontab
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./backups:/backups
+
   postgres:
     image: postgres:18-alpine
     logging: *logging

@@ -59,15 +59,16 @@
 
 ## Этап 4. Фоновые задачи
 
-- [ ] **Сервис `cron`:** `supercronic` + `deploy/crontab` в образе, `TZ=Europe/Moscow`.
-- [ ] **Задачи как модули** (`python -m tickets.jobs.…`) с общим конфигом и логированием; без `sys.path.insert` и `load_dotenv`; ошибка → лог + ненулевой код выхода + уведомление владельцу.
-- [ ] **Напоминания о должниках:** `0 20 */3 * *` (раз в 3 дня в 20:00; сейчас в `setup-cron.sh` ошибочно ежедневно).
-- [ ] **Бэкапы** (→ Бэкапы): задача `tickets.jobs.backup` — по cron раз в несколько дней и сервисом `db-backup` перед миграциями; ротация; отправка в VK отключаемая.
+- [x] **Сервис `cron`:** `supercronic` + `jobs/crontab` в образе (`deploy/` не попадает в образ), `CRON_TZ=Europe/Moscow`.
+- [x] **Задачи как модули** — пока пакет `jobs/` в корне (`python -m jobs.…`), на этапе 7 переезжает в `tickets/jobs/`; с общим конфигом и логированием; без `sys.path.insert` и `load_dotenv`; ошибка → лог + ненулевой код выхода + уведомление владельцу.
+- [x] **Напоминания о должниках:** `0 20 */3 * *` (раз в 3 дня в 20:00; сейчас в `setup-cron.sh` ошибочно ежедневно).
+- [x] **Бэкапы** (→ Бэкапы): задача `jobs.backup` — по cron раз в день в 04:00 и сервисом `db-backup` перед миграциями (только если есть ненакатанные миграции); ротация 14 регулярных + 14 предмиграционных; отправка в VK отключается `BACKUP_SEND_TO_VK=false`.
+- [x] **`cron` в dev** — за профилем `cron` (в локальном `.env` боевой токен).
 - [ ] Процедура восстановления описана в README и один раз проверена руками.
 
 ## Этап 5. Переезд сервера и уборка легаси
 
-- [ ] **Новый `deploy/deploy.sh`:** `ssh` → `git pull --ff-only` → `docker compose up -d --build` → `docker compose ps` → `docker image prune -f`. Отката пока нет — чиним вперёд.
+- [ ] **Новый `deploy/deploy.sh`:** `ssh` → `git pull --ff-only` → `docker compose up -d --build` → `docker compose ps` → `docker image prune -f`. Отката пока нет — чиним вперёд. Перед первым запуском: `mkdir backups` от пользователя с uid 1000 (= `app` в образе) — иначе Docker создаст каталог от root и `db-backup` не сможет писать.
 - [ ] **Удалить:** `tickets-*.service`, `install.sh`, `aliases.sh`, `bootstrap.sh`, `setup-cron.sh`, `setup-backup-cron.sh`, `web/run.sh`, `deploy/README.md` (→ README), сгенерированный `requirements.txt` и хук `uv-export` в `.pre-commit-config.yaml`. Системный `redis-server` на сервере больше не нужен.
 - [ ] **Секреты** — Compose `secrets:` (→ Секреты и доступы) вместе с конфигом на `pydantic-settings` (перенесён сюда с этапа 7, до переезда сервера). До этого секреты в `.env`, на сервере `chmod 600`.
 - [ ] **Мониторинг:** heartbeat цикла Long Poll для бота; `notify_owner()` для технических алертов (→ Архитектура). Внешнюю проверку доступности пока не делаем.
@@ -91,7 +92,7 @@
 - [ ] **Сервисы** из `bot/utils/db.py`: `users`, `reservations`, `seats`, `payments`, `reports`, `audit`.
 - [ ] **Транзакции:** сервисы не коммитят; unit of work на границе; побочные эффекты после коммита; тест-страж.
 - [ ] **Async SQLAlchemy + asyncpg** вместе с переходом на сервисы: `AsyncSession`, явные `selectinload`, async-роуты, `pytest-asyncio`.
-- [ ] **Бот:** тонкие `handlers/`, сценарии в `flows/`, VK-специфика в `vk.py`, права — декораторы в `auth.py`.
+- [ ] **Бот:** тонкие `handlers/`, сценарии в `flows/`, VK-специфика в `vk.py`, права — декораторы в `auth.py`. Отправка сообщений — через `vk.py` с уникальным `random_id` (сейчас `message.answer()` шлёт `random_id=0`, и VK не отбрасывает дубли при ретраях).
 - [ ] **FSM:** pydantic-контекст, `BotState` вместо строк, проверка актуальности брони, без TTL, совместимость форматов (→ Миграции и совместимость).
 - [ ] **Веб:** `main` / `deps` / `routers` / `filters`, тонкие роуты, `require_admin` как dependency, Jinja, Chart.js с фиксированной версией (сейчас плавающая `@4` с CDN).
 - [ ] **`notify_owner()`** и обработчики ошибок бота/веба/задач.
@@ -215,7 +216,7 @@ web/
 
 ## Бэкапы
 
-- Одна задача `tickets.jobs.backup`, два повода: по `cron` раз в несколько дней/неделю (частота — строка в crontab) с отправкой владельцу в VK (отключается настройкой) и сервисом `db-backup` перед `migrate` (`--reason pre-migrate`, без отправки).
+- Одна задача `jobs.backup` (на этапе 7 — `tickets.jobs.backup`), два повода: по `cron` раз в день (частота — строка в crontab) с отправкой владельцу в VK (отключается настройкой) и сервисом `db-backup` перед `migrate` (`--reason pre-migrate`, без отправки).
 - `pg_dump -Fc`, восстановление через `pg_restore`. Хранение — bind mount `./backups`; ротация в задаче: последние N регулярных и N предмиграционных.
 - Не делаем: шифрование, S3, WAL / point-in-time recovery. Дамп содержит персональные данные — уходит только владельцу.
 

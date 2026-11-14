@@ -98,6 +98,10 @@ All state changes are recorded in the `AuditLog` table.
 - Seat input format: `"1-3,5,8-10"` — parsed by `bot/utils/seat_parser.py`
 - Comments and user-facing messages are in Russian
 
+## Background jobs
+
+`jobs/` package (moves to `tickets/jobs/` in ROADMAP stage 7): `python -m jobs.backup`, `python -m jobs.debtors`. Each job wraps its async main in `jobs.runner.run_job()`: logging, exit 1 + `notify_owner()` on failure. `notify.notify_owner(text, file=None)` messages `OWNER_VK_IDS` in VK from any process and never raises. Schedule: `jobs/crontab` (supercronic; check with `supercronic -test`). Backup env: `BACKUP_DIR` (`/backups` in Compose), `BACKUP_KEEP` (14 per reason), `BACKUP_SEND_TO_VK` (default true). When testing jobs by hand with the real `.env`, pass `-e OWNER_VK_IDS=` so failures don't message the owner. Send VK messages with `random_id=random.getrandbits(31)`, never 0 (0 disables VK deduplication of retried requests).
+
 ## Bot entry point
 
 `python -m bot` → `bot/__main__.py` → `bot.main.main()` → `asyncio.run(run_bot())`. Plain asyncio (vkbottle ≥ 4.9: `run_polling()` is a regular coroutine, `LoopWrapper` / `run_forever()` are deprecated — don't use them). Init and cleanup are `await` + `try/finally` in `run_bot()` (Redis, VK HTTP session). SIGTERM cancels the main task, SIGINT is handled by `asyncio.run`; both → graceful shutdown, exit 0. Startup and polling errors are not caught (traceback, exit 1).
@@ -116,9 +120,9 @@ Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `db-backup` (`jobs.backup --reason pre-migrate`: dumps into `./backups` only when migrations are pending; if it fails, migrate and app services don't start), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it), `cron` (supercronic running `jobs/crontab`, Moscow time: backup daily 04:00, debtors every 3 days 20:00; supercronic is PID 1 itself, no `init`). `./backups` is mounted only into `db-backup` and `cron` (dumps contain personal data). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
 
-`compose.dev.yaml` holds only dev differences and is enabled by `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in the local `.env` (unset on the server): `web` with `uvicorn --reload`, `develop.watch` (sync code into `/code`, `sync+restart` for `bot`, rebuild on `pyproject.toml`/`uv.lock`; `.dockerignore` rules apply, so `.venv`/`.env`/`data` are never synced), Postgres port, and `bot` behind the `bot` profile — the local `.env` holds the real VK token, so the bot starts only with `--profile bot` (use a test community token, ROADMAP stage 3). The image copies code with `--chown=app:app` because watch needs the container user to write to `/code`.
+`compose.dev.yaml` holds only dev differences and is enabled by `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in the local `.env` (unset on the server): `web` with `uvicorn --reload`, `develop.watch` (sync code into `/code`, `sync+restart` for `bot`, rebuild on `pyproject.toml`/`uv.lock`; `.dockerignore` rules apply, so `.venv`/`.env`/`data` are never synced), Postgres port, `bot` and `cron` behind the `bot` / `cron` profiles — the local `.env` holds the real VK token, so the bot starts only with `--profile bot` (use a test community token, ROADMAP stage 3). The image copies code with `--chown=app:app` because watch needs the container user to write to `/code`.
 
 ```bash
 docker compose watch                                 # dev: start + sync code on save (Ctrl+C stops watching, containers stay)
@@ -130,7 +134,7 @@ docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_t
 docker compose logs -f web
 ```
 
-Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. Cron, `db-backup` and secrets are not in Compose yet (ROADMAP stages 4–5). On host-only runs (`uv run`) apply migrations yourself.
+Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. Secrets are not in Compose yet (ROADMAP stage 5). On host-only runs (`uv run`) apply migrations yourself.
 
 `scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `jobs.backup` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer — the image has 18 from PGDG).
 
