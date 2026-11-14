@@ -5,7 +5,6 @@ SQLAlchemy ORM models for the ticket management system.
 from models.audit import AuditLog
 from models.base import Base
 from models.payment import Payment, PaymentSeat
-from models.reconcile import ReconcileCheckpoint
 from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.user import AppUser
@@ -19,6 +18,5 @@ __all__ = [
     "SeatAssignment",
     "Payment",
     "PaymentSeat",
-    "ReconcileCheckpoint",
     "AuditLog",
 ]

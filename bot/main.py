@@ -19,6 +19,7 @@ from vkbottle.bot import Bot
 from bot import config
 from bot.fsm.storage import RedisStorage
 from bot.router import Router
+from database import DATABASE_URL_SAFE
 from logging_config import setup_logging
 
 setup_logging()
@@ -40,7 +41,7 @@ async def setup():
     logger.info("Starting VK Bot...")
     logger.info(f"Group ID: {config.VK_GROUP_ID}")
     logger.info(f"Redis: {config.REDIS_HOST}:{config.REDIS_PORT}/{config.REDIS_DB}")
-    logger.info(f"Database: {config.DATABASE_URL}")
+    logger.info(f"Database: {DATABASE_URL_SAFE}")
 
     # Initialize Redis storage (FSM states + context via StatePeer)
     try:

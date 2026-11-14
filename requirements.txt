@@ -59,6 +59,10 @@ propcache==0.5.4
     # via
     #   aiohttp
     #   yarl
+psycopg==3.3.9
+    # via tickets
+psycopg-binary==3.3.9 ; implementation_name != 'pypy'
+    # via psycopg
 pydantic==2.14.3
     # via
     #   fastapi
@@ -88,6 +92,7 @@ typing-extensions==4.16.0
     #   choicelib
     #   fastapi
     #   opentelemetry-api
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
@@ -101,7 +106,9 @@ typing-inspection==0.4.5
     #   fastapi
     #   pydantic
 tzdata==2026.6
-    # via tickets
+    # via
+    #   psycopg
+    #   tickets
 uvicorn==0.54.0
     # via tickets
 uvloop==0.23.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'

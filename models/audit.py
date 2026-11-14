@@ -8,6 +8,7 @@ from sqlalchemy import JSON, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import ActorType, Base
+from timeutils import utcnow
 
 
 class AuditLog(Base):
@@ -16,7 +17,7 @@ class AuditLog(Base):
     __tablename__ = "audit_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, default=utcnow)
 
     actor_type: Mapped[ActorType] = mapped_column(nullable=False)
     actor_user_id: Mapped[int | None] = mapped_column(

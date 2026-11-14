@@ -5,10 +5,11 @@ Payment и PaymentSeat models - оплаты (чеки) и привязка ме
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, Text
+from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base
+from timeutils import utcnow
 
 
 class Payment(Base):
@@ -40,10 +41,10 @@ class Payment(Base):
         Integer, nullable=False, comment="Количество оплаченных мест"
     )
 
-    recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(nullable=False, default=utcnow)
 
     is_verified: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
+        Boolean, nullable=False, default=False, server_default=false()
     )
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     receipt_attachments: Mapped[str | None] = mapped_column(

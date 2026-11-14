@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 """
-Standalone cron script for backing up the SQLite database.
+Standalone cron script for backing up the PostgreSQL database.
 
-1. Copies the DB file to ~/tickets-backup/ with timestamp name (dd.MM-HH.mm.db)
+1. pg_dump (custom format, compressed) to ~/tickets-backup/<dd.MM-HH.mm>.dump
+   Restore: pg_restore --clean --if-exists -d <url> <file>
+   pg_dump must be the same major version as the server or newer.
+   Rotation and the Docker job — ROADMAP stage 4.
 2. Sends the backup file to every project owner (OWNER_VK_IDS) via bot message
 
 Crontab entry (every hour):
@@ -11,7 +14,7 @@ Crontab entry (every hour):
 
 import asyncio
 import logging
-import sqlite3
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -26,17 +29,17 @@ load_dotenv(PROJECT_ROOT / ".env")
 
 import os
 
+from sqlalchemy.engine import make_url
 from vkbottle.bot import Bot
 
 from bot.config import OWNER_VK_IDS
-from database import SQLITE_PATH
+from database import DATABASE_URL
 from logging_config import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
 
 VK_BOT_TOKEN = os.getenv("VK_BOT_TOKEN", "")
-DB_PATH = SQLITE_PATH  # из DATABASE_URL, относительные пути — от корня проекта
 BACKUP_DIR = Path.home() / "tickets-backup"
 
 
@@ -45,27 +48,25 @@ async def main():
         logger.error("VK_BOT_TOKEN not set")
         sys.exit(1)
 
-    if DB_PATH is None:
-        logger.error("DATABASE_URL is not a file-based SQLite database, nothing to back up")
-        sys.exit(1)
-
-    if not DB_PATH.exists():
-        logger.error(f"Database not found: {DB_PATH}")
-        sys.exit(1)
-
     # Create backup directory
     BACKUP_DIR.mkdir(parents=True, exist_ok=True)
 
     # Copy DB with timestamp name
     now = datetime.now()
-    backup_name = now.strftime("%d.%m-%H.%M") + ".db"
+    backup_name = now.strftime("%d.%m-%H.%M") + ".dump"
     backup_path = BACKUP_DIR / backup_name
-    src = sqlite3.connect(DB_PATH)
-    dst = sqlite3.connect(backup_path)
-    with dst:
-        src.backup(dst)
-    src.close()
-    dst.close()
+    # pg_dump понимает libpq-URL без указания драйвера SQLAlchemy (+psycopg)
+    libpq_url = (
+        make_url(DATABASE_URL).set(drivername="postgresql").render_as_string(hide_password=False)
+    )
+    result = subprocess.run(
+        ["pg_dump", "--format=custom", f"--file={backup_path}", f"--dbname={libpq_url}"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        logger.error(f"pg_dump failed: {result.stderr.strip()}")
+        sys.exit(1)
     logger.info(f"Backup created: {backup_path}")
 
     if not OWNER_VK_IDS:

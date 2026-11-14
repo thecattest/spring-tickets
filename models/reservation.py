@@ -4,10 +4,11 @@ Reservation model - брони билетов.
 
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Index, Integer
+from sqlalchemy import ForeignKey, Index, Integer, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base, ReservationState
+from timeutils import utcnow
 
 
 class Reservation(Base):
@@ -25,10 +26,10 @@ class Reservation(Base):
 
     state: Mapped[ReservationState] = mapped_column(nullable=False, default=ReservationState.ACTIVE)
 
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, default=utcnow)
     last_activity_at: Mapped[datetime] = mapped_column(
         nullable=False,
-        default=datetime.utcnow,
+        default=utcnow,
         comment="Для напоминаний: 7 дней после последнего действия",
     )
     cancelled_at: Mapped[datetime | None] = mapped_column(nullable=True)
@@ -36,6 +37,13 @@ class Reservation(Base):
     __table_args__ = (
         # Частые выборки "бронь покупателя"
         Index("reservations_buyer_idx", "buyer_vk_user_id"),
+        # Гарантирует: не больше одной активной брони на покупателя
+        Index(
+            "reservations_one_active_per_buyer",
+            "buyer_vk_user_id",
+            unique=True,
+            postgresql_where=text("state = 'active'"),
+        ),
         # Для отчетов и напоминаний "мои продажи/мои должники"
         Index("reservations_sold_by_idx", "sold_by_user_id"),
         # Для выборки должников по последней активности

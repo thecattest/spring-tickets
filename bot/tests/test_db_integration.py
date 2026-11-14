@@ -12,10 +12,13 @@ Tests:
 import contextlib
 
 import pytest
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from bot.utils import db
 from database import SessionLocal
 from models.base import ReservationState
+from models.reservation import Reservation
 from models.user import AppUser, UserRole
 
 
@@ -260,3 +263,64 @@ class TestLayoutIntegration:
 if __name__ == "__main__":
     # Run tests
     pytest.main([__file__, "-v"])
+
+
+class TestPostgresSchema:
+    """Ограничения схемы, которые раньше держались только на SQLite-условиях."""
+
+    def test_released_seat_can_be_booked_again(self, test_db, test_seller):
+        """Частичный UNIQUE (WHERE released_at IS NULL): освобождённое место снова свободно."""
+        buyer1 = db.get_or_create_vk_user(111, "Buyer One")
+        res1 = db.create_reservation(buyer1.id, test_seller.id)
+        db.add_seats_to_reservation(res1.id, 1, [5], test_seller.id)
+        assert db.release_seats(res1.id, 1, [5], test_seller.id) == 1
+
+        buyer2 = db.get_or_create_vk_user(222, "Buyer Two")
+        res2 = db.create_reservation(buyer2.id, test_seller.id)
+        db.add_seats_to_reservation(res2.id, 1, [5], test_seller.id)
+
+        assert [s.seat_number for s in db.get_reservation_seats(res2.id)] == [5]
+
+    def test_second_active_reservation_is_rejected(self, test_db, test_seller):
+        """Не больше одной активной брони на покупателя — на уровне БД."""
+        buyer = db.get_or_create_vk_user(333, "Buyer")
+        db.create_reservation(buyer.id, test_seller.id)
+
+        with SessionLocal() as session:
+            session.add(
+                Reservation(
+                    buyer_vk_user_id=buyer.id,
+                    sold_by_user_id=test_seller.id,
+                    state=ReservationState.ACTIVE,
+                )
+            )
+            with pytest.raises(IntegrityError):
+                session.commit()
+
+    def test_cancelled_reservation_does_not_block_new_one(self, test_db, test_seller):
+        buyer = db.get_or_create_vk_user(444, "Buyer")
+        res = db.create_reservation(buyer.id, test_seller.id)
+        with SessionLocal() as session:
+            session.get(Reservation, res.id).state = ReservationState.CANCELLED
+            session.commit()
+
+        new_res = db.create_reservation(buyer.id, test_seller.id)
+        assert new_res.id != res.id
+
+    def test_enums_stored_as_values(self, test_db, test_seller):
+        """В БД лежат значения enum ('booked'), а не имена членов ('BOOKED')."""
+        buyer = db.get_or_create_vk_user(555, "Buyer")
+        res = db.create_reservation(buyer.id, test_seller.id)
+        db.add_seats_to_reservation(res.id, 2, [1], test_seller.id)
+
+        with SessionLocal() as session:
+            status = session.execute(text("SELECT status FROM seat_assignments")).scalar_one()
+            state = session.execute(text("SELECT state FROM reservations")).scalar_one()
+        assert (status, state) == ("booked", "active")
+
+    def test_timestamps_are_timezone_aware(self, test_db, test_seller):
+        buyer = db.get_or_create_vk_user(666, "Buyer")
+        res = db.create_reservation(buyer.id, test_seller.id)
+        with SessionLocal() as session:
+            created_at = session.get(Reservation, res.id).created_at
+        assert created_at.tzinfo is not None

@@ -1,22 +1,36 @@
 """
-Общая настройка pytest: все тесты работают с временной базой, а не с базой проекта.
+Общая настройка pytest: тесты работают с временным Postgres в Docker
+(testcontainers), а не с базой проекта. Нужен запущенный Docker.
 
-DATABASE_URL выставляется при импорте этого файла — pytest загружает conftest.py
-раньше тестовых модулей, то есть до того, как они импортируют database.py и
-создадут engine. load_dotenv() уже заданные переменные не перезаписывает,
-поэтому значение из .env сюда не попадёт.
+Контейнер стартует в pytest_configure — до того, как тестовые модули
+импортируют database.py и создадут engine; DATABASE_URL выставляется туда же.
+load_dotenv() уже заданные переменные не перезаписывает, поэтому значение
+из .env сюда не попадёт.
 """
 
 import os
-import shutil
-import tempfile
-from pathlib import Path
 
 import pytest
+from testcontainers.community.postgres import PostgresContainer
 
-_TMP_DIR = tempfile.mkdtemp(prefix="tickets-tests-")
-TEST_DATABASE_URL = f"sqlite:///{Path(_TMP_DIR) / 'test.db'}"
-os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+# Та же мажорная версия, что будет в Compose
+POSTGRES_IMAGE = "postgres:18-alpine"
+
+_container: PostgresContainer | None = None
+TEST_DATABASE_URL = ""
+
+
+def pytest_configure(config):
+    global _container, TEST_DATABASE_URL
+    _container = PostgresContainer(POSTGRES_IMAGE, driver="psycopg")
+    _container.start()
+    TEST_DATABASE_URL = _container.get_connection_url()
+    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+
+
+def pytest_unconfigure(config):
+    if _container is not None:
+        _container.stop()
 
 
 @pytest.fixture(autouse=True)
@@ -26,16 +40,12 @@ def clean_db():
     import models  # noqa: F401 — регистрирует все модели в Base.metadata
     from models.base import Base
 
-    # Защита: если database импортировали раньше conftest, engine смотрит
-    # не туда — лучше упасть, чем писать в настоящую базу.
+    # Защита: если database импортировали раньше, engine смотрит не туда —
+    # лучше упасть, чем писать в настоящую базу.
     assert database.DATABASE_URL == TEST_DATABASE_URL, (
-        f"Тесты подключены не к временной базе: {database.DATABASE_URL}"
+        f"Тесты подключены не к временной базе: {database.DATABASE_URL_SAFE}"
     )
 
     Base.metadata.drop_all(bind=database.engine)
     database.init_db()
     yield
-
-
-def pytest_sessionfinish(session, exitstatus):
-    shutil.rmtree(_TMP_DIR, ignore_errors=True)

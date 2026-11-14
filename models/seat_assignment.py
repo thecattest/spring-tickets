@@ -8,6 +8,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, Integer, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from models.base import Base, SeatStatus
+from timeutils import utcnow
 
 
 class SeatAssignment(Base):
@@ -25,10 +26,14 @@ class SeatAssignment(Base):
 
     # Координаты места (валидируются дополнительно по JSON layout)
     row_number: Mapped[int] = mapped_column(
-        Integer, CheckConstraint("row_number BETWEEN 1 AND 24"), nullable=False
+        Integer,
+        CheckConstraint("row_number BETWEEN 1 AND 24", name="row_number_range"),
+        nullable=False,
     )
     seat_number: Mapped[int] = mapped_column(
-        Integer, CheckConstraint("seat_number BETWEEN 1 AND 28"), nullable=False
+        Integer,
+        CheckConstraint("seat_number BETWEEN 1 AND 28", name="seat_number_range"),
+        nullable=False,
     )
 
     # reserved используется для резерва; booked/paid — для брони
@@ -43,7 +48,7 @@ class SeatAssignment(Base):
     created_by_user_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("app_users.id"), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(nullable=False, default=utcnow)
 
     released_at: Mapped[datetime | None] = mapped_column(nullable=True)
     released_by_user_id: Mapped[int | None] = mapped_column(
@@ -60,20 +65,13 @@ class SeatAssignment(Base):
             "row_number",
             "seat_number",
             unique=True,
-            sqlite_where=text("released_at IS NULL"),
+            postgresql_where=text("released_at IS NULL"),
         ),
         # Ускоряет: "места этой брони" (день концерта, просмотр брони, отчеты)
         Index(
             "seat_assignments_reservation_idx",
             "reservation_id",
-            sqlite_where=text("reservation_id IS NOT NULL AND released_at IS NULL"),
-        ),
-        # Ускоряет: поиск по месту (ряд/место), например на странице дня концерта
-        Index(
-            "seat_assignments_row_seat_idx",
-            "row_number",
-            "seat_number",
-            sqlite_where=text("released_at IS NULL"),
+            postgresql_where=text("reservation_id IS NOT NULL AND released_at IS NULL"),
         ),
     )
 

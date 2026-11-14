@@ -23,8 +23,6 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 REDIS_DB = int(os.getenv("REDIS_DB", "0"))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 
-# Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///tickets.db")
 
 # Владельцы проекта (технический ответственный): управление пользователями
 # и технические уведомления (бэкапы, алерты). Список VK ID через запятую.
@@ -86,7 +84,6 @@ if __name__ == "__main__":
     logger.info(f"  VK_GROUP_ID: {VK_GROUP_ID}")
     logger.info(f"  OWNER_VK_IDS: {OWNER_VK_IDS}")
     logger.info(f"  REDIS_HOST: {REDIS_HOST}:{REDIS_PORT}/{REDIS_DB}")
-    logger.info(f"  DATABASE_URL: {DATABASE_URL}")
     logger.info(f"  SEAT_PRICE: {SEAT_PRICE}")
     logger.info(f"  LAYOUT_FILE: {LAYOUT_FILE}")
 
