@@ -1,3 +1,12 @@
+# Логи контейнеров: драйвер local (бинарный формат со сжатием старых файлов),
+# не больше 5 файлов по 10 МБ на контейнер. Задано явно: на Linux по умолчанию
+# json-file без ротации — лог растёт, пока не кончится диск.
+x-logging: &logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "5"
+
 x-app: &app                     # общий кусок настроек (YAML-якорь)
   build: .
   image: tickets
@@ -9,6 +18,7 @@ x-app: &app                     # общий кусок настроек (YAML-�
     postgres:
       condition: service_healthy
   restart: unless-stopped
+  logging: *logging
 
 services:
   # Разовый: накатывает миграции и завершается; остальные ждут его успеха
@@ -55,6 +65,7 @@ services:
 
   postgres:
     image: postgres:18-alpine
+    logging: *logging
     environment:
       POSTGRES_USER: tickets
       POSTGRES_PASSWORD: tickets
@@ -70,6 +81,7 @@ services:
 
   redis:
     image: redis:8-alpine
+    logging: *logging
     # Пароль подставляет Compose из .env при запуске (интерполяция ${...});
     # :? — не стартовать вовсе, если переменная пустая.
     # appendonly — журнал операций на диске: состояния FSM переживают рестарт.

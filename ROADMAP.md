@@ -51,7 +51,7 @@
 - [ ] **Порядок старта:** `db-backup` → `migrate` (`alembic upgrade head`, `restart: "no"`) → `web`, `bot`, `cron` через `condition: service_completed_successfully`.
 - [ ] **Healthcheck** у каждого сервиса, `depends_on` с условиями, `restart: unless-stopped` для постоянных сервисов.
 - [x] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).
-- [ ] **Ротация логов Docker** (`max-size` / `max-file`).
+- [x] **Ротация логов Docker:** драйвер `local`, `max-size: 10m`, `max-file: 5` для всех сервисов (якорь `x-logging`).
 - [ ] **Redis:** пароль, `appendonly yes`, named volume. TTL для FSM не используем.
 - [x] **`/health` в вебе** (приложение + `SELECT 1`) и healthcheck по нему (перенесено с этапа 5).
 - [ ] **Dev-режим:** `compose.dev.yaml` только с отличиями (`--reload`/`fastapi dev`, порты, `develop.watch`), подключается через `COMPOSE_FILE=compose.yaml:compose.dev.yaml` в локальном `.env`; `docker compose watch` — `sync` кода, `rebuild` при изменении `pyproject.toml` / `uv.lock`. `compose.override.yaml` не используем.
