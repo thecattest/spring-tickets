@@ -8,7 +8,10 @@ await и try/finally. С vkbottle 4.9 run_polling() — обычная кору�
 import asyncio
 import logging
 import signal
+from pathlib import Path
+from typing import Any
 
+from vkbottle import API, BotPolling
 from vkbottle.bot import Bot
 
 from bot.fsm.storage import RedisStorage
@@ -17,8 +20,35 @@ from bot.utils.layout import load_layout
 from config import redis_settings, vk_settings
 from database import DATABASE_URL_SAFE
 from logging_config import setup_logging
+from notify import notify_owner
 
 logger = logging.getLogger(__name__)
+
+# Отметка «polling жив» для healthcheck (compose.yaml): время изменения файла
+HEARTBEAT_FILE = Path("/tmp/bot-heartbeat")
+
+
+class HeartbeatPolling(BotPolling):
+    """
+    Long Poll с отметкой после каждого ответа VK. VK отвечает не реже раза в
+    wait (25 с), даже без событий, поэтому свежая отметка = запросы к VK
+    проходят. Сетевые ошибки до отметки не доходят — она устаревает.
+    """
+
+    async def get_event(self, server: dict[str, Any]) -> dict[str, Any]:
+        event = await super().get_event(server)
+        HEARTBEAT_FILE.touch()
+        return event
+
+
+async def on_error(error: Exception) -> None:
+    """
+    Необработанная ошибка в хендлере или polling: в лог и владельцу.
+    Пользователь в этом случае ответа не получает.
+    """
+    logger.error("Unhandled bot error", exc_info=error)
+    summary = f"{type(error).__name__}: {error}"
+    await notify_owner(f"⚠️ Ошибка в боте: {summary}", dedup_key=f"bot:{type(error).__name__}")
 
 
 async def run_bot() -> None:
@@ -30,7 +60,10 @@ async def run_bot() -> None:
         db=redis.redis_db,
         password=redis.redis_password.get_secret_value(),
     )
-    bot = Bot(token=vk_settings().vk_bot_token.get_secret_value(), state_dispenser=storage)
+    api = API(vk_settings().vk_bot_token.get_secret_value())
+    bot = Bot(api=api, polling=HeartbeatPolling(api), state_dispenser=storage)
+    # Тот же обработчик получают роутер (хендлеры) и polling
+    bot.error_handler.register_undefined_error_handler(on_error)
 
     router = Router(storage=storage)
     router.register_all()

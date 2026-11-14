@@ -82,3 +82,6 @@ backups/
 
 # Секреты (Compose secrets, config.py): файлы по одному на секрет
 secrets/
+
+# Состояние Long Poll vkbottle (ts) при запуске бота на хосте
+.vkbottle/

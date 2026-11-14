@@ -148,3 +148,65 @@ def _vk(**overrides):
     from config import VkSettings
 
     return VkSettings(**{"vk_bot_token": "vk1.a.fake", "vk_group_id": 1, **overrides})
+
+
+@pytest.mark.asyncio
+class TestNotifyDedup:
+    async def test_same_key_sent_once_within_interval(self, monkeypatch):
+        sent = []
+        monkeypatch.setattr(notify, "vk_settings", lambda: _vk(owner_vk_ids=[1]))
+        monkeypatch.setattr(notify, "_last_sent", {})
+
+        async def fake_send_all(vk, text, file):
+            sent.append(text)
+
+        monkeypatch.setattr(notify, "_send_all", fake_send_all)
+
+        await notify.notify_owner("boom", dedup_key="k")
+        await notify.notify_owner("boom", dedup_key="k")  # повтор — не отправляется
+        await notify.notify_owner("other", dedup_key="k2")
+        await notify.notify_owner("no key")
+        await notify.notify_owner("no key")  # без ключа — без ограничения
+        assert sent == ["boom", "other", "no key", "no key"]
+
+        # Прошёл интервал — снова отправляется
+        notify._last_sent["k"] -= notify.DEDUP_INTERVAL + 1
+        await notify.notify_owner("boom", dedup_key="k")
+        assert sent[-1] == "boom"
+
+
+@pytest.mark.asyncio
+class TestHeartbeat:
+    async def test_touched_after_vk_response(self, monkeypatch, tmp_path):
+        from vkbottle import API, BotPolling
+
+        from bot import main
+
+        heartbeat = tmp_path / "hb"
+        monkeypatch.setattr(main, "HEARTBEAT_FILE", heartbeat)
+
+        async def fake_get_event(self, server):
+            return {"ts": "1", "updates": []}
+
+        monkeypatch.setattr(BotPolling, "get_event", fake_get_event)
+        polling = main.HeartbeatPolling(API("vk1.a.fake"))
+
+        assert not heartbeat.exists()
+        await polling.get_event({"server": "x"})
+        assert heartbeat.exists()
+
+    async def test_not_touched_on_network_error(self, monkeypatch, tmp_path):
+        from vkbottle import API, BotPolling
+
+        from bot import main
+
+        heartbeat = tmp_path / "hb"
+        monkeypatch.setattr(main, "HEARTBEAT_FILE", heartbeat)
+
+        async def broken_get_event(self, server):
+            raise TimeoutError
+
+        monkeypatch.setattr(BotPolling, "get_event", broken_get_event)
+        with pytest.raises(TimeoutError):
+            await main.HeartbeatPolling(API("vk1.a.fake")).get_event({"server": "x"})
+        assert not heartbeat.exists()

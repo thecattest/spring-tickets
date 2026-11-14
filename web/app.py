@@ -14,7 +14,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from fastapi import FastAPI, Form, Request
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import func, text
@@ -29,6 +29,7 @@ from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.user import AppUser
 from models.vk_user import VkUser
+from notify import notify_owner
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -70,6 +71,18 @@ _FAVICON_PATH = Path(__file__).parent / "favicon.png"
 @app.get("/favicon.png")
 def favicon():
     return FileResponse(_FAVICON_PATH, media_type="image/png")
+
+
+@app.exception_handler(Exception)
+async def on_error(request: Request, error: Exception):
+    """Необработанная ошибка → 500, в лог и владельцу (одинаковые — не чаще раза в 10 мин)."""
+    logger.error("Unhandled error: %s %s", request.method, request.url.path, exc_info=error)
+    summary = f"{request.method} {request.url.path}: {type(error).__name__}: {error}"
+    await notify_owner(
+        f"⚠️ Ошибка 500 в вебе: {summary}",
+        dedup_key=f"web:{request.url.path}:{type(error).__name__}",
+    )
+    return PlainTextResponse("Internal Server Error", status_code=500)
 
 
 @app.get("/health")

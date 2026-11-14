@@ -71,8 +71,8 @@
 - [ ] **Новый `deploy/deploy.sh`:** `ssh` → `git pull --ff-only` → `docker compose up -d --build` → `docker compose ps` → `docker image prune -f`. Отката пока нет — чиним вперёд. Перед первым запуском: `mkdir backups` от пользователя с uid 1000 (= `app` в образе) — иначе Docker создаст каталог от root и `db-backup` не сможет писать.
 - [ ] **Удалить:** `tickets-*.service`, `install.sh`, `aliases.sh`, `bootstrap.sh`, `setup-cron.sh`, `setup-backup-cron.sh`, `web/run.sh`, `deploy/README.md` (→ README), сгенерированный `requirements.txt` и хук `uv-export` в `.pre-commit-config.yaml`. Системный `redis-server` на сервере больше не нужен.
 - [x] **Секреты** — Compose `secrets:` (→ Секреты и доступы) вместе с конфигом на `pydantic-settings` (перенесён сюда с этапа 7). Несекретные настройки окружения (`VK_GROUP_ID`, `OWNER_VK_IDS`) — в необязательном `.env`, а не в `compose.yaml`: они разные у сервера и локально.
-- [ ] **Мониторинг:** heartbeat цикла Long Poll для бота; `notify_owner()` для технических алертов (→ Архитектура). Внешнюю проверку доступности пока не делаем.
-- [ ] **Бот остаётся на Long Poll**; источник событий заменяемый (Callback — в бэклоге).
+- [x] **Мониторинг:** heartbeat цикла Long Poll для бота (файл + healthcheck); `notify_owner()` при ошибках бота и 500 в вебе, одинаковые — не чаще раза в 10 минут (в памяти процесса; через Redis — этап 7). Внешнюю проверку доступности пока не делаем.
+- [x] **Бот остаётся на Long Poll**; источник событий заменяемый (Callback — в бэклоге).
 
 ## Этап 6. Логические баги — требования к новым сервисам
 

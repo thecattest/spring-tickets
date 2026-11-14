@@ -52,7 +52,8 @@ services:
   web:
     <<: *app
     command: uvicorn web.app:app --host 0.0.0.0 --port 8000
-    secrets: [ postgres_password, payments_password, cookie_secret ]
+    # vk_bot_token — для уведомления владельцу об ошибках 500
+    secrets: [ postgres_password, payments_password, cookie_secret, vk_bot_token ]
     # Ключ из якоря заменяется целиком (<< сливает только верхний уровень),
     # поэтому postgres повторяем
     depends_on:
@@ -86,6 +87,14 @@ services:
     # tini также подбирает процессы-зомби.
     init: true
     # Портов нет: Long Poll — исходящие запросы к VK
+    # Healthcheck по отметке HeartbeatPolling: старше 2 минут (VK отвечает
+    # раз в ≤25 с) — polling не получает ответов. Нет файла — ещё не было ответа
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/bot-heartbeat') > 120)" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   # Фоновые задачи по расписанию (jobs/crontab). supercronic — PID 1 сам:
   # пересылает сигналы задачам и подбирает зомби, поэтому без init: true.

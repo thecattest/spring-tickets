@@ -34,3 +34,4 @@ Dockerfile
 /tests
 .claude
 .playwright-mcp
+.vkbottle

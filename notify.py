@@ -12,6 +12,7 @@
 
 import logging
 import random
+import time
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -24,9 +25,30 @@ logger = logging.getLogger(__name__)
 # Лимит длины сообщения VK — 4096 символов
 MAX_TEXT = 4000
 
+# Одинаковые уведомления (dedup_key) — не чаще раза в 10 минут. Память процесса:
+# после рестарта счётчик обнуляется; общий для процессов лимит через Redis — этап 7
+DEDUP_INTERVAL = 600
+_last_sent: dict[str, float] = {}
 
-async def notify_owner(text: str, *, file: Path | None = None) -> None:
-    """Отправить сообщение (и файл документом) каждому владельцу."""
+
+async def notify_owner(
+    text: str, *, file: Path | None = None, dedup_key: str | None = None
+) -> None:
+    """
+    Отправить сообщение (и файл документом) каждому владельцу.
+
+    dedup_key — для повторяющихся ошибок (бот, веб): с тем же ключом не чаще
+    раза в DEDUP_INTERVAL, остальные только в лог. Ключ — тип ошибки и место,
+    без текста исключения: в тексте бывают меняющиеся части (адреса, id).
+    """
+    if dedup_key is not None:
+        now = time.monotonic()
+        last = _last_sent.get(dedup_key)
+        if last is not None and now - last < DEDUP_INTERVAL:
+            logger.info("notify_owner: duplicate within %ss, not sent: %s", DEDUP_INTERVAL, text)
+            return
+        _last_sent[dedup_key] = now
+
     try:
         vk = vk_settings()
     except ValidationError:
