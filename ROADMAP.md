@@ -53,7 +53,7 @@
 - [x] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).
 - [ ] **Ротация логов Docker** (`max-size` / `max-file`).
 - [ ] **Redis:** пароль, `appendonly yes`, named volume. TTL для FSM не используем.
-- [ ] **`/health` в вебе** (приложение + `SELECT 1`) и healthcheck по нему (перенесено с этапа 5).
+- [x] **`/health` в вебе** (приложение + `SELECT 1`) и healthcheck по нему (перенесено с этапа 5).
 - [ ] **Dev-режим:** `compose.dev.yaml` только с отличиями (`--reload`/`fastapi dev`, порты, `develop.watch`), подключается через `COMPOSE_FILE=compose.yaml:compose.dev.yaml` в локальном `.env`; `docker compose watch` — `sync` кода, `rebuild` при изменении `pyproject.toml` / `uv.lock`. `compose.override.yaml` не используем.
 - [ ] **Тестовое VK-сообщество** для локальной разработки (свой токен).
 

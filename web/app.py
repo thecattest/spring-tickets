@@ -6,6 +6,7 @@ Run:
 """
 
 import json
+import logging
 import os
 import secrets
 from collections import defaultdict
@@ -19,10 +20,10 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from sqlalchemy import func
+from sqlalchemy import func, text
 
 from bot.utils.layout import get_layout
-from database import SessionLocal
+from database import SessionLocal, engine
 from logging_config import setup_logging
 from models.base import SeatStatus
 from models.payment import Payment, PaymentSeat
@@ -33,11 +34,12 @@ from models.vk_user import VkUser
 
 load_dotenv()
 setup_logging()
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
-# Время в БД — наивное UTC; показываем в часовом поясе концерта
+# Время в БД — timestamptz (UTC); показываем в часовом поясе концерта
 DISPLAY_TZ = ZoneInfo(os.getenv("DISPLAY_TZ", "Europe/Moscow"))
 
 
@@ -83,6 +85,35 @@ _FAVICON_PATH = Path(__file__).parent / "favicon.png"
 @app.get("/favicon.png")
 def favicon():
     return FileResponse(_FAVICON_PATH, media_type="image/png")
+
+
+@app.get("/health")
+def health():
+    """
+    Для healthcheck Docker (позже — и для мониторинга): приложение отвечает
+    и база доступна. Детали ошибки — только в лог, наружу не отдаём.
+    """
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Health check failed: database unavailable")
+        return JSONResponse({"status": "error"}, status_code=503)
+    return {"status": "ok"}
+
+
+class _SkipHealthAccessLog(logging.Filter):
+    """Не писать в access-лог uvicorn успешные /health — healthcheck дёргает его каждые 10 с."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # args uvicorn.access: (client, method, path, http_version, status)
+        args = record.args
+        return not (
+            isinstance(args, tuple) and len(args) == 5 and args[2] == "/health" and args[4] == 200
+        )
+
+
+logging.getLogger("uvicorn.access").addFilter(_SkipHealthAccessLog())
 
 
 def is_authenticated(request: Request) -> bool:

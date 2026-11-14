@@ -56,7 +56,7 @@ Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`.
 Two interfaces share the same database and models:
 
 - **Bot** (`bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `bot/handlers/` orchestrate conversations; business logic lives in `bot/utils/db.py`.
-- **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`.
+- **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`. `/health` (app + `SELECT 1`, 503 if the DB is down) is the Compose healthcheck; successful `/health` calls are filtered out of the uvicorn access log.
 - **Models** (`models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
 - **Database** (`database.py`) — Engine, `SessionLocal` factory, `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; `DATABASE_URL` is required.
 - **Migrations** (`migrations/`) — Alembic; the schema is never created by the app (`create_all()` is not used).
