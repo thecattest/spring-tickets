@@ -20,11 +20,11 @@ logger = logging.getLogger(__name__)
 
 async def on_row(message: Message, storage: RedisStorage) -> None:
     """DELETING_ROW: ряд, в котором есть места этой брони."""
-    parsed = common.parse_row(message.text)
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        row = common.parse_row(message.text)
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    row = parsed.value
 
     _, context = await storage.load(message.from_id)
     client = await common.require_client(message, storage, context, texts.ERR_CONTEXT_LOST_FWD)
@@ -57,16 +57,17 @@ async def on_seats(message: Message, storage: RedisStorage) -> None:
     if not await common.require_active(message, storage, client):
         return
 
-    parsed = await common.parse_seat_list(
-        message.text, row, "membership", reservation_id=client.reservation_id
-    )
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        parsed = await common.parse_seat_list(
+            message.text, row, "membership", reservation_id=client.reservation_id
+        )
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    context.seats_to_delete = parsed.value
+    context.seats_to_delete = parsed
     await vk.answer(
         message,
-        texts.MSG_CONFIRM_DELETE_SEATS.format(row=row, seats=", ".join(map(str, parsed.value))),
+        texts.MSG_CONFIRM_DELETE_SEATS.format(row=row, seats=", ".join(map(str, parsed))),
         keyboard=confirmation_keyboard(),
     )
     await storage.save(message.from_id, BotState.DELETION_CONFIRM, context)

@@ -85,3 +85,6 @@ secrets/
 
 # Состояние Long Poll vkbottle (ts) при запуске бота на хосте
 .vkbottle/
+
+# mypy
+.mypy_cache/

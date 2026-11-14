@@ -3,6 +3,7 @@
 import logging
 from datetime import timedelta
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 async def debtors(
     session: AsyncSession, seller_id: int | None = None, min_days: int = 0
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """
     Активные брони с неоплаченными местами, давние первыми.
 
@@ -90,7 +91,7 @@ async def occupied_seats(session: AsyncSession) -> set[tuple[int, int]]:
     return {(row, seat) for row, seat in rows}
 
 
-async def concert_day(session: AsyncSession) -> tuple[list[dict], list[dict]]:
+async def concert_day(session: AsyncSession) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """
     Для «дня концерта»: места броней (с покупателем) и места резервов.
 

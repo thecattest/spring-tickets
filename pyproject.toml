@@ -24,6 +24,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "mypy>=2.4.1",
     "pre-commit>=4.7.0",
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23",
@@ -89,3 +90,27 @@ name = "ruff_format"
 type = "module"
 module = "ruff"
 options = "format REVISION_SCRIPT_FILENAME"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src/tickets"]
+plugins = ["pydantic.mypy"]
+# Мягко для всего пакета: проверяем и тела функций без аннотаций
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+strict_equality = true
+
+# Строго для бизнес-логики и моделей (ROADMAP, этап 7). strict нельзя задать
+# для отдельных модулей — перечислены флаги, которые он включает
+[[tool.mypy.overrides]]
+module = ["tickets.services.*", "tickets.models.*"]
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_any_generics = true
+disallow_subclassing_any = true
+warn_return_any = true
+no_implicit_reexport = true
+extra_checks = true

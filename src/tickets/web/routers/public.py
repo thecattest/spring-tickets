@@ -1,6 +1,7 @@
 """Публичное: схема зала с занятыми местами и favicon."""
 
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import FileResponse
@@ -27,7 +28,7 @@ async def hall(request: Request, session: Session):
     layout = get_layout()
     row_count = len(layout["rows"])
 
-    rows = []
+    rows: list[dict[str, Any]] = []
     for row in range(1, row_count + 1):
         seat_count = layout["rows"][str(row)]["seatCount"]
         rows.append(

@@ -78,7 +78,9 @@ async def run_bot() -> None:
     # docker stop / systemctl stop шлют SIGTERM: отменяем эту задачу —
     # await ниже получит CancelledError, и выполнится finally.
     # Ctrl+C (SIGINT) asyncio.run() обрабатывает так же сам.
-    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
+    task = asyncio.current_task()
+    assert task is not None  # внутри asyncio.run — всегда есть
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
 
     try:
         await storage.connect()

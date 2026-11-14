@@ -1,5 +1,7 @@
 """Ошибки бизнес-правил: их показывают пользователю, а не пишут как сбой."""
 
+from typing import Any
+
 
 class ServiceError(Exception):
     """Базовая ошибка сервисов (в старом слое бота — db.DatabaseError)."""
@@ -24,7 +26,7 @@ class ReservationNotActiveError(ServiceError):
 class SeatOccupiedError(ServiceError):
     """Места заняты — в том числе если заняли параллельно, между проверкой и записью."""
 
-    def __init__(self, conflicts: list[dict]):
+    def __init__(self, conflicts: list[dict[str, Any]]):
         """conflicts: [{'row', 'seat', 'status', 'note', 'reservation_id'}, …]"""
         self.conflicts = conflicts
         seats_str = ", ".join(f"{c['row']}/{c['seat']}" for c in conflicts)

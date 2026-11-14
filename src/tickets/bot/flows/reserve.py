@@ -43,24 +43,31 @@ async def show_actions(message: Message, storage: RedisStorage, admin_user_id: i
 async def on_command(message: Message, storage: RedisStorage) -> None:
     """«Резерв»."""
     user = await auth.current_user(message)
+    if user is None:  # сняли роль между проверкой и этой строкой
+        await vk.answer(message, texts.ERR_RESERVE_ADMIN_ONLY)
+        return
     await show_actions(message, storage, user.id)
 
 
-async def _back_to_actions(message: Message, storage: RedisStorage, text: str, admin_user_id: int):
+async def _back_to_actions(
+    message: Message, storage: RedisStorage, text: str, admin_user_id: int
+) -> None:
     await vk.answer(message, text, keyboard=reserve_action_keyboard())
     await storage.save(
         message.from_id, BotState.RESERVE_ACTION, Context(admin_user_id=admin_user_id)
     )
 
 
+_ACTIONS: dict[str, BotState] = {
+    Btn.ADD: BotState.RESERVE_ADDING_ROW,
+    Btn.DELETE: BotState.RESERVE_REMOVING_ROW,
+}
+
+
 async def on_action(message: Message, storage: RedisStorage) -> None:
     """RESERVE_ACTION: Добавить / Удалить."""
     _, context = await storage.load(message.from_id)
-    text = message.text.strip()
-    next_state = {
-        Btn.ADD: BotState.RESERVE_ADDING_ROW,
-        Btn.DELETE: BotState.RESERVE_REMOVING_ROW,
-    }.get(text)
+    next_state = _ACTIONS.get(message.text.strip())
     if next_state is None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=reserve_action_keyboard())
         return
@@ -72,11 +79,11 @@ async def on_action(message: Message, storage: RedisStorage) -> None:
 
 
 async def on_adding_row(message: Message, storage: RedisStorage) -> None:
-    parsed = common.parse_row(message.text)
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        row = common.parse_row(message.text)
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    row = parsed.value
     async with unit_of_work() as session:
         available = await seats.available_in_row(session, row)
     if not available:
@@ -110,11 +117,12 @@ async def on_adding_seats(message: Message, storage: RedisStorage) -> None:
         await vk.answer(message, texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.reset(message.from_id)
         return
-    parsed = await common.parse_seat_list(message.text, context.current_row, "availability")
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        parsed = await common.parse_seat_list(message.text, context.current_row, "availability")
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    context.reserve_seats = parsed.value
+    context.reserve_seats = parsed
     await vk.answer(message, texts.PROMPT_ENTER_COMMENT)
     await storage.save(message.from_id, BotState.RESERVE_COMMENT, context)
 
@@ -156,11 +164,11 @@ async def on_comment(message: Message, storage: RedisStorage) -> None:
 
 
 async def on_removing_row(message: Message, storage: RedisStorage) -> None:
-    parsed = common.parse_row(message.text)
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        row = common.parse_row(message.text)
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    row = parsed.value
     async with unit_of_work() as session:
         reserved = await seats.reserved_in_row(session, row)
     if not reserved:
@@ -184,11 +192,12 @@ async def on_removing_seats(message: Message, storage: RedisStorage) -> None:
         await vk.answer(message, texts.ERR_CONTEXT_LOST_RESERVE)
         await storage.reset(message.from_id)
         return
-    parsed = await common.parse_seat_list(message.text, row, "layout_only")
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        parsed = await common.parse_seat_list(message.text, row, "layout_only")
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    seat_list = parsed.value
+    seat_list = parsed
 
     async with unit_of_work() as session:
         notes = await seats.reserve_notes(session, row, seat_list)

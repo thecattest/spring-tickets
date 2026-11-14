@@ -8,8 +8,9 @@ seat_assignments_one_active_per_seat.
 
 import itertools
 import logging
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,7 +24,7 @@ from tickets.time import utcnow
 logger = logging.getLogger(__name__)
 
 
-def _active():
+def _active() -> Select[SeatAssignment]:
     return select(SeatAssignment).where(SeatAssignment.released_at.is_(None))
 
 
@@ -49,7 +50,7 @@ async def available_in_row(session: AsyncSession, row: int) -> list[int]:
     return [s for s in range(1, get_seat_count(row) + 1) if s not in occupied]
 
 
-async def find_conflicts(session: AsyncSession, row: int, seats: list[int]) -> list[dict]:
+async def find_conflicts(session: AsyncSession, row: int, seats: list[int]) -> list[dict[str, Any]]:
     """Какие из мест уже заняты — в формате SeatOccupiedError.conflicts."""
     stmt = (
         _active()
@@ -167,13 +168,13 @@ async def booked_of_reservation(
 # --- резервы (места под гостей, без брони) ----------------------------------
 
 
-def _reserves():
+def _reserves() -> Select[SeatAssignment]:
     return _active().where(
         SeatAssignment.status == SeatStatus.RESERVED, SeatAssignment.reservation_id.is_(None)
     )
 
 
-async def active_reserves(session: AsyncSession) -> list[dict]:
+async def active_reserves(session: AsyncSession) -> list[dict[str, Any]]:
     """Резервы, сгруппированные по комментарию и ряду: [{'row', 'seats', 'note'}]."""
     stmt = _reserves().order_by(
         SeatAssignment.note, SeatAssignment.row_number, SeatAssignment.seat_number
@@ -250,7 +251,7 @@ async def add_reserve(
 
 async def release_reserve(
     session: AsyncSession, row: int, seats: list[int], user_id: int
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Снять резерв; возвращает прежние комментарии [{'seat', 'note'}] — с записью аудита."""
     assignments = await reserves_in_row(session, row, seats)
     previous_notes = [{"seat": a.seat_number, "note": a.note} for a in assignments]

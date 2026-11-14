@@ -110,6 +110,9 @@ async def incoming(message: Message) -> Incoming:
             raise BuyerNotFound("Пользователь VK не найден.")
         return Incoming(buyer_vk_id=found[0], buyer_name=found[1], receipt=receipt)
 
+    if forwarded is None:
+        # Роутер зовёт сюда только при пересылке, ответе или ссылке (mentions_buyer)
+        raise ValueError("Message mentions no buyer")
     buyer_vk_id = forwarded.from_id
     try:
         found = await full_name(message.ctx_api, buyer_vk_id)

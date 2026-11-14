@@ -36,7 +36,7 @@ def commands_keyboard() -> str:
     return keyboard.get_json()
 
 
-def seat_addition_menu_keyboard() -> Keyboard:
+def seat_addition_menu_keyboard() -> str:
     """
     Keyboard for seat addition menu.
 

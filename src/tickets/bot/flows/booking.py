@@ -54,11 +54,13 @@ async def on_buyer(message: Message, storage: RedisStorage) -> None:
             buyer = await users.get_or_create_vk_user(
                 session, incoming.buyer_vk_id, incoming.buyer_name
             )
-            reservation = await reservations.get_active(session, buyer.id)
-            is_new = reservation is None
-            if is_new:
+            existing = await reservations.get_active(session, buyer.id)
+            is_new = existing is None
+            if existing is None:
                 seller = await users.require_app_user(session, message.from_id)
                 reservation = await reservations.create(session, buyer.id, seller.id)
+            else:
+                reservation = existing
     except ServiceError as e:
         logger.error("Database error creating reservation: %s", e)
         await vk.answer(message, texts.ERR_DB_CREATE_BOOKING)
@@ -92,10 +94,9 @@ async def _while_busy(
     incoming: vk.Incoming,
 ) -> None:
     current = context.client
-    same = current is not None and current.buyer_vk_id == incoming.buyer_vk_id
     current_name = current.buyer_name if current else "текущего клиента"
 
-    if same:
+    if current is not None and current.buyer_vk_id == incoming.buyer_vk_id:
         if incoming.receipt is not None:
             if state != BotState.MAIN_MENU:
                 await storage.save(
@@ -147,11 +148,11 @@ async def _while_busy(
 
 async def on_row(message: Message, storage: RedisStorage) -> None:
     """AWAITING_ROW: номер ряда — в ряду есть свободные места."""
-    parsed = common.parse_row(message.text)
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        row = common.parse_row(message.text)
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    row = parsed.value
 
     _, context = await storage.load(message.from_id)
     client = await common.require_client(message, storage, context, texts.ERR_CONTEXT_LOST_FWD)
@@ -195,11 +196,12 @@ async def on_seats(message: Message, storage: RedisStorage) -> None:
     if not await common.require_active(message, storage, client):
         return
 
-    parsed = await common.parse_seat_list(message.text, row, "availability")
-    if not parsed.ok:
-        await vk.answer(message, parsed.error)
+    try:
+        parsed = await common.parse_seat_list(message.text, row, "availability")
+    except common.InvalidInput as e:
+        await vk.answer(message, str(e))
         return
-    seat_list = parsed.value
+    seat_list = parsed
 
     try:
         async with unit_of_work() as session:

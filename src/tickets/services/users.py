@@ -4,8 +4,9 @@
 """
 
 import logging
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,7 +48,7 @@ async def get_or_create_vk_user(session: AsyncSession, vk_id: int, display_name:
 # --- пользователи системы ---------------------------------------------------
 
 
-def _active(vk_user_id: int):
+def _active(vk_user_id: int) -> Select[AppUser]:
     return select(AppUser).where(AppUser.vk_user_id == vk_user_id, AppUser.is_active.is_(True))
 
 
@@ -127,7 +128,13 @@ async def add_app_user(
     return user
 
 
-async def _audit_user(session, action, user: AppUser, by_vk_id: int | None, extra: dict) -> None:
+async def _audit_user(
+    session: AsyncSession,
+    action: audit.AuditAction,
+    user: AppUser,
+    by_vk_id: int | None,
+    extra: dict[str, Any],
+) -> None:
     # Владелец — настройка, а не роль: в app_users его может и не быть
     actor = await get_active_app_user(session, by_vk_id) if by_vk_id else None
     audit.log(

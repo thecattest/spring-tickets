@@ -3,6 +3,7 @@ AuditLog model - аудит-лог (полная история действий
 """
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import JSON, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
@@ -30,7 +31,7 @@ class AuditLog(Base):
         Text, nullable=True, comment="Строкой (на случай разных типов id)"
     )
 
-    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
 
     __table_args__ = (
         # Быстрая прокрутка/фильтрация по времени

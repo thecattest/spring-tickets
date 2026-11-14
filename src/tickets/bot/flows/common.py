@@ -1,7 +1,6 @@
 """Общие шаги сценариев: ввод ряда и мест, клиент в контексте, актуальность брони."""
 
 import logging
-from dataclasses import dataclass
 from typing import Literal
 
 from vkbottle.bot import Message
@@ -23,27 +22,21 @@ logger = logging.getLogger(__name__)
 # --- ввод -------------------------------------------------------------------
 
 
-@dataclass
-class Parsed:
-    """Разобранный ввод: значение или текст ошибки для пользователя."""
-
-    value: object = None
-    error: str | None = None
-
-    @property
-    def ok(self) -> bool:
-        return self.error is None
+class InvalidInput(Exception):
+    """Ввод не подходит; текст исключения — что ответить пользователю."""
 
 
-def parse_row(text: str) -> Parsed:
+def parse_row(text: str) -> int:
     min_row, max_row = get_row_range()
     try:
         row = int(text.strip())
     except ValueError:
-        return Parsed(error=texts.ERR_INVALID_ROW_FORMAT.format(min_row=min_row, max_row=max_row))
+        raise InvalidInput(
+            texts.ERR_INVALID_ROW_FORMAT.format(min_row=min_row, max_row=max_row)
+        ) from None
     if not is_valid_row(row):
-        return Parsed(error=texts.ERR_INVALID_ROW.format(min_row=min_row, max_row=max_row))
-    return Parsed(value=row)
+        raise InvalidInput(texts.ERR_INVALID_ROW.format(min_row=min_row, max_row=max_row))
+    return row
 
 
 async def parse_seat_list(
@@ -51,49 +44,51 @@ async def parse_seat_list(
     row: int,
     mode: Literal["layout_only", "availability", "membership"],
     reservation_id: int | None = None,
-) -> Parsed:
+) -> list[int]:
     """
     Места в ряду: формат и геометрия зала (все режимы), затем
-    availability — все свободны; membership — все из брони и не оплачены.
+    availability — все свободны; membership — все из брони (reservation_id)
+    и не оплачены. Не подходит — InvalidInput.
     """
     try:
         seat_list = parse_seats(text.strip())
     except SeatParseError as e:
-        return Parsed(error=texts.ERR_PARSE_INPUT.format(error=str(e)))
+        raise InvalidInput(texts.ERR_PARSE_INPUT.format(error=str(e))) from None
 
     invalid = [s for s in seat_list if not is_valid_seat(row, s)]
     if invalid:
-        return Parsed(
-            error=texts.ERR_INVALID_SEATS.format(
+        raise InvalidInput(
+            texts.ERR_INVALID_SEATS.format(
                 seats=", ".join(map(str, invalid)), row=row, seat_count=get_seat_count(row)
             )
         )
     if mode == "layout_only":
-        return Parsed(value=seat_list)
+        return seat_list
 
-    async with unit_of_work() as session:
-        if mode == "availability":
+    if mode == "availability":
+        async with unit_of_work() as session:
             conflicts = await seats.find_conflicts(session, row, seat_list)
-            if conflicts:
-                taken = format_seat_ranges(sorted(c["seat"] for c in conflicts))
-                return Parsed(
-                    error=f"Места {taken} в ряду {row} недоступны.\n\nВведите другие места:"
-                )
-            return Parsed(value=seat_list)
+        if conflicts:
+            taken = format_seat_ranges(sorted(c["seat"] for c in conflicts))
+            raise InvalidInput(f"Места {taken} в ряду {row} недоступны.\n\nВведите другие места:")
+        return seat_list
 
+    if reservation_id is None:
+        raise ValueError("membership mode needs reservation_id")
+    async with unit_of_work() as session:
         by_seat = {
             (s.row_number, s.seat_number): s
             for s in await seats.of_reservation(session, reservation_id)
         }
     missing = [s for s in seat_list if (row, s) not in by_seat]
     if missing:
-        return Parsed(
-            error=texts.MSG_SEATS_NOT_IN_BOOKING.format(seats=", ".join(map(str, missing)))
+        raise InvalidInput(
+            texts.MSG_SEATS_NOT_IN_BOOKING.format(seats=", ".join(map(str, missing)))
         )
     paid = [s for s in seat_list if by_seat[(row, s)].status == SeatStatus.PAID]
     if paid:
-        return Parsed(error=texts.MSG_SEATS_ALREADY_PAID.format(seats=", ".join(map(str, paid))))
-    return Parsed(value=seat_list)
+        raise InvalidInput(texts.MSG_SEATS_ALREADY_PAID.format(seats=", ".join(map(str, paid))))
+    return seat_list
 
 
 def parse_confirmation(text: str) -> bool | None:

@@ -58,7 +58,7 @@ def parse_seats(text: str) -> list[int]:
     # Split by spaces
     parts = normalized.split(" ")
 
-    seats = []
+    seats: list[int] = []
 
     for part in parts:
         part = part.strip()

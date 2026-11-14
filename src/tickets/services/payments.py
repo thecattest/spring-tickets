@@ -3,8 +3,9 @@
 import logging
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import ScalarSelect, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.config import app_settings
@@ -88,7 +89,7 @@ async def record(
 # --- страница оплат (веб) ---------------------------------------------------
 
 
-def _active_seat_count():
+def _active_seat_count() -> ScalarSelect[int]:
     """Сколько мест оплаты ещё не освобождено (оплата отменённой брони не в счёт)."""
     return (
         select(func.count(PaymentSeat.payment_id))
@@ -99,7 +100,7 @@ def _active_seat_count():
     )
 
 
-async def page(session: AsyncSession) -> dict:
+async def page(session: AsyncSession) -> dict[str, Any]:
     """
     Данные страницы оплат: оплаты с покупателем и билетёром (новые первыми),
     места по статусам, сумма оплат и число неоплаченных мест.

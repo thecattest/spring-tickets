@@ -20,7 +20,7 @@ def get_attachment_urls(forwarded) -> list[dict]:
     Returns:
         Список словарей: [{"type": "photo"|"doc", "url": "...", "title": "..."}]
     """
-    result = []
+    result: list[dict[str, str]] = []
     if not hasattr(forwarded, "attachments") or not forwarded.attachments:
         return result
     for att in forwarded.attachments:

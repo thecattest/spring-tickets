@@ -114,7 +114,7 @@ def format_reservation_seats(seats: list[SeatAssignment]) -> str:
         return "Нет мест"
 
     # Count by status
-    status_counts = defaultdict(int)
+    status_counts: defaultdict[SeatStatus, int] = defaultdict(int)
     for seat in seats:
         status_counts[seat.status] += 1
 
