@@ -39,15 +39,15 @@
 
 ## Этап 2. Alembic
 
-- [ ] Базовая миграция по схеме Postgres; на существующей базе — `alembic stamp head`.
-- [ ] Убрать `init_db()` / `create_all()` из рантайма.
-- [ ] Правила миграций — expand/contract, только вперёд (→ Миграции и совместимость).
+- [x] Базовая миграция по схеме Postgres (схема совпадает с `create_all()` по `pg_dump --schema-only`); на существующей базе — `alembic stamp head`. Конфиг в `[tool.alembic]` в `pyproject.toml`, тесты накатывают схему миграциями и проверяют `alembic check`.
+- [x] Убрать `init_db()` / `create_all()` из рантайма.
+- [x] Правила миграций — expand/contract, только вперёд (→ Миграции и совместимость); краткая выжимка в CLAUDE.md.
 
 ## Этап 3. Docker / Compose
 
 - [x] **Образ:** Python 3.12, `uv sync --frozen --no-dev` (вместо `pip install -r requirements.txt`), пользователь не root, пакет `tzdata`.
 - [ ] **Клиент `pg_dump` в образе** из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер (для бэкапов, этап 4).
-- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`. Сейчас есть `postgres` и `web`.
+- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`. Сейчас есть `postgres`, `migrate` и `web`.
 - [ ] **Порядок старта:** `db-backup` → `migrate` (`alembic upgrade head`, `restart: "no"`) → `web`, `bot`, `cron` через `condition: service_completed_successfully`.
 - [ ] **Healthcheck** у каждого сервиса, `depends_on` с условиями, `restart: unless-stopped` для постоянных сервисов.
 - [x] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).

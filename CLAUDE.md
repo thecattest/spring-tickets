@@ -8,7 +8,7 @@ Plan of the ongoing cleanup and refactor: `ROADMAP.md` (check items off as they 
 
 Concert ticket management system for VK (VKontakte). Ticketers create seat reservations, record payments, and manage bookings via a VK bot. A web UI shows a public hall map and admin payments dashboard.
 
-**Stack**: Python 3.12 (uv), SQLAlchemy 2.0+, vkbottle (VK bot), FastAPI (web), Redis (bot FSM state), PostgreSQL 18 (psycopg 3).
+**Stack**: Python 3.12 (uv), SQLAlchemy 2.0+, Alembic, vkbottle (VK bot), FastAPI (web), Redis (bot FSM state), PostgreSQL 18 (psycopg 3).
 
 ## Commands
 
@@ -17,7 +17,7 @@ Concert ticket management system for VK (VKontakte). Ticketers create seat reser
 uv sync
 uv run pre-commit install   # ruff check/format + requirements.txt sync before each commit
 cp .env.example .env  # fill in DATABASE_URL, VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
-uv run python database.py    # create tables (create_all until Alembic, ROADMAP stage 2)
+uv run alembic upgrade head  # create / update the schema
 
 # Run bot (requires Redis + VK token)
 uv run python -m bot
@@ -44,7 +44,7 @@ bash deploy/deploy.sh
 
 Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`.
 
-- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull` → `pip install` → `python database.py` → `systemctl --user restart tickets-bot tickets-web`
+- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull` → `pip install` → `alembic upgrade head` → `systemctl --user restart tickets-bot tickets-web`
 - `deploy/install.sh` — one-time server setup: installs systemd user services, nginx config, bash aliases, enables linger
 - `deploy/aliases.sh` — adds `start`/`stop`/`restart`/`status`/`tw-log`/`tb-log` aliases to server `.bashrc`
 - `deploy/setup-ssl.sh` — SSL certificate setup
@@ -58,7 +58,8 @@ Two interfaces share the same database and models:
 - **Bot** (`bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `bot/handlers/` orchestrate conversations; business logic lives in `bot/utils/db.py`.
 - **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`.
 - **Models** (`models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
-- **Database** (`database.py`) — Engine, `SessionLocal` factory, `init_db()`. PostgreSQL only; `DATABASE_URL` is required.
+- **Database** (`database.py`) — Engine, `SessionLocal` factory, `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; `DATABASE_URL` is required.
+- **Migrations** (`migrations/`) — Alembic; the schema is never created by the app (`create_all()` is not used).
 
 ### Key data flow
 
@@ -106,25 +107,40 @@ Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT
 
 Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE_URL` and `SQL_ECHO` directly from env.
 
-`database.py` loads the project-root `.env` itself (`override=False`), so every entry point — bot, web, scripts, `python database.py` — sees the same `DATABASE_URL`. Variables already set in the environment win (Docker `--env-file`/`environment:`, `conftest.py` in tests). No fallback: without `DATABASE_URL` it raises. Log `database.DATABASE_URL_SAFE` (password hidden), never `DATABASE_URL`.
+`database.py` loads the project-root `.env` itself (`override=False`), so every entry point — bot, web, scripts, `alembic` — sees the same `DATABASE_URL`. Variables already set in the environment win (Docker `--env-file`/`environment:`, `conftest.py` in tests). No fallback: without `DATABASE_URL` it raises. Log `database.DATABASE_URL_SAFE` (password hidden), never `DATABASE_URL`.
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`) and `web` (built from `Dockerfile`, uv-based). `web` reads `.env` but `DATABASE_URL` is overridden to the service name `postgres`. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host).
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) and `web` (built from `Dockerfile`, uv-based). `web` reads `.env` but `DATABASE_URL` is overridden to the service name `postgres`. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host).
 
 ```bash
-docker compose up -d --build                         # start / rebuild
-docker compose run --rm web python database.py       # create tables (until Alembic, ROADMAP stage 2)
+docker compose up -d --build                         # start / rebuild (migrate runs first)
+docker compose run --rm migrate                      # run migrations again by hand
 # or copy the old SQLite data instead (creates the schema itself, target must be empty):
 docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_to_postgres.py data/tickets.db
 docker compose logs -f web
 ```
 
-Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. The bot, Redis, cron, secrets and Alembic are not in Compose yet (ROADMAP stages 2–4).
+Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. The bot, Redis, cron, `db-backup` and secrets are not in Compose yet (ROADMAP stages 3–4). On host-only runs (`uv run`) apply migrations yourself.
 
 `scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `scripts/backup_db.py` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer).
 
+## Migrations
+
+Config lives in `[tool.alembic]` in `pyproject.toml` (no `alembic.ini`); `migrations/env.py` takes the URL and engine from `database.py` and metadata from `models`.
+
+```bash
+uv run alembic revision --autogenerate -m "add foo"   # then READ and edit the generated file
+uv run alembic upgrade head
+uv run alembic check          # models and migrations in sync
+uv run alembic upgrade head --sql   # print SQL without a DB connection
+```
+
+- Autogenerate misses `CheckConstraint`s (add them by hand), renames (it emits drop + add — rewrite as `alter_column`) and data changes.
+- Expand/contract, forward only: each migration must work with the previous code version (new columns nullable or with `server_default`; drops and `NOT NULL` a release later). Full rules: ROADMAP → «Миграции и совместимость».
+- A database created before Alembic (`create_all()`, the SQLite transfer script) is marked with `alembic stamp head` after checking the schema matches; `scripts/migrate_sqlite_to_postgres.py` runs `upgrade_db()` itself.
+
 ## Testing
 
-- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `DATABASE_URL` to it before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it). The schema is recreated before every test. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
+- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `DATABASE_URL` to it before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations (`alembic check`) and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
 - Don't override `DATABASE_URL` inside test fixtures: the engine already exists by then, the override has no effect.
