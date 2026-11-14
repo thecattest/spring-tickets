@@ -8,8 +8,8 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import groupby
 
-from bot.config import SEAT_PRICE
 from bot.utils.formatting import format_seat_ranges, pluralize_seats
+from config import app_settings
 from models.base import SeatStatus
 from models.seat_assignment import SeatAssignment
 
@@ -50,7 +50,7 @@ def generate_reservation_script(
 
     # Calculate total
     total_seats = len(seats)
-    total_price = total_seats * SEAT_PRICE
+    total_price = total_seats * app_settings().seat_price
 
     # Generate script
     script = f"""Места забронированы.

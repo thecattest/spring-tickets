@@ -7,15 +7,12 @@ Run:
 
 import json
 import logging
-import os
 import secrets
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
-from dotenv import load_dotenv
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -23,6 +20,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import func, text
 
 from bot.utils.layout import get_layout
+from config import app_settings, web_settings
 from database import SessionLocal, engine
 from logging_config import setup_logging
 from models.base import SeatStatus
@@ -32,7 +30,6 @@ from models.seat_assignment import SeatAssignment
 from models.user import AppUser
 from models.vk_user import VkUser
 
-load_dotenv()
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -40,7 +37,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 # Время в БД — timestamptz (UTC); показываем в часовом поясе концерта
-DISPLAY_TZ = ZoneInfo(os.getenv("DISPLAY_TZ", "Europe/Moscow"))
+DISPLAY_TZ = app_settings().display_tz
 
 
 def local_dt(value: datetime | None, fmt: str = "%d.%m.%Y %H:%M") -> str:
@@ -54,25 +51,13 @@ def local_dt(value: datetime | None, fmt: str = "%d.%m.%Y %H:%M") -> str:
 
 templates.env.filters["local_dt"] = local_dt
 
-PAYMENTS_PASSWORD = os.getenv("PAYMENTS_PASSWORD", "")
-SEAT_PRICE = int(os.getenv("SEAT_PRICE", "1500"))
-# Секрет подписи cookie — отдельный от пароля: зная пароль, нельзя подделать cookie
-COOKIE_SECRET = os.getenv("COOKIE_SECRET", "")
-# По HTTPS (прод) cookie только secure; локально по HTTP — COOKIE_SECURE=false
-COOKIE_SECURE = os.getenv("COOKIE_SECURE", "true").lower() != "false"
+# Секреты обязательны и не пустые — без них WebSettings не создастся и веб не стартует
+_web = web_settings()
+PAYMENTS_PASSWORD = _web.payments_password.get_secret_value()
+COOKIE_SECRET = _web.cookie_secret.get_secret_value()
+COOKIE_SECURE = _web.cookie_secure
 COOKIE_MAX_AGE = 24 * 60 * 60  # 24 hours
-
-# Без пароля вход проходил бы с пустой строкой, без секрета — cookie подделываемы
-_missing = [
-    name
-    for name, value in (
-        ("PAYMENTS_PASSWORD", PAYMENTS_PASSWORD),
-        ("COOKIE_SECRET", COOKIE_SECRET),
-    )
-    if not value
-]
-if _missing:
-    raise RuntimeError(f"Required environment variables are not set: {', '.join(_missing)}")
+SEAT_PRICE = app_settings().seat_price
 
 serializer = URLSafeTimedSerializer(COOKIE_SECRET)
 COOKIE_NAME = "payments_auth"

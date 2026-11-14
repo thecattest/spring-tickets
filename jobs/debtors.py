@@ -14,26 +14,26 @@ import random
 
 from vkbottle import API
 
-from bot.config import DEBTORS_REMINDER_MIN_DAYS, VK_BOT_TOKEN
 from bot.messages import format_reminder
 from bot.utils.db import get_all_active_sellers, get_debtors, log_reminder_sent
+from config import app_settings, vk_settings
 from jobs.runner import run_job
 
 logger = logging.getLogger("jobs.debtors")
 
 
 async def send_reminders() -> None:
-    if not VK_BOT_TOKEN:
-        raise RuntimeError("VK_BOT_TOKEN is not set")
+    token = vk_settings().vk_bot_token.get_secret_value()
+    min_days = app_settings().debtors_reminder_min_days
 
     sellers = get_all_active_sellers()
     logger.info("Processing %d active sellers", len(sellers))
 
     sent, skipped, failed = 0, 0, []
-    api = API(VK_BOT_TOKEN)
+    api = API(token)
     try:
         for seller in sellers:
-            debtors = get_debtors(seller_id=seller.id, min_days=DEBTORS_REMINDER_MIN_DAYS)
+            debtors = get_debtors(seller_id=seller.id, min_days=min_days)
             if not debtors:
                 skipped += 1
                 continue

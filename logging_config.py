@@ -7,7 +7,8 @@
 """
 
 import logging
-import os
+
+from config import app_settings
 
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -17,7 +18,7 @@ _NOISY_LOGGERS = ("vkbottle", "aiohttp")
 
 
 def setup_logging() -> None:
-    level = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = app_settings().log_level.upper()
     # Неверный уровень → ValueError на старте, а не тихо INFO
     logging.basicConfig(level=level, format=LOG_FORMAT, datefmt=DATE_FORMAT)
     for name in _NOISY_LOGGERS:

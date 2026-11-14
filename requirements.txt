@@ -72,12 +72,16 @@ psycopg-binary==3.3.9 ; implementation_name != 'pypy'
 pydantic==2.14.3
     # via
     #   fastapi
+    #   pydantic-settings
     #   vkbottle
     #   vkbottle-types
 pydantic-core==2.50.4
     # via pydantic
+pydantic-settings==2.16.3
+    # via tickets
 python-dotenv==1.2.4
     # via
+    #   pydantic-settings
     #   tickets
     #   uvicorn
 python-multipart==0.0.33
@@ -104,6 +108,7 @@ typing-extensions==4.16.0
     #   psycopg
     #   pydantic
     #   pydantic-core
+    #   pydantic-settings
     #   sqlalchemy
     #   starlette
     #   typing-inspection
@@ -114,6 +119,7 @@ typing-inspection==0.4.5
     # via
     #   fastapi
     #   pydantic
+    #   pydantic-settings
 tzdata==2026.6
     # via
     #   psycopg

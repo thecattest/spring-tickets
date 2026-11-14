@@ -3,9 +3,9 @@
 (testcontainers), а не с базой проекта. Нужен запущенный Docker.
 
 Контейнер стартует в pytest_configure — до того, как тестовые модули
-импортируют database.py и создадут engine; DATABASE_URL выставляется туда же.
-load_dotenv() уже заданные переменные не перезаписывает, поэтому значение
-из .env сюда не попадёт.
+импортируют database.py и создадут engine; параметры подключения (POSTGRES_*)
+выставляются в окружение туда же. Окружение у pydantic-settings важнее .env,
+поэтому значения из .env сюда не попадут.
 
 Схема создаётся один раз миграциями (alembic upgrade head) — так тесты
 заодно проверяют сами миграции. Перед каждым тестом таблицы очищаются.
@@ -15,6 +15,7 @@ import os
 
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
 from testcontainers.community.postgres import PostgresContainer
 
 # Та же мажорная версия, что будет в Compose
@@ -29,7 +30,13 @@ def pytest_configure(config):
     _container = PostgresContainer(POSTGRES_IMAGE, driver="psycopg")
     _container.start()
     TEST_DATABASE_URL = _container.get_connection_url()
-    os.environ["DATABASE_URL"] = TEST_DATABASE_URL
+    os.environ.update(
+        POSTGRES_HOST=_container.get_container_host_ip(),
+        POSTGRES_PORT=str(_container.get_exposed_port(5432)),
+        POSTGRES_USER=_container.username,
+        POSTGRES_PASSWORD=_container.password,
+        POSTGRES_DB=_container.dbname,
+    )
 
 
 def pytest_unconfigure(config):
@@ -44,7 +51,7 @@ def migrated_db():
 
     # Защита: если database импортировали раньше, engine смотрит не туда —
     # лучше упасть, чем мигрировать и чистить настоящую базу.
-    assert database.DATABASE_URL == TEST_DATABASE_URL, (
+    assert make_url(database.DATABASE_URL) == make_url(TEST_DATABASE_URL), (
         f"Тесты подключены не к временной базе: {database.DATABASE_URL_SAFE}"
     )
     database.upgrade_db()

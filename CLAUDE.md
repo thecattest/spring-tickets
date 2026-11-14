@@ -16,7 +16,7 @@ Concert ticket management system for VK (VKontakte). Ticketers create seat reser
 # Setup (uv installs Python 3.12 from .python-version and creates .venv)
 uv sync
 uv run pre-commit install   # ruff check/format + requirements.txt sync before each commit
-cp .env.example .env  # fill in DATABASE_URL, VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
+cp .env.example .env  # fill in POSTGRES_PASSWORD, VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
 uv run alembic upgrade head  # create / update the schema
 
 # Run bot (requires Redis + VK token)
@@ -59,7 +59,7 @@ Two interfaces share the same database and models:
 - **Bot** (`bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `bot/handlers/` orchestrate conversations; business logic lives in `bot/utils/db.py`.
 - **Web** (`web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`. `/health` (app + `SELECT 1`, 503 if the DB is down) is the Compose healthcheck; successful `/health` calls are filtered out of the uvicorn access log.
 - **Models** (`models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
-- **Database** (`database.py`) — Engine, `SessionLocal` factory, `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; `DATABASE_URL` is required.
+- **Database** (`database.py`) — Engine, `SessionLocal` factory, `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; connection settings come from `config.db_settings()`.
 - **Migrations** (`migrations/`) — Alembic; the schema is never created by the app (`create_all()` is not used).
 
 ### Key data flow
@@ -108,19 +108,19 @@ All state changes are recorded in the `AuditLog` table.
 
 ## Configuration
 
-Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT_TOKEN`, `VK_GROUP_ID`, `OWNER_VK_IDS`, `REDIS_*`, `DATABASE_URL`, `SEAT_PRICE`, `PAYMENTS_PASSWORD`, `COOKIE_SECRET`, `COOKIE_SECURE`, `DISPLAY_TZ`, `LOG_LEVEL`, `SQL_ECHO`.
+All settings live in `config.py` (pydantic-settings; moves to `tickets/config.py` in ROADMAP stage 7) — no `os.getenv` / `load_dotenv` anywhere else. Settings are split into sections, each validated on first use, so a process only needs what it uses (`migrate` runs without VK settings): `db_settings()` (`POSTGRES_HOST/PORT/DB/USER` with defaults, `POSTGRES_PASSWORD`, `SQL_ECHO`), `redis_settings()` (`REDIS_*`), `vk_settings()` (`VK_BOT_TOKEN`, `VK_GROUP_ID`, `OWNER_VK_IDS` comma-separated, `is_owner()`), `web_settings()` (`PAYMENTS_PASSWORD`, `COOKIE_SECRET`, `COOKIE_SECURE`), `backup_settings()`, `app_settings()` (`LOG_LEVEL`, `DISPLAY_TZ`, `SEAT_PRICE`, `DEBTORS_REMINDER_MIN_DAYS`). Each getter is cached per process.
 
-- `web/app.py` refuses to start without `PAYMENTS_PASSWORD` and `COOKIE_SECRET`. `COOKIE_SECURE=false` is needed for local HTTP (default `true`, Secure cookie behind HTTPS).
+- Sources, first found wins: environment (Compose `environment:`, `conftest.py`) → project-root `.env` → secret files (`/run/secrets/<field>`, `./secrets/<field>`) → code default. Env var name = field name upper-cased, secret file name = field name.
+- Secrets are `SecretStr` and must be non-empty (`Secret` type): a missing or empty one raises `ValidationError` naming the field, so the process refuses to start. Use `.get_secret_value()` only where the raw value is needed; log `database.DATABASE_URL_SAFE`, never `DATABASE_URL`.
+- Defaults in code only for non-secret values that are the same everywhere.
+- `COOKIE_SECURE=false` is needed for local HTTP (default `true`, Secure cookie behind HTTPS).
 - Timestamps are stored as `timestamptz` (UTC); the web shows them in `DISPLAY_TZ` (default `Europe/Moscow`) via the `local_dt` Jinja filter.
-- Logging: call `logging_config.setup_logging()` once at process start (bot, web, scripts already do); no other `basicConfig`. stdout only, level from `LOG_LEVEL`.
-
-Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE_URL` and `SQL_ECHO` directly from env.
-
-`database.py` loads the project-root `.env` itself (`override=False`), so every entry point — bot, web, scripts, `alembic` — sees the same `DATABASE_URL`. Variables already set in the environment win (Docker `--env-file`/`environment:`, `conftest.py` in tests). No fallback: without `DATABASE_URL` it raises. Log `database.DATABASE_URL_SAFE` (password hidden), never `DATABASE_URL`.
+- Logging: call `logging_config.setup_logging()` once at process start (bot, web, jobs already do); no other `basicConfig`. stdout only, level from `LOG_LEVEL`.
+- `bot/config.py` keeps only domain constants (`LAYOUT_FILE`), not settings.
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `db-backup` (`jobs.backup --reason pre-migrate`: dumps into `./backups` only when migrations are pending; if it fails, migrate and app services don't start), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it), `cron` (supercronic running `jobs/crontab`, Moscow time: backup daily 04:00, debtors every 3 days 20:00; supercronic is PID 1 itself, no `init`). `./backups` is mounted only into `db-backup` and `cron` (dumps contain personal data). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `db-backup` (`jobs.backup --reason pre-migrate`: dumps into `./backups` only when migrations are pending; if it fails, migrate and app services don't start), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it), `cron` (supercronic running `jobs/crontab`, Moscow time: backup daily 04:00, debtors every 3 days 20:00; supercronic is PID 1 itself, no `init`). `./backups` is mounted only into `db-backup` and `cron` (dumps contain personal data). App services read `.env`, but `POSTGRES_HOST` and `REDIS_HOST` are set to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
 
 `compose.dev.yaml` holds only dev differences and is enabled by `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in the local `.env` (unset on the server): `web` with `uvicorn --reload`, `develop.watch` (sync code into `/code`, `sync+restart` for `bot`, rebuild on `pyproject.toml`/`uv.lock`; `.dockerignore` rules apply, so `.venv`/`.env`/`data` are never synced), Postgres port, `bot` and `cron` behind the `bot` / `cron` profiles — the local `.env` holds the real VK token, so the bot starts only with `--profile bot` (use a test community token, ROADMAP stage 3). The image copies code with `--chown=app:app` because watch needs the container user to write to `/code`.
 
@@ -134,7 +134,7 @@ docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_t
 docker compose logs -f web
 ```
 
-Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. Secrets are not in Compose yet (ROADMAP stage 5). On host-only runs (`uv run`) apply migrations yourself.
+Running on the host instead (`uv run ...`) connects to `localhost:5432` (the default `POSTGRES_HOST`), i.e. the same Compose Postgres through its dev-published port. Secrets are not in Compose yet (ROADMAP stage 5). On host-only runs (`uv run`) apply migrations yourself.
 
 `scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `jobs.backup` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer — the image has 18 from PGDG).
 
@@ -156,5 +156,5 @@ uv run alembic upgrade head --sql   # print SQL without a DB connection
 
 ## Testing
 
-- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `DATABASE_URL` to it before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations: `alembic check`, plus a full schema comparison against a `create_all()` reference database (constraints via `pg_get_constraintdef`, indexes, columns, comments) that catches what autogenerate misses; and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
-- Don't override `DATABASE_URL` inside test fixtures: the engine already exists by then, the override has no effect.
+- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `POSTGRES_*` to it before any test imports `database.py` (engine is created at import time, so it must happen first; environment beats `.env` in pydantic-settings). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations: `alembic check`, plus a full schema comparison against a `create_all()` reference database (constraints via `pg_get_constraintdef`, indexes, columns, comments) that catches what autogenerate misses; and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
+- Don't override `POSTGRES_*` inside test fixtures: the engine already exists by then, the override has no effect. To change a setting in a test, monkeypatch the getter (`monkeypatch.setattr(module, "vk_settings", ...)`).

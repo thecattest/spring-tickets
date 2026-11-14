@@ -21,9 +21,10 @@ from pathlib import Path
 
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import URL
 
-from database import DATABASE_URL, PROJECT_ROOT, alembic_config, engine
+from config import backup_settings, db_settings
+from database import alembic_config, engine
 from jobs.runner import run_job
 from notify import notify_owner
 from timeutils import utcnow
@@ -31,9 +32,6 @@ from timeutils import utcnow
 logger = logging.getLogger("jobs.backup")
 
 REASONS = ("regular", "pre-migrate")
-BACKUP_DIR = Path(os.getenv("BACKUP_DIR", PROJECT_ROOT / "backups"))
-BACKUP_KEEP = int(os.getenv("BACKUP_KEEP", "14"))
-BACKUP_SEND_TO_VK = os.getenv("BACKUP_SEND_TO_VK", "true").lower() != "false"
 
 
 def has_pending_migrations() -> bool:
@@ -55,14 +53,13 @@ def rotate(directory: Path, reason: str, keep: int) -> list[Path]:
 
 
 async def pg_dump(target: Path) -> None:
-    url = make_url(DATABASE_URL)
+    db = db_settings()
     # pg_dump понимает libpq-URL без драйвера SQLAlchemy (+psycopg). Пароль —
     # через PGPASSWORD, а не в URL: аргументы процесса видны в ps
-    # (URL.set(password=None) пароль не убирает — None там значит «не менять»)
     libpq_url = URL.create(
-        "postgresql", url.username, None, url.host, url.port, url.database, url.query
+        "postgresql", db.postgres_user, None, db.postgres_host, db.postgres_port, db.postgres_db
     ).render_as_string()
-    env = {**os.environ, "PGPASSWORD": url.password or ""}
+    env = {**os.environ, "PGPASSWORD": db.postgres_password.get_secret_value()}
 
     # Сначала во временный файл: оборванный дамп не попадёт в ротацию
     partial = target.with_suffix(".partial")
@@ -86,15 +83,16 @@ async def backup(reason: str) -> None:
         logger.info("No pending migrations, pre-migrate backup skipped")
         return
 
-    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-    target = BACKUP_DIR / f"tickets-{reason}-{utcnow():%Y%m%d-%H%M%S}Z.dump"
+    settings = backup_settings()
+    settings.backup_dir.mkdir(parents=True, exist_ok=True)
+    target = settings.backup_dir / f"tickets-{reason}-{utcnow():%Y%m%d-%H%M%S}Z.dump"
     await pg_dump(target)
     logger.info("Backup created: %s (%d KB)", target, target.stat().st_size // 1024)
 
-    for path in rotate(BACKUP_DIR, reason, BACKUP_KEEP):
+    for path in rotate(settings.backup_dir, reason, settings.backup_keep):
         logger.info("Old backup removed: %s", path.name)
 
-    if reason == "regular" and BACKUP_SEND_TO_VK:
+    if reason == "regular" and settings.backup_send_to_vk:
         await notify_owner(f"Бэкап БД: {target.name}", file=target)
 
 

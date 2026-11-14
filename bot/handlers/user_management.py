@@ -8,9 +8,10 @@ import logging
 
 from vkbottle.bot import Message
 
-from bot import config, texts
+from bot import texts
 from bot.keyboards import commands_keyboard
 from bot.utils import db
+from config import vk_settings
 from models.base import UserRole
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def _add_user(message: Message, role: UserRole) -> None:
     """Общая логика для /addadmin и /addseller."""
     # Проверяем, что отправитель — владелец
-    if not config.is_owner(message.from_id):
+    if not vk_settings().is_owner(message.from_id):
         await message.answer(texts.ERR_OWNER_ONLY)
         return
 
@@ -86,7 +87,7 @@ async def add_seller_handler(message: Message) -> None:
 
 async def remove_user_handler(message: Message) -> None:
     """/removeuser — удалить пользователя из системы."""
-    if not config.is_owner(message.from_id):
+    if not vk_settings().is_owner(message.from_id):
         await message.answer(texts.ERR_OWNER_ONLY)
         return
 
@@ -127,7 +128,7 @@ async def remove_user_handler(message: Message) -> None:
 
 async def list_users_handler(message: Message) -> None:
     """/users — список всех пользователей системы."""
-    if not config.is_owner(message.from_id):
+    if not vk_settings().is_owner(message.from_id):
         await message.answer(texts.ERR_OWNER_ONLY)
         return
 

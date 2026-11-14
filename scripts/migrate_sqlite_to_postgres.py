@@ -3,7 +3,7 @@
 Одноразовый перенос данных из старой SQLite-базы в PostgreSQL (ROADMAP, этап 1).
 
 Использование:
-    DATABASE_URL=postgresql+psycopg://... uv run python scripts/migrate_sqlite_to_postgres.py data/tickets.db
+    uv run python scripts/migrate_sqlite_to_postgres.py data/tickets.db   # база — POSTGRES_* из .env
 
 Что делает:
 1. Создаёт схему в Postgres миграциями (alembic upgrade head). Целевая база

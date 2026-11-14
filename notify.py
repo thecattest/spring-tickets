@@ -14,9 +14,10 @@ import logging
 import random
 from pathlib import Path
 
+from pydantic import ValidationError
 from vkbottle import API, DocMessagesUploader
 
-from bot import config
+from config import VkSettings, vk_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,23 +27,29 @@ MAX_TEXT = 4000
 
 async def notify_owner(text: str, *, file: Path | None = None) -> None:
     """Отправить сообщение (и файл документом) каждому владельцу."""
-    if not config.VK_BOT_TOKEN or not config.OWNER_VK_IDS:
-        logger.warning("notify_owner: VK_BOT_TOKEN or OWNER_VK_IDS not set, not sent: %s", text)
+    try:
+        vk = vk_settings()
+    except ValidationError:
+        # В процессе нет настроек VK (например, migrate) — уведомлять нечем
+        logger.warning("notify_owner: VK settings are not configured, not sent: %s", text)
+        return
+    if not vk.owner_vk_ids:
+        logger.warning("notify_owner: OWNER_VK_IDS is empty, not sent: %s", text)
         return
 
     if len(text) > MAX_TEXT:
         text = text[: MAX_TEXT - 1] + "…"
 
     try:
-        await _send_all(text, file)
+        await _send_all(vk, text, file)
     except Exception:
         logger.exception("notify_owner: unexpected error")
 
 
-async def _send_all(text: str, file: Path | None) -> None:
-    api = API(config.VK_BOT_TOKEN)
+async def _send_all(vk: VkSettings, text: str, file: Path | None) -> None:
+    api = API(vk.vk_bot_token.get_secret_value())
     try:
-        for owner_id in config.OWNER_VK_IDS:
+        for owner_id in vk.owner_vk_ids:
             try:
                 attachment = None
                 if file is not None:

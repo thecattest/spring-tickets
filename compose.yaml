@@ -12,7 +12,7 @@ x-app: &app                     # общий кусок настроек (YAML-�
   image: tickets
   env_file: .env
   environment:
-    DATABASE_URL: postgresql+psycopg://tickets:tickets@postgres:5432/tickets
+    POSTGRES_HOST: postgres           # остальное (пользователь, база) — умолчания config.py
     REDIS_HOST: redis                 # имя сервиса = имя хоста во внутренней сети
     BACKUP_DIR: /backups              # jobs.backup; сам каталог смонтирован только в db-backup и cron
   depends_on:

@@ -16,7 +16,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
-from bot.config import SEAT_PRICE
+from config import app_settings
 from database import SessionLocal
 from models.audit import AuditLog
 from models.base import ActorType, ReservationState, SeatStatus, UserRole
@@ -712,7 +712,7 @@ def record_payment(
             remaining_booked = booked_seats[seat_count:]
 
             # Calculate payment amount
-            payment_amount = Decimal(seat_count) * Decimal(SEAT_PRICE)
+            payment_amount = Decimal(seat_count) * Decimal(app_settings().seat_price)
 
             # Create Payment record
             payment = Payment(
@@ -1086,7 +1086,7 @@ def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
             result = []
             for reservation, vk_user, booked_count in rows:
                 days_since = (now - reservation.last_activity_at).days
-                debt_amount = Decimal(booked_count) * Decimal(SEAT_PRICE)
+                debt_amount = Decimal(booked_count) * Decimal(app_settings().seat_price)
                 result.append(
                     {
                         "reservation_id": reservation.id,

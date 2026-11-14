@@ -10,6 +10,7 @@ dependencies = [
     "itsdangerous>=2.1.0",
     "jinja2>=3.1.0",
     "psycopg[binary]>=3.2",
+    "pydantic-settings>=2.16.3",
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.9",
     "redis>=5.0.0",
@@ -56,7 +57,7 @@ ignore = [
 "bot/utils/db.py" = ["B904"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config", "timeutils", "migrations", "notify", "jobs"]
+known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config", "timeutils", "migrations", "notify", "jobs", "config"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

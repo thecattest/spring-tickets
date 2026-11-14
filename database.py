@@ -11,36 +11,21 @@ Usage:
 Схемой управляет Alembic (migrations/): `uv run alembic upgrade head`.
 """
 
-import os
-from pathlib import Path
-
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
-from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+from config import PROJECT_ROOT, db_settings
 
-# .env из корня проекта — чтобы DATABASE_URL был одинаковым, кто бы ни
-# импортировал database первым (бот, веб, скрипты, alembic).
-# Уже заданные переменные окружения не перезаписываются: значения из Docker
-# (--env-file / environment:) и из conftest.py в тестах имеют приоритет.
-load_dotenv(PROJECT_ROOT / ".env")
-
-# Например: postgresql+psycopg://tickets:password@localhost:5432/tickets
-DATABASE_URL = os.getenv("DATABASE_URL", "")
-if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL is not set (e.g. postgresql+psycopg://user:password@localhost:5432/tickets)"
-    )
-
+# Параметры подключения — config.DatabaseSettings (POSTGRES_HOST, POSTGRES_PASSWORD, …)
+_db = db_settings()
+DATABASE_URL = _db.url.render_as_string(hide_password=False)
 # Для логов: URL без пароля
-DATABASE_URL_SAFE = make_url(DATABASE_URL).render_as_string(hide_password=True)
+DATABASE_URL_SAFE = _db.url.render_as_string(hide_password=True)
 
 engine = create_engine(
     DATABASE_URL,
     # SQL_ECHO=true — логировать все SQL-запросы (для отладки)
-    echo=os.getenv("SQL_ECHO", "false").lower() == "true",
+    echo=_db.sql_echo,
     # Проверять соединение перед использованием: переживаем рестарт Postgres
     pool_pre_ping=True,
 )

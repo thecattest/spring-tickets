@@ -33,8 +33,7 @@ class TestRunJob:
 @pytest.mark.asyncio
 class TestNotifyOwner:
     async def test_never_raises(self, monkeypatch):
-        monkeypatch.setattr(notify.config, "VK_BOT_TOKEN", "vk1.a.fake")
-        monkeypatch.setattr(notify.config, "OWNER_VK_IDS", [1])
+        monkeypatch.setattr(notify, "vk_settings", lambda: _vk(owner_vk_ids=[1]))
 
         def broken_api(token):
             raise RuntimeError("VK is down")
@@ -43,7 +42,7 @@ class TestNotifyOwner:
         await notify.notify_owner("hello")  # ошибка только в лог
 
     async def test_without_config_does_nothing(self, monkeypatch):
-        monkeypatch.setattr(notify.config, "OWNER_VK_IDS", [])
+        monkeypatch.setattr(notify, "vk_settings", lambda: _vk(owner_vk_ids=[]))
 
         def must_not_be_called(token):
             raise AssertionError("API must not be created")
@@ -111,7 +110,7 @@ class TestDebtors:
                 self.messages = FakeMessages()
                 self.http_client = SimpleNamespace(close=_noop)
 
-        monkeypatch.setattr(debtors, "VK_BOT_TOKEN", "vk1.a.fake")
+        monkeypatch.setattr(debtors, "vk_settings", lambda: _vk(owner_vk_ids=[]))
         monkeypatch.setattr(debtors, "API", FakeAPI)
         monkeypatch.setattr(debtors, "get_all_active_sellers", lambda: sellers)
         # У билетёра 2 должников нет
@@ -143,3 +142,9 @@ class TestDebtors:
 
 async def _noop():
     pass
+
+
+def _vk(**overrides):
+    from config import VkSettings
+
+    return VkSettings(**{"vk_bot_token": "vk1.a.fake", "vk_group_id": 1, **overrides})
