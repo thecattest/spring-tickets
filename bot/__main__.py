@@ -1,25 +1,5 @@
-"""
-Allow running bot as a module: python3 -m bot
-"""
+"""python -m bot — выполняет этот файл. Вся логика запуска — в bot.main."""
 
-import asyncio
-import sys
-from pathlib import Path
+from bot.main import main
 
-# Ensure project root is on path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from bot.main import setup
-
-if __name__ == "__main__":
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        bot = loop.run_until_complete(setup())
-        if bot:
-            bot.run_forever()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()
+main()

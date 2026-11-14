@@ -1,95 +1,70 @@
 """
-VK Bot entry point.
+Запуск VK-бота: python -m bot (см. bot/__main__.py).
 
-Initializes VKBottle, configures handlers, and starts polling.
+Обычный asyncio: asyncio.run() → run_bot(), инициализация и очистка —
+await и try/finally. С vkbottle 4.9 run_polling() — обычная корутина.
 """
 
 import asyncio
 import logging
-import sys
-from pathlib import Path
-
-# Add project root to path if running as script
-if __name__ == "__main__":
-    project_root = Path(__file__).parent.parent
-    sys.path.insert(0, str(project_root))
+import signal
 
 from vkbottle.bot import Bot
 
 from bot import config
 from bot.fsm.storage import RedisStorage
 from bot.router import Router
+from bot.utils.layout import load_layout
 from database import DATABASE_URL_SAFE
 from logging_config import setup_logging
 
-setup_logging()
 logger = logging.getLogger(__name__)
 
 
-async def setup():
-    """
-    Async initialization tasks.
-    Returns configured bot instance.
-    """
-    # Validate configuration
-    try:
-        config.validate_config()
-    except ValueError as e:
-        logger.error(f"Configuration error: {e}")
-        return None
+async def run_bot() -> None:
+    # FSM-состояния и контекст — в Redis
+    storage = RedisStorage(
+        host=config.REDIS_HOST,
+        port=config.REDIS_PORT,
+        db=config.REDIS_DB,
+        password=config.REDIS_PASSWORD or None,
+    )
+    bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=storage)
 
-    logger.info("Starting VK Bot...")
-    logger.info(f"Group ID: {config.VK_GROUP_ID}")
-    logger.info(f"Redis: {config.REDIS_HOST}:{config.REDIS_PORT}/{config.REDIS_DB}")
-    logger.info(f"Database: {DATABASE_URL_SAFE}")
-
-    # Initialize Redis storage (FSM states + context via StatePeer)
-    try:
-        redis_storage = RedisStorage(
-            host=config.REDIS_HOST,
-            port=config.REDIS_PORT,
-            db=config.REDIS_DB,
-            password=config.REDIS_PASSWORD if config.REDIS_PASSWORD else None,
-        )
-        await redis_storage.connect()
-        logger.info("Redis FSM storage established")
-    except Exception as e:
-        logger.error(f"Failed to connect to Redis: {e}")
-        return None
-
-    # Initialize VKBottle bot with Redis state dispenser
-    bot = Bot(token=config.VK_BOT_TOKEN, state_dispenser=redis_storage)
-
-    # Register all handlers via central Router
-    router = Router(storage=redis_storage)
+    router = Router(storage=storage)
     router.register_all()
     bot.labeler.load(router.labeler)
 
-    # Load hall layout
-    from bot.utils.layout import load_layout
+    # docker stop / systemctl stop шлют SIGTERM: отменяем эту задачу —
+    # await ниже получит CancelledError, и выполнится finally.
+    # Ctrl+C (SIGINT) asyncio.run() обрабатывает так же сам.
+    asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, asyncio.current_task().cancel)
 
     try:
-        load_layout()
-        logger.info("Hall layout loaded")
-    except Exception as e:
-        logger.error(f"Failed to load hall layout: {e}")
-        return None
-
-    logger.info("Bot is ready! Starting polling...")
-    return bot
-
-
-if __name__ == "__main__":
-    # Run async setup
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        bot = loop.run_until_complete(setup())
-        if bot:
-            # Now run VKBottle's synchronous run_forever()
-            bot.run_forever()
-    except KeyboardInterrupt:
-        logger.info("Bot stopped by user")
+        await storage.connect()
+        logger.info("Starting polling")
+        await bot.run_polling()
+        # run_polling() не возвращается; если вернулся — это сбой, а не остановка
+        raise RuntimeError("Polling stopped unexpectedly")
     finally:
-        loop.close()
+        await storage.close()
+        await bot.api.http_client.close()  # HTTP-сессия к VK API
+
+
+def main() -> None:
+    setup_logging()
+
+    # Ошибки старта и polling не ловим: traceback в лог и код выхода 1 —
+    # сбой виден в docker compose ps и перезапускается restart policy
+    config.validate_config()
+    load_layout()
+
+    logger.info("Group ID: %s", config.VK_GROUP_ID)
+    logger.info("Redis: %s:%s/%s", config.REDIS_HOST, config.REDIS_PORT, config.REDIS_DB)
+    logger.info("Database: %s", DATABASE_URL_SAFE)
+
+    try:
+        asyncio.run(run_bot())
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        # Запрошенная остановка (Ctrl+C или SIGTERM) — код выхода 0
+        logger.info("Bot stopped")

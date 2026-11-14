@@ -75,7 +75,7 @@ class RedisStorage(ABCStateDispenser):
         Close Redis connection.
         """
         if self.redis:
-            await self.redis.close()
+            await self.redis.aclose()
             logger.info("Redis connection closed")
 
     def _make_key(self, peer_id: int) -> str:

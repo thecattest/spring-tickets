@@ -17,7 +17,7 @@ dependencies = [
     # IANA time zones for zoneinfo (slim images have no system tz database)
     "tzdata>=2024.1",
     "uvicorn[standard]>=0.30.0",
-    "vkbottle>=4.0.0",
+    "vkbottle>=4.11",
 ]
 
 [dependency-groups]
