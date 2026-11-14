@@ -8,8 +8,8 @@ from collections import defaultdict
 from decimal import Decimal
 from itertools import groupby
 
-from tickets.bot.utils.formatting import format_seat_ranges, pluralize_seats
 from tickets.config import app_settings
+from tickets.formatting import format_seat_ranges, pluralize_seats
 from tickets.models.base import SeatStatus
 from tickets.models.seat_assignment import SeatAssignment
 
@@ -215,35 +215,6 @@ def format_debtors_list(debtors: list) -> str:
             f"  Мест: {debtor['booked_seat_count']} | "
             f"Долг: {debtor['debt_amount']} руб. | "
             f"Дней: {debtor['days_since_activity']}"
-        )
-
-    return "\n".join(lines)
-
-
-def format_reminder(debtors: list) -> str:
-    """
-    Format compact debtor list for VK reminder messages sent to sellers.
-
-    Args:
-        debtors: List of debtor dicts from await db.get_debtors()
-                 Each dict has: buyer_display_name, buyer_vk_id,
-                 booked_seat_count, debt_amount, days_since_activity
-
-    Returns:
-        Formatted multi-line string with header and compact per-debtor entries
-    """
-    count = len(debtors)
-    lines = [f"Напоминание о должниках ({count}):", ""]
-
-    for debtor in debtors:
-        vk_id = debtor.get("buyer_vk_id")
-        name = debtor["buyer_display_name"]
-        header = f"{name} (vk.com/id{vk_id})" if vk_id else name
-        lines.append(
-            f"{header} -- "
-            f"{debtor['booked_seat_count']} {pluralize_seats(debtor['booked_seat_count'])}, "
-            f"{debtor['debt_amount']} руб., "
-            f"{debtor['days_since_activity']} дн. без активности"
         )
 
     return "\n".join(lines)

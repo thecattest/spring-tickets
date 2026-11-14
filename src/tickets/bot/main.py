@@ -11,9 +11,10 @@ import signal
 from typing import Any
 
 from vkbottle import API, BotPolling
-from vkbottle.bot import Bot
+from vkbottle.bot import Bot, Message
+from vkbottle.exception_factory import ErrorHandler
 
-from tickets.bot import heartbeat
+from tickets.bot import heartbeat, texts, vk
 from tickets.bot.fsm.storage import RedisStorage
 from tickets.bot.router import Router
 from tickets.config import redis_settings, vk_settings
@@ -38,14 +39,20 @@ class HeartbeatPolling(BotPolling):
         return event
 
 
-async def on_error(error: Exception) -> None:
+async def on_error(error: Exception, message: Any = None, *args: Any, **kwargs: Any) -> None:
     """
-    Необработанная ошибка в хендлере или polling: в лог и владельцу.
-    Пользователь в этом случае ответа не получает.
+    Необработанная ошибка в хендлере или polling: в лог, владельцу и — если
+    упало на сообщении пользователя — ему общий ответ, чтобы он не остался
+    без ответа (бизнес-ошибки сценарии обрабатывают сами).
     """
     logger.error("Unhandled bot error", exc_info=error)
     summary = f"{type(error).__name__}: {error}"
     await notify_owner(f"⚠️ Ошибка в боте: {summary}", dedup_key=f"bot:{type(error).__name__}")
+    if isinstance(message, Message):
+        try:
+            await vk.answer(message, texts.ERR_UNEXPECTED)
+        except Exception:
+            logger.exception("Failed to tell the user about the error")
 
 
 async def run_bot() -> None:
@@ -58,9 +65,11 @@ async def run_bot() -> None:
         password=redis.redis_password.get_secret_value(),
     )
     api = API(vk_settings().vk_bot_token.get_secret_value())
-    bot = Bot(api=api, polling=HeartbeatPolling(api), state_dispenser=storage)
-    # Тот же обработчик получают роутер (хендлеры) и polling
-    bot.error_handler.register_undefined_error_handler(on_error)
+    # redirect_arguments: обработчик получает и сообщение, на котором упал хендлер.
+    # Тот же обработчик получают роутер (хендлеры) и polling (без сообщения)
+    errors = ErrorHandler(redirect_arguments=True)
+    errors.register_undefined_error_handler(on_error)
+    bot = Bot(api=api, polling=HeartbeatPolling(api), state_dispenser=storage, error_handler=errors)
 
     router = Router(storage=storage)
     router.register_all()

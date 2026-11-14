@@ -15,14 +15,22 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from tickets.bot.utils import db
-from tickets.db import SessionLocal
+from tickets.db import SessionLocal, unit_of_work
 from tickets.models.base import ReservationState
 from tickets.models.reservation import Reservation
 from tickets.models.user import AppUser, UserRole
+from tickets.services import reservations, users
+from tickets.services import seats as seat_service
+from tickets.services.errors import SeatOccupiedError
 
 # Фасад бота асинхронный; один event loop на сессию (pyproject: asyncio_default_*_loop_scope)
 pytestmark = pytest.mark.asyncio
+
+
+async def call(service, *args):
+    """Вызов сервиса в своей транзакции — как одна операция бота."""
+    async with unit_of_work() as session:
+        return await service(session, *args)
 
 
 @pytest.fixture(scope="function")
@@ -65,7 +73,7 @@ class TestVkUserOperations:
 
     async def test_create_vk_user(self, test_db):
         """Test creating new VK user."""
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
 
         assert vk_user.id is not None
         assert vk_user.vk_user_id == 12345
@@ -74,20 +82,20 @@ class TestVkUserOperations:
     async def test_get_existing_vk_user(self, test_db):
         """Test getting existing VK user."""
         # Create user
-        vk_user1 = await db.get_or_create_vk_user(12345, "Test User")
+        vk_user1 = await call(users.get_or_create_vk_user, 12345, "Test User")
 
         # Get same user
-        vk_user2 = await db.get_or_create_vk_user(12345, "Test User")
+        vk_user2 = await call(users.get_or_create_vk_user, 12345, "Test User")
 
         assert vk_user1.id == vk_user2.id
 
     async def test_update_vk_user_display_name(self, test_db):
         """Test updating VK user display name."""
         # Create user
-        vk_user1 = await db.get_or_create_vk_user(12345, "Old Name")
+        vk_user1 = await call(users.get_or_create_vk_user, 12345, "Old Name")
 
         # Update name
-        vk_user2 = await db.get_or_create_vk_user(12345, "New Name")
+        vk_user2 = await call(users.get_or_create_vk_user, 12345, "New Name")
 
         assert vk_user1.id == vk_user2.id
         assert vk_user2.display_name == "New Name"
@@ -99,10 +107,10 @@ class TestReservationOperations:
     async def test_create_reservation(self, test_db, test_seller):
         """Test creating new reservation."""
         # Create VK user
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
 
         # Create reservation
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
 
         assert reservation.id is not None
         assert reservation.buyer_vk_user_id == vk_user.id
@@ -112,11 +120,11 @@ class TestReservationOperations:
     async def test_get_active_reservation(self, test_db, test_seller):
         """Test getting active reservation."""
         # Create VK user and reservation
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
 
         # Get active reservation
-        active = await db.get_active_reservation(vk_user.id)
+        active = await call(reservations.get_active, vk_user.id)
 
         assert active is not None
         assert active.id == reservation.id
@@ -124,10 +132,10 @@ class TestReservationOperations:
     async def test_no_active_reservation(self, test_db):
         """Test getting active reservation when none exists."""
         # Create VK user without reservation
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
 
         # Get active reservation
-        active = await db.get_active_reservation(vk_user.id)
+        active = await call(reservations.get_active, vk_user.id)
 
         assert active is None
 
@@ -137,26 +145,26 @@ class TestSeatOperations:
 
     async def test_seat_available(self, test_db):
         """Test checking seat availability."""
-        assert await db.is_seat_available(1, 5) is True
+        assert await call(seat_service.is_available, 1, 5) is True
 
     async def test_seat_occupied(self, test_db, test_seller):
         """Test checking occupied seat."""
         # Create reservation and add seat
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
-        await db.add_seats_to_reservation(reservation.id, 1, [5], test_seller.id)
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
+        await call(reservations.add_seats, reservation.id, 1, [5], test_seller.id)
 
         # Check seat is occupied
-        assert await db.is_seat_available(1, 5) is False
+        assert await call(seat_service.is_available, 1, 5) is False
 
     async def test_add_seats_to_reservation(self, test_db, test_seller):
         """Test adding seats to reservation."""
         # Create reservation
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
 
         # Add seats
-        seats = await db.add_seats_to_reservation(reservation.id, 1, [5, 6, 7], test_seller.id)
+        seats = await call(reservations.add_seats, reservation.id, 1, [5, 6, 7], test_seller.id)
 
         assert len(seats) == 3
         assert all(s.reservation_id == reservation.id for s in seats)
@@ -166,17 +174,17 @@ class TestSeatOperations:
     async def test_add_seats_conflict(self, test_db, test_seller):
         """Test adding seats with conflict."""
         # Create first reservation and add seat
-        vk_user1 = await db.get_or_create_vk_user(12345, "User 1")
-        reservation1 = await db.create_reservation(vk_user1.id, test_seller.id)
-        await db.add_seats_to_reservation(reservation1.id, 1, [5], test_seller.id)
+        vk_user1 = await call(users.get_or_create_vk_user, 12345, "User 1")
+        reservation1 = await call(reservations.create, vk_user1.id, test_seller.id)
+        await call(reservations.add_seats, reservation1.id, 1, [5], test_seller.id)
 
         # Create second reservation and try to add same seat
-        vk_user2 = await db.get_or_create_vk_user(67890, "User 2")
-        reservation2 = await db.create_reservation(vk_user2.id, test_seller.id)
+        vk_user2 = await call(users.get_or_create_vk_user, 67890, "User 2")
+        reservation2 = await call(reservations.create, vk_user2.id, test_seller.id)
 
         # Should raise SeatOccupiedError
-        with pytest.raises(db.SeatOccupiedError) as exc_info:
-            await db.add_seats_to_reservation(reservation2.id, 1, [5], test_seller.id)
+        with pytest.raises(SeatOccupiedError) as exc_info:
+            await call(reservations.add_seats, reservation2.id, 1, [5], test_seller.id)
 
         assert len(exc_info.value.conflicts) == 1
         assert exc_info.value.conflicts[0]["row"] == 1
@@ -185,34 +193,34 @@ class TestSeatOperations:
     async def test_add_seats_atomic(self, test_db, test_seller):
         """Test that seat addition is atomic."""
         # Create reservation and add one seat
-        vk_user1 = await db.get_or_create_vk_user(12345, "User 1")
-        reservation1 = await db.create_reservation(vk_user1.id, test_seller.id)
-        await db.add_seats_to_reservation(reservation1.id, 1, [5], test_seller.id)
+        vk_user1 = await call(users.get_or_create_vk_user, 12345, "User 1")
+        reservation1 = await call(reservations.create, vk_user1.id, test_seller.id)
+        await call(reservations.add_seats, reservation1.id, 1, [5], test_seller.id)
 
         # Create second reservation
-        vk_user2 = await db.get_or_create_vk_user(67890, "User 2")
-        reservation2 = await db.create_reservation(vk_user2.id, test_seller.id)
+        vk_user2 = await call(users.get_or_create_vk_user, 67890, "User 2")
+        reservation2 = await call(reservations.create, vk_user2.id, test_seller.id)
 
         # Try to add multiple seats where one is occupied
-        with contextlib.suppress(db.SeatOccupiedError):
-            await db.add_seats_to_reservation(reservation2.id, 1, [4, 5, 6], test_seller.id)
+        with contextlib.suppress(SeatOccupiedError):
+            await call(reservations.add_seats, reservation2.id, 1, [4, 5, 6], test_seller.id)
 
         # Verify no seats were added (atomicity)
-        assert await db.is_seat_available(1, 4) is True
-        assert await db.is_seat_available(1, 5) is False
-        assert await db.is_seat_available(1, 6) is True
+        assert await call(seat_service.is_available, 1, 4) is True
+        assert await call(seat_service.is_available, 1, 5) is False
+        assert await call(seat_service.is_available, 1, 6) is True
 
     async def test_get_reservation_seats(self, test_db, test_seller):
         """Test getting all seats for reservation."""
         # Create reservation and add seats from multiple rows
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
 
-        await db.add_seats_to_reservation(reservation.id, 1, [5, 6, 7], test_seller.id)
-        await db.add_seats_to_reservation(reservation.id, 2, [10, 11], test_seller.id)
+        await call(reservations.add_seats, reservation.id, 1, [5, 6, 7], test_seller.id)
+        await call(reservations.add_seats, reservation.id, 2, [10, 11], test_seller.id)
 
         # Get all seats
-        seats = await db.get_reservation_seats(reservation.id)
+        seats = await call(seat_service.of_reservation, reservation.id)
 
         assert len(seats) == 5
         # Check sorting (row, then seat)
@@ -224,8 +232,8 @@ class TestSeatOperations:
     async def test_reservation_last_activity_updated(self, test_db, test_seller):
         """Test that reservation last_activity_at is updated."""
         # Create reservation
-        vk_user = await db.get_or_create_vk_user(12345, "Test User")
-        reservation = await db.create_reservation(vk_user.id, test_seller.id)
+        vk_user = await call(users.get_or_create_vk_user, 12345, "Test User")
+        reservation = await call(reservations.create, vk_user.id, test_seller.id)
 
         original_time = reservation.last_activity_at
 
@@ -233,10 +241,10 @@ class TestSeatOperations:
         import time
 
         time.sleep(0.1)  # Small delay to ensure time difference
-        await db.add_seats_to_reservation(reservation.id, 1, [5], test_seller.id)
+        await call(reservations.add_seats, reservation.id, 1, [5], test_seller.id)
 
         # Get updated reservation
-        updated = await db.get_active_reservation(vk_user.id)
+        updated = await call(reservations.get_active, vk_user.id)
 
         assert updated.last_activity_at > original_time
 
@@ -273,21 +281,21 @@ class TestPostgresSchema:
 
     async def test_released_seat_can_be_booked_again(self, test_db, test_seller):
         """Частичный UNIQUE (WHERE released_at IS NULL): освобождённое место снова свободно."""
-        buyer1 = await db.get_or_create_vk_user(111, "Buyer One")
-        res1 = await db.create_reservation(buyer1.id, test_seller.id)
-        await db.add_seats_to_reservation(res1.id, 1, [5], test_seller.id)
-        assert await db.release_seats(res1.id, 1, [5], test_seller.id) == 1
+        buyer1 = await call(users.get_or_create_vk_user, 111, "Buyer One")
+        res1 = await call(reservations.create, buyer1.id, test_seller.id)
+        await call(reservations.add_seats, res1.id, 1, [5], test_seller.id)
+        assert await call(reservations.remove_seats, res1.id, 1, [5], test_seller.id) == 1
 
-        buyer2 = await db.get_or_create_vk_user(222, "Buyer Two")
-        res2 = await db.create_reservation(buyer2.id, test_seller.id)
-        await db.add_seats_to_reservation(res2.id, 1, [5], test_seller.id)
+        buyer2 = await call(users.get_or_create_vk_user, 222, "Buyer Two")
+        res2 = await call(reservations.create, buyer2.id, test_seller.id)
+        await call(reservations.add_seats, res2.id, 1, [5], test_seller.id)
 
-        assert [s.seat_number for s in await db.get_reservation_seats(res2.id)] == [5]
+        assert [s.seat_number for s in await call(seat_service.of_reservation, res2.id)] == [5]
 
     async def test_second_active_reservation_is_rejected(self, test_db, test_seller):
         """Не больше одной активной брони на покупателя — на уровне БД."""
-        buyer = await db.get_or_create_vk_user(333, "Buyer")
-        await db.create_reservation(buyer.id, test_seller.id)
+        buyer = await call(users.get_or_create_vk_user, 333, "Buyer")
+        await call(reservations.create, buyer.id, test_seller.id)
 
         with SessionLocal() as session:
             session.add(
@@ -301,20 +309,20 @@ class TestPostgresSchema:
                 session.commit()
 
     async def test_cancelled_reservation_does_not_block_new_one(self, test_db, test_seller):
-        buyer = await db.get_or_create_vk_user(444, "Buyer")
-        res = await db.create_reservation(buyer.id, test_seller.id)
+        buyer = await call(users.get_or_create_vk_user, 444, "Buyer")
+        res = await call(reservations.create, buyer.id, test_seller.id)
         with SessionLocal() as session:
             session.get(Reservation, res.id).state = ReservationState.CANCELLED
             session.commit()
 
-        new_res = await db.create_reservation(buyer.id, test_seller.id)
+        new_res = await call(reservations.create, buyer.id, test_seller.id)
         assert new_res.id != res.id
 
     async def test_enums_stored_as_values(self, test_db, test_seller):
         """В БД лежат значения enum ('booked'), а не имена членов ('BOOKED')."""
-        buyer = await db.get_or_create_vk_user(555, "Buyer")
-        res = await db.create_reservation(buyer.id, test_seller.id)
-        await db.add_seats_to_reservation(res.id, 2, [1], test_seller.id)
+        buyer = await call(users.get_or_create_vk_user, 555, "Buyer")
+        res = await call(reservations.create, buyer.id, test_seller.id)
+        await call(reservations.add_seats, res.id, 2, [1], test_seller.id)
 
         with SessionLocal() as session:
             status = session.execute(text("SELECT status FROM seat_assignments")).scalar_one()
@@ -322,8 +330,8 @@ class TestPostgresSchema:
         assert (status, state) == ("booked", "active")
 
     async def test_timestamps_are_timezone_aware(self, test_db, test_seller):
-        buyer = await db.get_or_create_vk_user(666, "Buyer")
-        res = await db.create_reservation(buyer.id, test_seller.id)
+        buyer = await call(users.get_or_create_vk_user, 666, "Buyer")
+        res = await call(reservations.create, buyer.id, test_seller.id)
         with SessionLocal() as session:
             created_at = session.get(Reservation, res.id).created_at
         assert created_at.tzinfo is not None

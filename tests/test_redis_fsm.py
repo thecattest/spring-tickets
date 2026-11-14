@@ -7,6 +7,7 @@ Verifies that StatePeer objects are correctly stored and retrieved.
 import pytest
 from vkbottle.dispatch.dispenser.builtin import StatePeer
 
+from tickets.bot.fsm.context import Client, Context
 from tickets.bot.fsm.states import BotState
 
 
@@ -59,17 +60,21 @@ async def test_redis_state_peer_storage(redis_storage):
         assert result.payload["reservation_id"] == 123, "Context should be preserved"
         assert result.payload["current_row"] == 5, "New context should be added"
 
-        # Test 6: get_context() helper method
-        context = await storage.get_context(peer_id)
-        assert context["reservation_id"] == 123
-        assert context["current_row"] == 5
+        # Test 6: load() / save() — типизированный контекст сценариев
+        context = Context(
+            client=Client(reservation_id=123, buyer_id=7, buyer_vk_id=301, buyer_name="Test User"),
+            current_row=5,
+        )
+        await storage.save(peer_id, BotState.SEAT_ADDITION_MENU, context)
+        state, loaded = await storage.load(peer_id)
+        assert state == BotState.SEAT_ADDITION_MENU
+        assert loaded == context
 
-        # Test 7: update_context() helper method
-        await storage.update_context(peer_id, seats_added=10)
-        result = await storage.get(peer_id)
-        assert result.state == "BotState:awaiting_seats", "State should be preserved"
-        assert result.payload["seats_added"] == 10, "Context should be updated"
-        assert result.payload["reservation_id"] == 123, "Old context should be preserved"
+        # Test 7: нечитаемый контекст — сброс, а не падение
+        await storage.set(peer_id, BotState.MAIN_MENU, client={"broken": True})
+        state, loaded = await storage.load(peer_id)
+        assert state is None and loaded == Context()
+        assert await storage.get(peer_id) is None
 
         # Test 8: delete() removes state
         await storage.delete(peer_id)

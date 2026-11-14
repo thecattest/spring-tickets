@@ -235,3 +235,32 @@ class TestHeartbeatCheck:
         old = time.time() - heartbeat.MAX_AGE_SECONDS - 1
         os.utime(heartbeat.HEARTBEAT_FILE, (old, old))
         assert not heartbeat.is_fresh()
+
+
+@pytest.mark.asyncio
+class TestBotErrorHandler:
+    """tickets.bot.main.on_error: владельцу и — если есть сообщение — пользователю."""
+
+    async def test_user_gets_generic_answer(self, monkeypatch):
+        from vkbottle.bot import Message
+
+        from tickets.bot import main, texts
+
+        notified, answered = [], []
+
+        async def fake_notify(text, **kwargs):
+            notified.append(text)
+
+        async def fake_answer(message, text, keyboard=None):
+            answered.append(text)
+
+        monkeypatch.setattr(main, "notify_owner", fake_notify)
+        monkeypatch.setattr(main.vk, "answer", fake_answer)
+        message = Message.model_construct()  # пустое сообщение vkbottle — только тип
+
+        await main.on_error(RuntimeError("db down"), message)
+        assert notified == ["⚠️ Ошибка в боте: RuntimeError: db down"]
+        assert answered == [texts.ERR_UNEXPECTED]
+
+        await main.on_error(RuntimeError("polling"))  # ошибка polling — без сообщения
+        assert len(answered) == 1

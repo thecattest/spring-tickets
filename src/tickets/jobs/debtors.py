@@ -14,9 +14,9 @@ import random
 
 from vkbottle import API
 
-from tickets.bot.messages import format_reminder
 from tickets.config import app_settings, vk_settings
 from tickets.db import unit_of_work
+from tickets.formatting import pluralize_seats
 from tickets.jobs.runner import run_job
 from tickets.models.user import AppUser
 from tickets.services import reports, users
@@ -38,6 +38,35 @@ async def get_debtors(seller_id: int, min_days: int) -> list[dict]:
 async def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
     async with unit_of_work() as session:
         await reports.log_reminder_sent(session, seller_id, debtor_count)
+
+
+def format_reminder(debtors: list) -> str:
+    """
+    Format compact debtor list for VK reminder messages sent to sellers.
+
+    Args:
+        debtors: List of debtor dicts from reports.debtors()
+                 Each dict has: buyer_display_name, buyer_vk_id,
+                 booked_seat_count, debt_amount, days_since_activity
+
+    Returns:
+        Formatted multi-line string with header and compact per-debtor entries
+    """
+    count = len(debtors)
+    lines = [f"Напоминание о должниках ({count}):", ""]
+
+    for debtor in debtors:
+        vk_id = debtor.get("buyer_vk_id")
+        name = debtor["buyer_display_name"]
+        header = f"{name} (vk.com/id{vk_id})" if vk_id else name
+        lines.append(
+            f"{header} -- "
+            f"{debtor['booked_seat_count']} {pluralize_seats(debtor['booked_seat_count'])}, "
+            f"{debtor['debt_amount']} руб., "
+            f"{debtor['days_since_activity']} дн. без активности"
+        )
+
+    return "\n".join(lines)
 
 
 async def send_reminders() -> None:

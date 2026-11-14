@@ -22,6 +22,16 @@ from tickets.time import utcnow
 logger = logging.getLogger(__name__)
 
 
+async def get(session: AsyncSession, reservation_id: int) -> Reservation | None:
+    """Бронь по id в любом состоянии."""
+    return await session.get(Reservation, reservation_id)
+
+
+async def is_active(session: AsyncSession, reservation_id: int) -> bool:
+    reservation = await get(session, reservation_id)
+    return reservation is not None and reservation.state == ReservationState.ACTIVE
+
+
 async def get_active(session: AsyncSession, buyer_vk_user_id: int) -> Reservation | None:
     """Активная бронь покупателя (buyer_vk_user_id — VkUser.id, не VK ID)."""
     stmt = select(Reservation).where(

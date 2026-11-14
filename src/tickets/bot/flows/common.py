@@ -1,0 +1,148 @@
+"""Общие шаги сценариев: ввод ряда и мест, клиент в контексте, актуальность брони."""
+
+import logging
+from dataclasses import dataclass
+from typing import Literal
+
+from vkbottle.bot import Message
+
+from tickets.bot import texts, vk
+from tickets.bot.constants import Btn
+from tickets.bot.fsm.context import Client, Context
+from tickets.bot.fsm.storage import RedisStorage
+from tickets.bot.utils.seat_parser import SeatParseError, parse_seats
+from tickets.db import unit_of_work
+from tickets.formatting import format_seat_ranges, pluralize_seats
+from tickets.hall import get_row_range, get_seat_count, is_valid_row, is_valid_seat
+from tickets.models.base import SeatStatus
+from tickets.services import reservations, seats
+
+logger = logging.getLogger(__name__)
+
+
+# --- ввод -------------------------------------------------------------------
+
+
+@dataclass
+class Parsed:
+    """Разобранный ввод: значение или текст ошибки для пользователя."""
+
+    value: object = None
+    error: str | None = None
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None
+
+
+def parse_row(text: str) -> Parsed:
+    min_row, max_row = get_row_range()
+    try:
+        row = int(text.strip())
+    except ValueError:
+        return Parsed(error=texts.ERR_INVALID_ROW_FORMAT.format(min_row=min_row, max_row=max_row))
+    if not is_valid_row(row):
+        return Parsed(error=texts.ERR_INVALID_ROW.format(min_row=min_row, max_row=max_row))
+    return Parsed(value=row)
+
+
+async def parse_seat_list(
+    text: str,
+    row: int,
+    mode: Literal["layout_only", "availability", "membership"],
+    reservation_id: int | None = None,
+) -> Parsed:
+    """
+    Места в ряду: формат и геометрия зала (все режимы), затем
+    availability — все свободны; membership — все из брони и не оплачены.
+    """
+    try:
+        seat_list = parse_seats(text.strip())
+    except SeatParseError as e:
+        return Parsed(error=texts.ERR_PARSE_INPUT.format(error=str(e)))
+
+    invalid = [s for s in seat_list if not is_valid_seat(row, s)]
+    if invalid:
+        return Parsed(
+            error=texts.ERR_INVALID_SEATS.format(
+                seats=", ".join(map(str, invalid)), row=row, seat_count=get_seat_count(row)
+            )
+        )
+    if mode == "layout_only":
+        return Parsed(value=seat_list)
+
+    async with unit_of_work() as session:
+        if mode == "availability":
+            conflicts = await seats.find_conflicts(session, row, seat_list)
+            if conflicts:
+                taken = format_seat_ranges(sorted(c["seat"] for c in conflicts))
+                return Parsed(
+                    error=f"Места {taken} в ряду {row} недоступны.\n\nВведите другие места:"
+                )
+            return Parsed(value=seat_list)
+
+        by_seat = {
+            (s.row_number, s.seat_number): s
+            for s in await seats.of_reservation(session, reservation_id)
+        }
+    missing = [s for s in seat_list if (row, s) not in by_seat]
+    if missing:
+        return Parsed(
+            error=texts.MSG_SEATS_NOT_IN_BOOKING.format(seats=", ".join(map(str, missing)))
+        )
+    paid = [s for s in seat_list if by_seat[(row, s)].status == SeatStatus.PAID]
+    if paid:
+        return Parsed(error=texts.MSG_SEATS_ALREADY_PAID.format(seats=", ".join(map(str, paid))))
+    return Parsed(value=seat_list)
+
+
+def parse_confirmation(text: str) -> bool | None:
+    """«Подтвердить» — True, «Отмена» — False, другое — None."""
+    stripped = text.strip()
+    if stripped == Btn.CONFIRM:
+        return True
+    if stripped == Btn.CANCEL:
+        return False
+    return None
+
+
+# --- контекст и бронь -------------------------------------------------------
+
+
+async def require_client(
+    message: Message, storage: RedisStorage, context: Context, lost_text: str
+) -> Client | None:
+    """Клиент из контекста; потерян — ответ lost_text, сброс и None."""
+    if context.client is None:
+        await vk.answer(message, lost_text)
+        await storage.reset(message.from_id)
+    return context.client
+
+
+async def require_active(message: Message, storage: RedisStorage, client: Client) -> bool:
+    """
+    Бронь клиента ещё активна (её могли отменить с другого аккаунта, пока
+    билетёр был в сценарии). Нет — сообщение, сброс и False (этап 6 ROADMAP).
+    """
+    async with unit_of_work() as session:
+        if await reservations.is_active(session, client.reservation_id):
+            return True
+    await vk.answer(message, texts.MSG_RESERVATION_NOT_ACTIVE.format(id=client.reservation_id))
+    await storage.reset(message.from_id)
+    return False
+
+
+async def seat_conflicts_text(conflicts: list[dict], tail: str) -> str:
+    """Список занятых мест с тем, кем заняты; tail — последняя строка-подсказка."""
+    lines = ["Места уже заняты:"]
+    async with unit_of_work() as session:
+        for c in conflicts:
+            if c["status"] == SeatStatus.RESERVED:
+                status, detail = "Резерв", c["note"] or "без комментария"
+            else:
+                status = "Бронь" if c["status"] == SeatStatus.BOOKED else "Оплачено"
+                total = len(await seats.of_reservation(session, c["reservation_id"]))
+                detail = f"бронь #{c['reservation_id']}, всего: {total} {pluralize_seats(total)}"
+            lines.append(f"• Ряд {c['row']}, место {c['seat']} — {status} ({detail})")
+    lines.append(f"\n{tail}")
+    return "\n".join(lines)

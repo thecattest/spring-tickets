@@ -9,7 +9,6 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import func, select
 
-from tickets.bot.utils import db as bot_db
 from tickets.db import unit_of_work
 from tickets.models.audit import AuditLog
 from tickets.models.base import SeatStatus, UserRole
@@ -94,15 +93,6 @@ async def test_cancelled_reservation_rejects_changes(seller_id):
             async with unit_of_work() as s:
                 await change(s)
     assert await active_seats() == 0
-
-
-async def test_facade_keeps_old_exception_names(seller_id):
-    """Хендлеры ловят db.DatabaseError — новые ошибки сервисов тоже под ним."""
-    rid = await new_reservation(seller_id, 301, 5, [])
-    async with unit_of_work() as s:
-        await reservations.cancel(s, rid, seller_id, is_admin=False)
-    with pytest.raises(bot_db.DatabaseError):
-        await bot_db.add_seats_to_reservation(rid, 5, [1], seller_id)
 
 
 # --- конфликт мест ----------------------------------------------------------

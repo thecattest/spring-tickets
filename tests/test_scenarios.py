@@ -14,14 +14,14 @@ from sqlalchemy import select
 
 from conftest import TEST_OWNER_VK_ID
 from tests.scenario import photo
-from tickets.bot.utils import db
-from tickets.db import SessionLocal
+from tickets.db import SessionLocal, unit_of_work
 from tickets.models.base import ReservationState, SeatStatus, UserRole
 from tickets.models.payment import Payment
 from tickets.models.reservation import Reservation
 from tickets.models.seat_assignment import SeatAssignment
 from tickets.models.user import AppUser
 from tickets.models.vk_user import VkUser
+from tickets.services import users as users_service
 
 pytestmark = pytest.mark.asyncio
 
@@ -39,8 +39,9 @@ RESERVATION_MENU = ["Добавить", "Удалить", "Удалить все
 
 @pytest_asyncio.fixture(autouse=True)
 async def users(bot):
-    await db.add_app_user(SELLER, "Билетёр", UserRole.SELLER)
-    await db.add_app_user(ADMIN, "Админ", UserRole.ADMIN)
+    async with unit_of_work() as session:
+        await users_service.add_app_user(session, SELLER, "Билетёр", UserRole.SELLER)
+        await users_service.add_app_user(session, ADMIN, "Админ", UserRole.ADMIN)
     bot.vk.users.update(
         {BUYER: ("Иван", "Покупатель"), BUYER2: ("Пётр", "Второй"), NEWBIE: ("Новый", "Билетёр")}
     )
@@ -426,3 +427,20 @@ async def test_add_admin_and_remove_user(bot):
         assert user.is_active is False
     [r] = await bot.send(OWNER, "/removeuser", fwd_from=OWNER)
     assert r.text == "Нельзя удалить самого себя."
+
+
+# --- актуальность брони (этап 6) ------------------------------------------
+
+
+async def test_reservation_cancelled_elsewhere_resets_seller(bot):
+    """Билетёр в меню брони, админ в это время отменил её — следующий шаг билетёра."""
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)  # билетёр в меню брони
+    await bot.send(ADMIN, "", fwd_from=BUYER)
+    await bot.send(ADMIN, "Удалить все")
+    await bot.send(ADMIN, "Подтвердить")
+    assert reservations()[0].state == ReservationState.CANCELLED
+
+    [r] = await bot.send(SELLER, "Добавить")
+    assert r.text == "Бронь #1 уже отменена. Перешлите сообщение клиента, чтобы начать заново."
+    assert await bot.state(SELLER) is None

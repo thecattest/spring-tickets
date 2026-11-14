@@ -63,12 +63,13 @@ src/tickets/
   hall.py      hall geometry from layout.json     notify.py   notify_owner()
   models/      ORM models and enums               jobs/       backup, debtors, runner, crontab
   services/    business logic (users, reservations, seats, payments, reports, audit)
-  bot/         VK bot (handlers/, fsm/, utils/)   web/        FastAPI app, templates
+  bot/         VK bot (flows/, fsm/, vk, auth)    web/        FastAPI app, templates
+  formatting.py  pluralize_seats, format_seat_ranges
 ```
 
 Two interfaces share the same database and models:
 
-- **Bot** (`tickets/bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `tickets/bot/handlers/` orchestrate conversations; they still call the transitional facade `tickets/bot/utils/db.py`.
+- **Bot** (`tickets/bot/`) — VK bot on vkbottle with an FSM in Redis; see «Bot structure».
 - **Web** (`tickets/web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`. `/health` (app + `SELECT 1`, 503 if the DB is down) is the Compose healthcheck; successful `/health` calls are filtered out of the uvicorn access log.
 - **Models** (`tickets/models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
 - **Database** (`tickets/db.py`) — `async_engine` / `AsyncSessionLocal` / `unit_of_work()` for the app; sync `engine` / `SessionLocal` only for Alembic, scripts, test checks and (until ROADMAP stage 7 step 6) the web; `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; connection settings come from `config.db_settings()`.
@@ -77,7 +78,7 @@ Two interfaces share the same database and models:
 ### Key data flow
 
 ```
-VK message → bot handler → tickets/bot/utils/db.py (facade, one unit_of_work per call) → tickets.services → SQLAlchemy models → PostgreSQL
+VK message → router → bot flow (unit_of_work) → tickets.services → SQLAlchemy models → PostgreSQL
                                                     ↓
 Web UI (read-only) ← FastAPI ← SQLAlchemy queries ←─┘
 ```
@@ -87,7 +88,7 @@ All state changes are recorded in the `AuditLog` table.
 ## Services and transactions
 
 - `tickets.services.*`: `async` functions, `AsyncSession` first (SQLAlchemy asyncio on the same psycopg 3 driver, `sqlalchemy[asyncio]`); pure helpers without queries (`audit.log`, `seats.release`) stay sync; they **never** call `commit()`/`rollback()` (guard: `tests/test_guards.py`), use `session.flush()` for new ids. They know nothing about VK. Errors are `tickets.services.errors` (`ServiceError` and subclasses: `SeatOccupiedError`, `InsufficientSeatsError`, `ReservationNotActiveError`, `NotAllowedError`, `NotFoundError`).
-- The boundary owns the transaction: `async with tickets.db.unit_of_work() as session:` — COMMIT on success, ROLLBACK on exception. Jobs already do it; bot handlers `await` `tickets/bot/utils/db.py`, a temporary async facade where each function is one unit of work and old exception names are kept (`DatabaseError` = `ServiceError`); handlers move to calling services directly in ROADMAP stage 7 step 5. No network calls inside a transaction; side effects (VK messages) after it.
+- The boundary owns the transaction: `async with tickets.db.unit_of_work() as session:` — COMMIT on success, ROLLBACK on exception. Bot flows and jobs do it; the web — in ROADMAP stage 7 step 6. No network calls inside a transaction; side effects (VK messages) after it.
 - Everything that changes a reservation first calls `reservations.lock_active()` (`SELECT … FOR UPDATE` + must be ACTIVE): concurrent changes of one reservation are serialized, a cancelled one can't be changed. Seats are taken by `seats.occupy()`: check, then insert in a SAVEPOINT; a race on the unique index becomes `SeatOccupiedError` with re-read conflicts. Audit (`services.audit.log`, `AuditAction`) is written in the same transaction as the change.
 
 ## Key Domain Concepts
@@ -117,7 +118,17 @@ All state changes are recorded in the `AuditLog` table.
 
 ## Background jobs
 
-`tickets.jobs`: `python -m tickets.jobs.backup`, `python -m tickets.jobs.debtors`. Each job wraps its async main in `tickets.jobs.runner.run_job()`: logging, exit 1 + `notify_owner()` on failure. `tickets.notify.notify_owner(text, file=None)` messages `OWNER_VK_IDS` in VK from any process and never raises. Schedule: `src/tickets/jobs/crontab` (supercronic; check with `supercronic -test`). Backup env: `BACKUP_DIR` (`/backups` in Compose), `BACKUP_KEEP` (14 per reason), `BACKUP_SEND_TO_VK` (default true). When testing jobs by hand with the real `.env`, pass `-e OWNER_VK_IDS=` so failures don't message the owner. Send VK messages with `random_id=random.getrandbits(31)`, never 0 (0 disables VK deduplication of retried requests).
+`tickets.jobs`: `python -m tickets.jobs.backup`, `python -m tickets.jobs.debtors`. Each job wraps its async main in `tickets.jobs.runner.run_job()`: logging, exit 1 + `notify_owner()` on failure. `tickets.notify.notify_owner(text, file=None)` messages `OWNER_VK_IDS` in VK from any process and never raises. Schedule: `src/tickets/jobs/crontab` (supercronic; check with `supercronic -test`). Backup env: `BACKUP_DIR` (`/backups` in Compose), `BACKUP_KEEP` (14 per reason), `BACKUP_SEND_TO_VK` (default true). When testing jobs by hand with the real `.env`, pass `-e OWNER_VK_IDS=` so failures don't message the owner. Send VK messages with a random `random_id` (`tickets.bot.vk.new_random_id()`), never 0 (0 disables VK deduplication of retried requests).
+
+## Bot structure
+
+- `router.py` — registration in order (vkbottle takes the first match): user-management commands → «message about a buyer» (forward / reply / profile link, `vk.mentions_buyer`) → commands (`/start`, `Отмена`=/cancel, `/exit`, `Резерв`, `Должники`/`Обновить`, …) → FSM state handlers from `STATE_HANDLERS`, each wrapped by `auth.guard_state` with `FSM_CONFIG[state].auth_guard`. Note: the «Отмена» button is the `/cancel` command (step back), even on confirmation keyboards.
+- `flows/` — conversations; the registered functions *are* the handlers (no separate `handlers/` layer): `booking` (buyer → reservation, row, seats), `menu` (reservation menu, client switch), `payment`, `deletion` (seats, whole reservation), `reserve`, `navigation` (/start, /help, /cancel, /exit), `users`, `debtors`; shared input parsing and checks in `flows/common.py`. Data only via services in `unit_of_work`; network calls (VK, receipt re-upload) outside transactions, admin notifications after commit.
+- Every step that works with a reservation calls `common.require_active()`: if it was cancelled meanwhile (another account), the seller gets `MSG_RESERVATION_NOT_ACTIVE` and the state is reset.
+- `fsm/context.py` — pydantic `Context` (`Client`, `Receipt`, `PendingSwitch`, `SavedState`, reserve fields); `storage.load(peer) -> (BotState | None, Context)`, `save(peer, state, context)`, `reset(peer)`. `BotState` everywhere, no string states. Unreadable context → logged, reset, empty `Context` (no TTL, no legacy-format upgrade: the Compose Redis starts empty).
+- `vk.py` — everything VK: `incoming(message)` (buyer from forward/reply/link, a profile link in the text wins; receipt = photo/doc), `full_name()`, `answer()` / `send()` with a unique `random_id` (never call `message.answer` directly).
+- `auth.py` — `current_user()`, `requires_registered()`, `requires_admin(denied=…)`, `owner_only`, `guard_state()`.
+- Unexpected errors: `bot.main.on_error` (logs, `notify_owner`, and a generic `ERR_UNEXPECTED` reply when it failed on a user's message). Business errors (`ServiceError` subclasses) are handled inside flows.
 
 ## Bot entry point
 
