@@ -9,6 +9,7 @@ Handles:
 """
 
 import logging
+import random
 
 from vkbottle.bot import Message
 
@@ -417,7 +418,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
         await message.ctx_api.messages.send(
             peer_id=message.peer_id,
             message=texts.MSG_NEW_BOOKING_CREATED.format(name=display_name, id=reservation.id),
-            random_id=0,
+            random_id=random.getrandbits(31),
         )
 
         await storage.set(

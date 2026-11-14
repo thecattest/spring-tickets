@@ -7,6 +7,7 @@ Handles:
 """
 
 import logging
+import random
 from datetime import datetime
 
 from vkbottle.bot import Message
@@ -254,7 +255,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
                         peer_id=admin_vk_id,
                         message=notification_text,
                         attachment=attachment_str,
-                        random_id=0,
+                        random_id=random.getrandbits(31),
                     )
                 except Exception as e:
                     logger.warning(f"Failed to notify admin {admin_vk_id}: {e}")
