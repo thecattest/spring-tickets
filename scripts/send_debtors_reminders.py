@@ -32,7 +32,6 @@ from vkbottle.bot import Bot
 from bot.config import DEBTORS_REMINDER_MIN_DAYS, VK_BOT_TOKEN
 from bot.messages import format_reminder
 from bot.utils.db import get_all_active_sellers, get_debtors, log_reminder_sent
-from database import init_db
 
 
 async def main() -> None:
@@ -40,19 +39,16 @@ async def main() -> None:
     Main entry point for the debtor reminder cron job.
 
     Workflow:
-    1. Ensure DB tables exist
-    2. Create VKBottle Bot instance
-    3. Fetch all active sellers (those with vk_user_id set)
-    4. For each seller:
+    1. Create VKBottle Bot instance
+    2. Fetch all active sellers (those with vk_user_id set)
+    3. For each seller:
         a. Fetch their debtors (sold_by_user_id = seller.id)
         b. Skip if no debtors
         c. Format and send VK message
         d. Log audit entry on success
         e. Log error and continue on VK API or other failure
-    5. Print summary: sent / skipped / error counts
+    4. Print summary: sent / skipped / error counts
     """
-    init_db()
-
     bot = Bot(token=VK_BOT_TOKEN)
 
     sellers = get_all_active_sellers()

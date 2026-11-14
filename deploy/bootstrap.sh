@@ -172,7 +172,7 @@ echo ""
 echo "=== 5. База данных ==="
 
 cd "$PROJECT_DIR"
-$VENV_DIR/bin/python database.py
+$VENV_DIR/bin/alembic upgrade head
 info "Схема БД создана / обновлена"
 
 # ============================================================

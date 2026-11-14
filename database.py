@@ -8,9 +8,7 @@ Usage:
         user = session.query(AppUser).filter_by(id=1).first()
         session.commit()
 
-    # Initialize database (create all tables)
-    from database import init_db
-    init_db()
+Схемой управляет Alembic (migrations/): `uv run alembic upgrade head`.
 """
 
 import os
@@ -24,7 +22,7 @@ from sqlalchemy.orm import sessionmaker
 PROJECT_ROOT = Path(__file__).resolve().parent
 
 # .env из корня проекта — чтобы DATABASE_URL был одинаковым, кто бы ни
-# импортировал database первым (бот, веб, скрипты, python database.py).
+# импортировал database первым (бот, веб, скрипты, alembic).
 # Уже заданные переменные окружения не перезаписываются: значения из Docker
 # (--env-file / environment:) и из conftest.py в тестах имеют приоритет.
 load_dotenv(PROJECT_ROOT / ".env")
@@ -55,23 +53,15 @@ SessionLocal = sessionmaker(
 )
 
 
-def init_db() -> None:
-    """
-    Create all tables defined in models (until Alembic takes over — ROADMAP stage 2).
-    """
-    import models  # noqa: F401 — регистрирует все модели в Base.metadata
-    from models.base import Base
+def alembic_config():
+    """Конфиг Alembic из [tool.alembic] в pyproject.toml — для вызова из кода."""
+    from alembic.config import Config
 
-    Base.metadata.create_all(bind=engine)
+    return Config(toml_file=PROJECT_ROOT / "pyproject.toml")
 
 
-if __name__ == "__main__":
-    import logging
+def upgrade_db() -> None:
+    """То же, что `alembic upgrade head`: применить все миграции."""
+    from alembic import command
 
-    from logging_config import setup_logging
-
-    setup_logging()
-    log = logging.getLogger("database")
-    log.info("Initializing database: %s", DATABASE_URL_SAFE)
-    init_db()
-    log.info("Database initialized")
+    command.upgrade(alembic_config(), "head")

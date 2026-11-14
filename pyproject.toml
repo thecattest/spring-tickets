@@ -5,6 +5,7 @@ description = "Concert ticket management: VK bot + web UI"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "aiohttp>=3.9",
+    "alembic>=1.20.1",
     "fastapi>=0.115.0",
     "itsdangerous>=2.1.0",
     "jinja2>=3.1.0",
@@ -55,7 +56,29 @@ ignore = [
 "bot/utils/db.py" = ["B904"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config", "timeutils"]
+known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config", "timeutils", "migrations"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
+
+
+[tool.alembic]
+# Конфиг Alembic целиком здесь, alembic.ini нет: URL берётся из database.py,
+# логирование — из logging_config.py (см. migrations/env.py).
+script_location = "%(here)s/migrations"
+# 20261114_1530-<rev>_<slug>.py — файлы сортируются по времени создания
+file_template = "%%(year)d%%(month).2d%%(day).2d_%%(hour).2d%%(minute).2d-%%(rev)s_%%(slug)s"
+timezone = "UTC"
+prepend_sys_path = ["."]
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_fix"
+type = "module"
+module = "ruff"
+options = "check --fix REVISION_SCRIPT_FILENAME"
+
+[[tool.alembic.post_write_hooks]]
+name = "ruff_format"
+type = "module"
+module = "ruff"
+options = "format REVISION_SCRIPT_FILENAME"

@@ -21,7 +21,7 @@ source .venv/bin/activate
 pip install -q -r requirements.txt
 
 echo "--- DB migrate ---"
-python database.py
+alembic upgrade head
 
 echo "--- restart services ---"
 systemctl --user restart tickets-bot tickets-web

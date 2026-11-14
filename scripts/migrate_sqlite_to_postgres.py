@@ -6,7 +6,8 @@
     DATABASE_URL=postgresql+psycopg://... uv run python scripts/migrate_sqlite_to_postgres.py data/tickets.db
 
 Что делает:
-1. Создаёт схему в Postgres из моделей (create_all). Целевая база должна быть пустой.
+1. Создаёт схему в Postgres миграциями (alembic upgrade head). Целевая база
+   должна быть пустой (если схема уже есть — без данных).
 2. Копирует таблицы в порядке зависимостей одной транзакцией, приводя значения
    к новой схеме: даты — aware UTC (в SQLite лежало наивное UTC), enum — значения
    вместо имён ('PAID' → 'paid'), boolean, JSON, Numeric.
@@ -42,7 +43,7 @@ from sqlalchemy import (
 )
 
 import models  # noqa: F401 — регистрирует все модели в Base.metadata
-from database import DATABASE_URL_SAFE, engine, init_db
+from database import DATABASE_URL_SAFE, engine, upgrade_db
 from logging_config import setup_logging
 from models.base import Base
 from timeutils import ensure_utc
@@ -101,7 +102,7 @@ def main(source_path: Path) -> int:
     logger.info("Source: %s", source_path)
     logger.info("Target: %s", DATABASE_URL_SAFE)
 
-    init_db()
+    upgrade_db()
     with engine.connect() as conn:
         not_empty = [
             name

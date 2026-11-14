@@ -6,11 +6,15 @@
 импортируют database.py и создадут engine; DATABASE_URL выставляется туда же.
 load_dotenv() уже заданные переменные не перезаписывает, поэтому значение
 из .env сюда не попадёт.
+
+Схема создаётся один раз миграциями (alembic upgrade head) — так тесты
+заодно проверяют сами миграции. Перед каждым тестом таблицы очищаются.
 """
 
 import os
 
 import pytest
+from sqlalchemy import text
 from testcontainers.community.postgres import PostgresContainer
 
 # Та же мажорная версия, что будет в Compose
@@ -33,19 +37,27 @@ def pytest_unconfigure(config):
         _container.stop()
 
 
+@pytest.fixture(scope="session")
+def migrated_db():
+    """Схема временной базы — миграциями, один раз на сессию."""
+    import database
+
+    # Защита: если database импортировали раньше, engine смотрит не туда —
+    # лучше упасть, чем мигрировать и чистить настоящую базу.
+    assert database.DATABASE_URL == TEST_DATABASE_URL, (
+        f"Тесты подключены не к временной базе: {database.DATABASE_URL_SAFE}"
+    )
+    database.upgrade_db()
+
+
 @pytest.fixture(autouse=True)
-def clean_db():
-    """Перед каждым тестом — пустая база с актуальной схемой."""
+def clean_db(migrated_db):
+    """Перед каждым тестом — пустые таблицы, счётчики id с 1."""
     import database
     import models  # noqa: F401 — регистрирует все модели в Base.metadata
     from models.base import Base
 
-    # Защита: если database импортировали раньше, engine смотрит не туда —
-    # лучше упасть, чем писать в настоящую базу.
-    assert database.DATABASE_URL == TEST_DATABASE_URL, (
-        f"Тесты подключены не к временной базе: {database.DATABASE_URL_SAFE}"
-    )
-
-    Base.metadata.drop_all(bind=database.engine)
-    database.init_db()
+    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    with database.engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     yield

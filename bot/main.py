@@ -65,16 +65,6 @@ async def setup():
     router.register_all()
     bot.labeler.load(router.labeler)
 
-    # Initialize database
-    from database import init_db
-
-    try:
-        init_db()
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        return None
-
     # Load hall layout
     from bot.utils.layout import load_layout
 

@@ -10,6 +10,8 @@ aiohttp==3.14.5
     #   vkbottle
 aiosignal==1.4.0
     # via aiohttp
+alembic==1.20.1
+    # via tickets
 annotated-doc==0.0.6
     # via fastapi
 annotated-types==0.8.0
@@ -45,8 +47,12 @@ itsdangerous==2.2.0
     # via tickets
 jinja2==3.1.6
     # via tickets
+mako==1.4.3
+    # via alembic
 markupsafe==3.0.4
-    # via jinja2
+    # via
+    #   jinja2
+    #   mako
 msgspec==0.19.0
     # via vkbottle-types
 multidict==7.2.1
@@ -81,13 +87,16 @@ pyyaml==6.0.3
 redis==8.1.0
     # via tickets
 sqlalchemy==2.1.8
-    # via tickets
+    # via
+    #   alembic
+    #   tickets
 starlette==1.10.0
     # via fastapi
 typing-extensions==4.16.0
     # via
     #   aiohttp
     #   aiosignal
+    #   alembic
     #   anyio
     #   choicelib
     #   fastapi
