@@ -136,11 +136,12 @@ uv run alembic check          # models and migrations in sync
 uv run alembic upgrade head --sql   # print SQL without a DB connection
 ```
 
-- Autogenerate misses `CheckConstraint`s (add them by hand), renames (it emits drop + add — rewrite as `alter_column`) and data changes.
+- Autogenerate misses `CheckConstraint`s and enum value changes (write `op.drop_constraint` + `op.create_check_constraint` with `op.f(...)` by hand; `test_migrations_produce_model_schema` fails until you do), renames (it emits drop + add — rewrite as `alter_column`) and data changes.
+- Migrations never import models or enums: use `op`, `sa.table()`/`sa.column()` and literals, so an old migration still runs on a fresh DB after models change.
 - Expand/contract, forward only: each migration must work with the previous code version (new columns nullable or with `server_default`; drops and `NOT NULL` a release later). Full rules: ROADMAP → «Миграции и совместимость».
 - A database created before Alembic (`create_all()`, the SQLite transfer script) is marked with `alembic stamp head` after checking the schema matches; `scripts/migrate_sqlite_to_postgres.py` runs `upgrade_db()` itself.
 
 ## Testing
 
-- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `DATABASE_URL` to it before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations (`alembic check`) and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
+- Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `DATABASE_URL` to it before any test imports `database.py` (engine is created at import time, so it must happen first; `load_dotenv` in `database.py` does not override it). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations: `alembic check`, plus a full schema comparison against a `create_all()` reference database (constraints via `pg_get_constraintdef`, indexes, columns, comments) that catches what autogenerate misses; and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
 - Don't override `DATABASE_URL` inside test fixtures: the engine already exists by then, the override has no effect.
