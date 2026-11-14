@@ -32,9 +32,13 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-COPY . .
-
 RUN useradd --create-home app
+
+# Код принадлежит app: docker compose watch (compose.dev.yaml) синхронизирует
+# файлы от имени пользователя контейнера. .venv выше остаётся за root —
+# зависимости приложение изменить не может.
+COPY --chown=app:app . .
+
 USER app
 
 EXPOSE 8000

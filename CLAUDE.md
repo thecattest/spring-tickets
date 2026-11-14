@@ -115,10 +115,14 @@ Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host). `.env` holds the real VK token: don't run `bot` locally while the server bot polls the same community (use a test community, ROADMAP stage 3).
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
+
+`compose.dev.yaml` holds only dev differences and is enabled by `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in the local `.env` (unset on the server): `web` with `uvicorn --reload`, `develop.watch` (sync code into `/code`, `sync+restart` for `bot`, rebuild on `pyproject.toml`/`uv.lock`; `.dockerignore` rules apply, so `.venv`/`.env`/`data` are never synced), Postgres port, and `bot` behind the `bot` profile — the local `.env` holds the real VK token, so the bot starts only with `--profile bot` (use a test community token, ROADMAP stage 3). The image copies code with `--chown=app:app` because watch needs the container user to write to `/code`.
 
 ```bash
+docker compose watch                                 # dev: start + sync code on save (Ctrl+C stops watching, containers stay)
 docker compose up -d --build                         # start / rebuild (migrate runs first)
+docker compose --profile bot up -d bot               # bot too (test community token only)
 docker compose run --rm migrate                      # run migrations again by hand
 # or copy the old SQLite data instead (creates the schema itself, target must be empty):
 docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_to_postgres.py data/tickets.db

@@ -1,0 +1,45 @@
+# Локальная разработка: только отличия от compose.yaml.
+# Подключается в локальном .env: COMPOSE_FILE=compose.yaml:compose.dev.yaml —
+# тогда обычные docker compose up / watch / logs работают с обоими файлами.
+#
+# docker compose watch — запустить и синхронизировать код в контейнеры.
+# Что не уходит в контейнер: правила .dockerignore (.venv, .env, data/, .git, …).
+
+# Новые зависимости — пересобрать образ и пересоздать контейнер.
+# Якоря на отдельные элементы: YAML не вставляет список внутрь списка.
+x-rebuild-pyproject: &rebuild-pyproject
+  action: rebuild
+  path: pyproject.toml
+x-rebuild-lock: &rebuild-lock
+  action: rebuild
+  path: uv.lock
+
+services:
+  web:
+    # --reload: uvicorn сам перезапускается при изменении .py;
+    # шаблоны Jinja перечитываются без перезапуска
+    command: uvicorn web.app:app --host 0.0.0.0 --port 8000 --reload
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /code
+        - *rebuild-pyproject
+        - *rebuild-lock
+
+  bot:
+    # Не стартует при обычном up/watch: в локальном .env боевой токен VK.
+    # С токеном тестового сообщества — docker compose --profile bot watch
+    profiles: [ bot ]
+    develop:
+      watch:
+        # У бота нет автоперезагрузки: скопировать файлы и перезапустить контейнер
+        - action: sync+restart
+          path: .
+          target: /code
+        - *rebuild-pyproject
+        - *rebuild-lock
+
+  postgres:
+    # Для uv run на хосте и инструментов БД; на сервере не публикуем
+    ports: [ "127.0.0.1:5432:5432" ]

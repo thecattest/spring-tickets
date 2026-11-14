@@ -54,7 +54,7 @@
 - [x] **Ротация логов Docker:** драйвер `local`, `max-size: 10m`, `max-file: 5` для всех сервисов (якорь `x-logging`).
 - [ ] **Redis:** пароль, `appendonly yes`, named volume. TTL для FSM не используем.
 - [x] **`/health` в вебе** (приложение + `SELECT 1`) и healthcheck по нему (перенесено с этапа 5).
-- [ ] **Dev-режим:** `compose.dev.yaml` только с отличиями (`--reload`/`fastapi dev`, порты, `develop.watch`), подключается через `COMPOSE_FILE=compose.yaml:compose.dev.yaml` в локальном `.env`; `docker compose watch` — `sync` кода, `rebuild` при изменении `pyproject.toml` / `uv.lock`. `compose.override.yaml` не используем.
+- [x] **Dev-режим:** `compose.dev.yaml` только с отличиями (`--reload`/`fastapi dev`, порты, `develop.watch`), подключается через `COMPOSE_FILE=compose.yaml:compose.dev.yaml` в локальном `.env`; `docker compose watch` — `sync` кода, `rebuild` при изменении `pyproject.toml` / `uv.lock`. `compose.override.yaml` не используем. Бот в dev — за профилем `bot` (в локальном `.env` боевой токен); порт Postgres публикуется только в dev.
 - [ ] **Тестовое VK-сообщество** для локальной разработки (свой токен).
 
 ## Этап 4. Фоновые задачи
