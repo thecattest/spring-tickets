@@ -21,6 +21,7 @@ from tickets.models.payment import Payment
 from tickets.models.reservation import Reservation
 from tickets.models.seat_assignment import SeatAssignment
 from tickets.models.user import AppUser
+from tickets.models.vk_user import VkUser
 
 pytestmark = pytest.mark.asyncio
 
@@ -282,3 +283,146 @@ async def test_add_seller_only_by_owner(bot):
 
     [r] = await bot.send(OWNER, "/users")
     assert "Новый Билетёр (билетер)" in r.text
+
+
+# --- источник покупателя: ответ, ссылка ------------------------------------
+
+
+async def test_reply_instead_of_forward_creates_reservation(bot):
+    [r] = await bot.send(SELLER, "", reply_from=BUYER)
+    assert "Создана новая бронь для Иван Покупатель" in r.text
+    assert await bot.state(SELLER) == "BotState:awaiting_row"
+
+
+async def test_vk_profile_link_creates_reservation(bot):
+    bot.vk.screen_names["ivan"] = BUYER
+    [r] = await bot.send(SELLER, "https://vk.com/ivan")
+    assert "Создана новая бронь для Иван Покупатель" in r.text
+    [reservation] = reservations()
+    with SessionLocal() as session:
+        vk_user = session.get(VkUser, reservation.buyer_vk_user_id)
+        assert vk_user.vk_user_id == BUYER
+
+
+async def test_unknown_vk_link(bot):
+    [r] = await bot.send(SELLER, "vk.com/nobody")
+    assert r.text == "Пользователь VK не найден."
+    assert reservations() == []
+
+
+# --- меню брони -----------------------------------------------------------
+
+
+async def test_add_seats_from_menu_returns_to_menu(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    [r] = await bot.send(SELLER, "Добавить")
+    assert await bot.state(SELLER) == "BotState:awaiting_row"
+    await bot.send(SELLER, "7")
+    await bot.send(SELLER, "1-2")
+    replies = await bot.send(SELLER, "Готово")
+    assert "Места забронированы" in replies[0].text  # обновлённый текст для клиента
+    assert replies[-1].buttons == RESERVATION_MENU  # из меню брони — обратно в меню
+    assert await bot.state(SELLER) == "BotState:main_menu"
+    assert len(seats()) == 5
+
+
+async def test_exit_resets_state(bot):
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    [r] = await bot.send(SELLER, "/exit")
+    assert r.text.startswith("Сессия завершена")
+    assert await bot.state(SELLER) is None
+
+
+# --- чеки и переключение клиента ------------------------------------------
+
+
+async def test_receipt_when_idle_goes_straight_to_payment(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    [r] = await bot.send(SELLER, "", fwd_from=BUYER, fwd_attachments=[photo(BUYER)])
+    assert "Сколько мест оплачено?" in r.text
+    assert await bot.state(SELLER) == "BotState:payment_quantity"
+
+
+async def test_cancel_button_on_payment_returns_to_menu(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER, fwd_attachments=[photo(BUYER)])
+    [r] = await bot.send(SELLER, "Отмена")
+    assert r.buttons == RESERVATION_MENU
+    assert await bot.state(SELLER) == "BotState:main_menu"
+    assert seats(SeatStatus.PAID) == []
+
+
+async def test_receipt_from_other_buyer_in_menu_asks_to_switch(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    [r] = await bot.send(SELLER, "", fwd_from=BUYER2, fwd_attachments=[photo(BUYER2)])
+    assert "Получен чек от Пётр Второй" in r.text and r.buttons == ["Да", "Нет"]
+
+    # «Нет» — остаёмся с прежним клиентом в том же состоянии
+    [r] = await bot.send(SELLER, "Нет")
+    assert r.text == "Продолжаем работу с Иван Покупатель."
+    assert await bot.state(SELLER) == "BotState:main_menu"
+
+
+async def test_switch_to_buyer_without_reservation_creates_one(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    await bot.send(SELLER, "", fwd_from=BUYER2, fwd_attachments=[photo(BUYER2)])
+    [r] = await bot.send(SELLER, "Да")
+    assert "У Пётр Второй нет активной брони" in r.text
+    assert await bot.state(SELLER) == "BotState:awaiting_row"
+    assert len(reservations()) == 2
+
+
+async def test_cancel_button_on_delete_confirm_steps_back(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    for text in ("Удалить", "5", "5"):
+        await bot.send(SELLER, text)
+    [r] = await bot.send(SELLER, "Отмена")
+    # Как сейчас: «Отмена» — это команда /cancel (шаг назад), а не «отказ»
+    assert r.text == "Введите номер ряда для удаления:"
+    assert await bot.state(SELLER) == "BotState:deleting_row"
+    assert len(seats()) == 3
+
+
+# --- резерв ---------------------------------------------------------------
+
+
+async def test_reserve_refuses_taken_seat(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(ADMIN, "Резерв")
+    await bot.send(ADMIN, "Добавить")
+    [r] = await bot.send(ADMIN, "5")
+    assert "Заняты: 3-5" in r.text
+    [r] = await bot.send(ADMIN, "4")
+    assert "недоступны" in r.text
+    assert await bot.state(ADMIN) == "BotState:reserve_adding_seats"
+
+
+async def test_reserve_is_admin_only(bot):
+    [r] = await bot.send(SELLER, "Резерв")
+    assert r.text == "Управление резервами доступно только администраторам."
+
+
+# --- должники и пользователи ----------------------------------------------
+
+
+async def test_debtors_listed_for_admin(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    [r] = await bot.send(ADMIN, "Должники")
+    assert r.text.startswith("Должники (1)")
+    assert "Иван Покупатель (vk.com/id301)" in r.text and "Долг: 4500 руб." in r.text
+
+
+async def test_add_admin_and_remove_user(bot):
+    [r] = await bot.send(OWNER, "/addadmin", fwd_from=NEWBIE)
+    assert "добавлен как администратор" in r.text
+    [r] = await bot.send(OWNER, "/removeuser", fwd_from=NEWBIE)
+    assert "удалён из системы" in r.text
+    with SessionLocal() as session:
+        user = session.scalar(select(AppUser).where(AppUser.vk_user_id == NEWBIE))
+        assert user.is_active is False
+    [r] = await bot.send(OWNER, "/removeuser", fwd_from=OWNER)
+    assert r.text == "Нельзя удалить самого себя."

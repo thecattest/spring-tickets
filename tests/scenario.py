@@ -55,6 +55,8 @@ class FakeVK(ABCHTTPClient):
     sent: list[Sent] = field(default_factory=list)
     # vk_id → (имя, фамилия) для users.get
     users: dict[int, tuple[str, str]] = field(default_factory=dict)
+    # короткие имена (vk.com/durov) → vk_id
+    screen_names: dict[str, int] = field(default_factory=dict)
 
     async def request_text(self, url: str, method: str = "GET", data: Any = None, **kwargs) -> str:
         name = url.rsplit("/", 1)[-1]
@@ -114,8 +116,17 @@ class FakeVK(ABCHTTPClient):
             ]
         return message_id
 
+    def _resolve(self, ref: str) -> int | None:
+        """user_ids в users.get: число, idNNN или короткое имя (screen_names)."""
+        if ref.isdigit():
+            return int(ref)
+        if ref.startswith("id") and ref[2:].isdigit():
+            return int(ref[2:])
+        return self.screen_names.get(ref)
+
     def _users_get(self, data: dict) -> list[dict]:
-        ids = [int(i) for i in str(data.get("user_ids", "")).split(",") if i]
+        refs = [r for r in str(data.get("user_ids", "")).split(",") if r]
+        ids = [i for i in map(self._resolve, refs) if i is not None]
         return [
             {
                 "id": i,
