@@ -26,16 +26,16 @@
 
 ## Этап 1. Postgres
 
-- [ ] **Драйвер `psycopg` (sync).** Async — на этапе 7.
-- [ ] **Частичные индексы `seat_assignments` — добавить `postgresql_where`.** Без этого уникальный индекс «одно активное назначение на место» станет обычным UNIQUE, и освобождённое место нельзя будет забронировать снова. (`app_users_vk_user_id_uniq` условие на Postgres не нужно — UNIQUE и так допускает много NULL.)
-- [ ] **Одна активная бронь на покупателя:** частичный уникальный индекс `reservations (buyer_vk_user_id) WHERE state = 'active'`. Сейчас гонка может создать две активные брони, после чего `get_active_reservation` для клиента падает навсегда.
-- [ ] **Удалить `seat_assignments_row_seat_idx`** — дубликат `seat_assignments_one_active_per_seat`.
-- [ ] **Удалить модель и таблицу `ReconcileCheckpoint`** до создания схемы в Postgres (не используется; убрать и из CLAUDE.md).
-- [ ] **Enum-колонки → `VARCHAR` + CHECK:** `Enum(..., native_enum=False, create_constraint=True, length=32, values_callable=lambda e: [m.value for m in e])`. Хранить **значения** (`paid`), а не имена (`PAID`, как сейчас). CHECK на геометрию зала (`row 1–24`, `seat 1–28`) оставляем как страховку — при смене зала править вместе с `layout.json`.
-- [ ] **Даты:** `DateTime(timezone=True)` → `timestamptz`; в коде везде aware UTC (→ Даты).
-- [ ] **Убрать SQLite-специфику:** `PRAGMA foreign_keys`, `check_same_thread`, `_run_migrations()`.
-- [ ] **Скрипт переноса SQLite → Postgres** (одноразовый, на SQLAlchemy): схема из моделей (`create_all()`), копирование в порядке зависимостей (пользователи → брони → места → оплаты → аудит), наивные даты как UTC, enum-имена → значения, пропуск `reconcile_checkpoints`, сверка количества строк по таблицам, сдвиг sequence. После переезда удалить.
-- [ ] **Тесты на Postgres** через testcontainers (полная реорганизация тестов — этап 8).
+- [x] **Драйвер `psycopg` (sync).** Async — на этапе 7.
+- [x] **Частичные индексы `seat_assignments` — добавить `postgresql_where`.** Без этого уникальный индекс «одно активное назначение на место» станет обычным UNIQUE, и освобождённое место нельзя будет забронировать снова. (`app_users_vk_user_id_uniq` условие на Postgres не нужно — UNIQUE и так допускает много NULL.)
+- [x] **Одна активная бронь на покупателя:** частичный уникальный индекс `reservations (buyer_vk_user_id) WHERE state = 'active'`. Сейчас гонка может создать две активные брони, после чего `get_active_reservation` для клиента падает навсегда.
+- [x] **Удалить `seat_assignments_row_seat_idx`** — дубликат `seat_assignments_one_active_per_seat`.
+- [x] **Удалить модель и таблицу `ReconcileCheckpoint`** до создания схемы в Postgres (не используется; убрать и из CLAUDE.md).
+- [x] **Enum-колонки → `VARCHAR` + CHECK:** `Enum(..., native_enum=False, create_constraint=True, length=32, values_callable=lambda e: [m.value for m in e])`. Хранить **значения** (`paid`), а не имена (`PAID`, как сейчас). CHECK на геометрию зала (`row 1–24`, `seat 1–28`) оставляем как страховку — при смене зала править вместе с `layout.json`.
+- [x] **Даты:** `DateTime(timezone=True)` → `timestamptz`; в коде везде aware UTC (→ Даты).
+- [x] **Убрать SQLite-специфику:** `PRAGMA foreign_keys`, `check_same_thread`, `_run_migrations()`.
+- [x] **Скрипт переноса SQLite → Postgres** (одноразовый, на SQLAlchemy): схема из моделей (`create_all()`), копирование в порядке зависимостей (пользователи → брони → места → оплаты → аудит), наивные даты как UTC, enum-имена → значения, пропуск `reconcile_checkpoints`, сверка количества строк по таблицам, сдвиг sequence. После переезда удалить.
+- [x] **Тесты на Postgres** через testcontainers (полная реорганизация тестов — этап 8).
 
 ## Этап 2. Alembic
 
