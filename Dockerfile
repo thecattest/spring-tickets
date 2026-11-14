@@ -32,7 +32,8 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
-RUN useradd --create-home app
+# /backups — для jobs.backup; без смонтированного каталога тоже доступен app
+RUN useradd --create-home app && install -d -o app -g app /backups
 
 # Код принадлежит app: docker compose watch (compose.dev.yaml) синхронизирует
 # файлы от имени пользователя контейнера. .venv выше остаётся за root —

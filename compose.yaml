@@ -14,6 +14,7 @@ x-app: &app                     # общий кусок настроек (YAML-�
   environment:
     DATABASE_URL: postgresql+psycopg://tickets:tickets@postgres:5432/tickets
     REDIS_HOST: redis                 # имя сервиса = имя хоста во внутренней сети
+    BACKUP_DIR: /backups              # jobs.backup; сам каталог смонтирован только в db-backup и cron
   depends_on:
     postgres:
       condition: service_healthy
@@ -21,11 +22,26 @@ x-app: &app                     # общий кусок настроек (YAML-�
   logging: *logging
 
 services:
+  # Разовый: дамп базы перед миграциями — только если migrate что-то накатит
+  # (иначе пропускает). Упал — migrate и всё, что после, не стартует.
+  db-backup:
+    <<: *app
+    command: python -m jobs.backup --reason pre-migrate
+    restart: "no"
+    # Дампы — на хосте в ./backups; в web и bot не монтируем (персональные данные)
+    volumes:
+      - ./backups:/backups
+
   # Разовый: накатывает миграции и завершается; остальные ждут его успеха
   migrate:
     <<: *app
     command: alembic upgrade head
     restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-backup:
+        condition: service_completed_successfully
 
   web:
     <<: *app
