@@ -12,8 +12,15 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def from_unix(ts: int | float) -> datetime:
-    """Unix-время (например, date из VK API) → aware UTC."""
+def from_unix(ts: int | float | datetime) -> datetime:
+    """
+    Время из VK API → aware UTC.
+
+    Сырой API отдаёт date числом (Unix-время), а модели vkbottle-types
+    (message.date, fwd_messages[].date) — уже datetime; принимаем оба.
+    """
+    if isinstance(ts, datetime):
+        return ensure_utc(ts)
     return datetime.fromtimestamp(ts, UTC)
 
 
