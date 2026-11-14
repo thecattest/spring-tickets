@@ -89,7 +89,7 @@ All state changes are recorded in the `AuditLog` table.
 
 - `tickets.services.*`: `async` functions, `AsyncSession` first (SQLAlchemy asyncio on the same psycopg 3 driver, `sqlalchemy[asyncio]`); pure helpers without queries (`audit.log`, `seats.release`) stay sync; they **never** call `commit()`/`rollback()` (guard: `tests/test_guards.py`), use `session.flush()` for new ids. They know nothing about VK. Errors are `tickets.services.errors` (`ServiceError` and subclasses: `SeatOccupiedError`, `InsufficientSeatsError`, `ReservationNotActiveError`, `NotAllowedError`, `NotFoundError`).
 - The boundary owns the transaction: `async with tickets.db.unit_of_work() as session:` — COMMIT on success, ROLLBACK on exception. Bot flows and jobs do it; the web — in ROADMAP stage 7 step 6. No network calls inside a transaction; side effects (VK messages) after it.
-- Everything that changes a reservation first calls `reservations.lock_active()` (`SELECT … FOR UPDATE` + must be ACTIVE): concurrent changes of one reservation are serialized, a cancelled one can't be changed. Seats are taken by `seats.occupy()`: check, then insert in a SAVEPOINT; a race on the unique index becomes `SeatOccupiedError` with re-read conflicts. Audit (`services.audit.log`, `AuditAction`) is written in the same transaction as the change.
+- Everything that changes a reservation first calls `reservations.lock_active()` (`SELECT … FOR UPDATE` + must be ACTIVE): concurrent changes of one reservation are serialized, a cancelled one can't be changed. Seats are taken by `seats.occupy()`: check, then insert in a SAVEPOINT; a race on the unique index becomes `SeatOccupiedError` with re-read conflicts. Audit (`services.audit.log(session, AuditAction.X, entity_type=AuditEntity.Y, …)`) is written in the same transaction as the change.
 
 ## Key Domain Concepts
 
@@ -107,7 +107,7 @@ All state changes are recorded in the `AuditLog` table.
 
 - ruff (lint + format, config in `pyproject.toml`) is enforced by pre-commit. `.git-blame-ignore-revs` lists the bulk-format commit.
 
-- Enums in `tickets/models/base.py`: `UserRole`, `ReservationState`, `SeatStatus`, `ActorType`. Stored as VARCHAR + CHECK with the enum **values** (`'paid'`), not native Postgres ENUM (configured once in `Base.type_annotation_map`).
+- Enums in `tickets/models/base.py`: `UserRole`, `ReservationState`, `SeatStatus`, `ActorType`, `AuditAction`, `AuditEntity` (all domain enums live there, services import them). A new value = a migration widening its CHECK (expand), written by hand — autogenerate doesn't see CHECKs, `tests/test_migrations.py` fails until it exists. Stored as VARCHAR + CHECK with the enum **values** (`'paid'`), not native Postgres ENUM (configured once in `Base.type_annotation_map`).
 - Times: always aware UTC — `tickets.time.utcnow()`, `tickets.time.from_unix()` for VK dates (accepts int or the `datetime` vkbottle-types already parse); never `datetime.utcnow()`. Every `Mapped[datetime]` column is `timestamptz`.
 - Partial indexes use `postgresql_where`. Constraint names follow `NAMING_CONVENTION` in `tickets/models/base.py`; name every `CheckConstraint`.
 - Datetime fields use `*_at` suffix (`created_at`, `released_at`, `last_activity_at`)

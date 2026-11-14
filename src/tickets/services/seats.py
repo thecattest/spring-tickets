@@ -234,7 +234,7 @@ async def add_reserve(
     audit.log(
         session,
         audit.AuditAction.RESERVE_ADDED,
-        entity_type="seat_assignment",
+        entity_type=audit.AuditEntity.SEAT_ASSIGNMENT,
         actor_user_id=user_id,
         payload={
             "row": row,
@@ -258,7 +258,7 @@ async def release_reserve(
     audit.log(
         session,
         audit.AuditAction.RESERVE_REMOVED,
-        entity_type="seat_assignment",
+        entity_type=audit.AuditEntity.SEAT_ASSIGNMENT,
         actor_user_id=user_id,
         payload={"row": row, "seats": seats, "previous_notes": previous_notes, "user_id": user_id},
     )

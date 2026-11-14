@@ -68,7 +68,7 @@ async def record(
     audit.log(
         session,
         audit.AuditAction.PAYMENT_RECORDED,
-        entity_type="payment",
+        entity_type=audit.AuditEntity.PAYMENT,
         entity_id=payment.id,
         actor_user_id=user_id,
         payload={
@@ -152,7 +152,7 @@ async def verify_all(session: AsyncSession, *, ip: str | None) -> list[int]:
         audit.log(
             session,
             audit.AuditAction.PAYMENTS_VERIFIED,
-            entity_type="payment",
+            entity_type=audit.AuditEntity.PAYMENT,
             actor_user_id=None,
             actor_type=ActorType.WEB_ADMIN,
             payload={"payment_ids": sorted(ids), "ip": ip},

@@ -70,7 +70,7 @@ async def log_reminder_sent(session: AsyncSession, seller_id: int, debtor_count:
     audit.log(
         session,
         audit.AuditAction.DEBTORS_NOTIFICATION_SENT,
-        entity_type="reminder",
+        entity_type=audit.AuditEntity.REMINDER,
         actor_user_id=seller_id,
         actor_type=ActorType.SYSTEM,
         payload={"seller_id": seller_id, "debtor_count": debtor_count},

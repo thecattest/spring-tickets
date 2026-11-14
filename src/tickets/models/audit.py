@@ -7,7 +7,7 @@ from datetime import datetime
 from sqlalchemy import JSON, ForeignKey, Index, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from tickets.models.base import ActorType, Base
+from tickets.models.base import ActorType, AuditAction, AuditEntity, Base
 from tickets.time import utcnow
 
 
@@ -24,12 +24,8 @@ class AuditLog(Base):
         Integer, ForeignKey("app_users.id"), nullable=True
     )
 
-    action_type: Mapped[str] = mapped_column(
-        Text, nullable=False, comment="Каталог типов действий уточняется позже"
-    )
-    entity_type: Mapped[str] = mapped_column(
-        Text, nullable=False, comment="reservation/payment/expense/seat_assignment/..."
-    )
+    action_type: Mapped[AuditAction] = mapped_column(nullable=False)
+    entity_type: Mapped[AuditEntity] = mapped_column(nullable=False)
     entity_id: Mapped[str | None] = mapped_column(
         Text, nullable=True, comment="Строкой (на случай разных типов id)"
     )

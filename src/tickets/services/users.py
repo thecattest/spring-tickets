@@ -133,7 +133,7 @@ async def _audit_user(session, action, user: AppUser, by_vk_id: int | None, extr
     audit.log(
         session,
         action,
-        entity_type="app_user",
+        entity_type=audit.AuditEntity.APP_USER,
         entity_id=user.id,
         actor_user_id=actor.id if actor else None,
         actor_type=ActorType.USER if by_vk_id else ActorType.SYSTEM,

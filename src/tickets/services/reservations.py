@@ -65,7 +65,7 @@ async def create(session: AsyncSession, buyer_vk_user_id: int, sold_by_user_id: 
     audit.log(
         session,
         audit.AuditAction.RESERVATION_CREATED,
-        entity_type="reservation",
+        entity_type=audit.AuditEntity.RESERVATION,
         entity_id=reservation.id,
         actor_user_id=sold_by_user_id,
         payload={"buyer_vk_user_id": buyer_vk_user_id, "sold_by_user_id": sold_by_user_id},
@@ -91,7 +91,7 @@ async def add_seats(
     audit.log(
         session,
         audit.AuditAction.SEATS_ADDED,
-        entity_type="reservation",
+        entity_type=audit.AuditEntity.RESERVATION,
         entity_id=reservation_id,
         actor_user_id=user_id,
         payload={"row": row, "seats": seat_list, "count": len(seat_list)},
@@ -111,7 +111,7 @@ async def remove_seats(
     audit.log(
         session,
         audit.AuditAction.SEATS_REMOVED,
-        entity_type="reservation",
+        entity_type=audit.AuditEntity.RESERVATION,
         entity_id=reservation_id,
         actor_user_id=user_id,
         payload={"row": row, "seats": seat_list, "count": len(seat_list)},
@@ -135,7 +135,7 @@ async def cancel(session: AsyncSession, reservation_id: int, user_id: int, is_ad
     audit.log(
         session,
         audit.AuditAction.RESERVATION_CANCELLED,
-        entity_type="reservation",
+        entity_type=audit.AuditEntity.RESERVATION,
         entity_id=reservation_id,
         actor_user_id=user_id,
         payload={"total_seats": len(active), "paid_seats": len(paid), "is_admin": is_admin},

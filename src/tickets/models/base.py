@@ -71,3 +71,32 @@ class ActorType(str, enum.Enum):
     USER = "user"  # билетёр или админ в боте (actor_user_id — AppUser.id)
     SYSTEM = "system"  # фоновые задачи
     WEB_ADMIN = "web_admin"  # вход на /payments по паролю (учёток в вебе нет; IP — в payload)
+
+
+class AuditAction(str, enum.Enum):
+    """
+    Тип действия в audit_log.action_type. Новое значение — миграция,
+    расширяющая CHECK (страж tests/test_migrations.py напомнит).
+    """
+
+    RESERVATION_CREATED = "reservation_created"
+    RESERVATION_CANCELLED = "reservation_cancelled"
+    SEATS_ADDED = "seats_added"
+    SEATS_REMOVED = "seats_removed"
+    PAYMENT_RECORDED = "payment_recorded"
+    PAYMENTS_VERIFIED = "payments_verified"
+    RESERVE_ADDED = "reserve_added"
+    RESERVE_REMOVED = "reserve_removed"
+    DEBTORS_NOTIFICATION_SENT = "debtors_notification_sent"
+    APP_USER_SAVED = "app_user_saved"
+    APP_USER_DEACTIVATED = "app_user_deactivated"
+
+
+class AuditEntity(str, enum.Enum):
+    """С какой сущностью действие (audit_log.entity_type; id — в entity_id)."""
+
+    RESERVATION = "reservation"
+    PAYMENT = "payment"
+    SEAT_ASSIGNMENT = "seat_assignment"  # резервы
+    REMINDER = "reminder"  # напоминание о должниках (без id)
+    APP_USER = "app_user"

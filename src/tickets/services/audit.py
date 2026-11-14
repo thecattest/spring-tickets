@@ -3,36 +3,23 @@
 либо есть и изменение, и запись о нём, либо ничего.
 """
 
-import enum
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.models.audit import AuditLog
-from tickets.models.base import ActorType
+from tickets.models.base import ActorType, AuditAction, AuditEntity
 
-
-class AuditAction(str, enum.Enum):
-    """Типы действий в audit_log.action_type (значения совпадают с прежними строками)."""
-
-    RESERVATION_CREATED = "reservation_created"
-    RESERVATION_CANCELLED = "reservation_cancelled"
-    SEATS_ADDED = "seats_added"
-    SEATS_REMOVED = "seats_removed"
-    PAYMENT_RECORDED = "payment_recorded"
-    RESERVE_ADDED = "reserve_added"
-    RESERVE_REMOVED = "reserve_removed"
-    DEBTORS_NOTIFICATION_SENT = "debtors_notification_sent"
-    PAYMENTS_VERIFIED = "payments_verified"
-    APP_USER_SAVED = "app_user_saved"
-    APP_USER_DEACTIVATED = "app_user_deactivated"
+# AuditAction и AuditEntity — в tickets.models.base, рядом с остальными енамами;
+# здесь доступны и как audit.AuditAction / audit.AuditEntity
+__all__ = ["AuditAction", "AuditEntity", "log"]
 
 
 def log(
     session: AsyncSession,
     action: AuditAction,
     *,
-    entity_type: str,
+    entity_type: AuditEntity,
     entity_id: int | str | None = None,
     actor_user_id: int | None,
     payload: dict[str, Any],
