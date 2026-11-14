@@ -79,3 +79,6 @@ Thumbs.db
 
 # Бэкапы базы (jobs.backup)
 backups/
+
+# Секреты (Compose secrets, config.py): файлы по одному на секрет
+secrets/

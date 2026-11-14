@@ -16,7 +16,11 @@ Concert ticket management system for VK (VKontakte). Ticketers create seat reser
 # Setup (uv installs Python 3.12 from .python-version and creates .venv)
 uv sync
 uv run pre-commit install   # ruff check/format + requirements.txt sync before each commit
-cp .env.example .env  # fill in POSTGRES_PASSWORD, VK_BOT_TOKEN, VK_GROUP_ID, OWNER_VK_IDS, REDIS_PASSWORD, PAYMENTS_PASSWORD, COOKIE_SECRET
+cp .env.example .env  # non-secret settings; secrets go to ./secrets/ (see Configuration)
+# fill in VK_GROUP_ID, OWNER_VK_IDS
+mkdir -m 700 secrets   # one file per secret, value only; postgres_password=tickets for the local volume
+python -c "import secrets; print(secrets.token_urlsafe(32))" > secrets/cookie_secret   # same for redis_password
+# vk_bot_token, payments_password — by hand
 uv run alembic upgrade head  # create / update the schema
 
 # Run bot (requires Redis + VK token)
@@ -111,6 +115,7 @@ All state changes are recorded in the `AuditLog` table.
 All settings live in `config.py` (pydantic-settings; moves to `tickets/config.py` in ROADMAP stage 7) — no `os.getenv` / `load_dotenv` anywhere else. Settings are split into sections, each validated on first use, so a process only needs what it uses (`migrate` runs without VK settings): `db_settings()` (`POSTGRES_HOST/PORT/DB/USER` with defaults, `POSTGRES_PASSWORD`, `SQL_ECHO`), `redis_settings()` (`REDIS_*`), `vk_settings()` (`VK_BOT_TOKEN`, `VK_GROUP_ID`, `OWNER_VK_IDS` comma-separated, `is_owner()`), `web_settings()` (`PAYMENTS_PASSWORD`, `COOKIE_SECRET`, `COOKIE_SECURE`), `backup_settings()`, `app_settings()` (`LOG_LEVEL`, `DISPLAY_TZ`, `SEAT_PRICE`, `DEBTORS_REMINDER_MIN_DAYS`). Each getter is cached per process.
 
 - Sources, first found wins: environment (Compose `environment:`, `conftest.py`) → project-root `.env` → secret files (`/run/secrets/<field>`, `./secrets/<field>`) → code default. Env var name = field name upper-cased, secret file name = field name.
+- Secrets are files in `./secrets/` (gitignored, one per secret: `postgres_password`, `redis_password`, `vk_bot_token`, `payments_password`, `cookie_secret`), never in `.env`. Compose mounts each service only the secrets it needs (`secrets:` in `compose.yaml` is the list); `uv run` on the host reads `./secrets/` directly. Postgres takes `POSTGRES_PASSWORD_FILE` (applied only when the volume is first created), Redis gets its config via stdin so the password is not in process args.
 - Secrets are `SecretStr` and must be non-empty (`Secret` type): a missing or empty one raises `ValidationError` naming the field, so the process refuses to start. Use `.get_secret_value()` only where the raw value is needed; log `database.DATABASE_URL_SAFE`, never `DATABASE_URL`.
 - Defaults in code only for non-secret values that are the same everywhere.
 - `COOKIE_SECURE=false` is needed for local HTTP (default `true`, Secure cookie behind HTTPS).
@@ -120,7 +125,7 @@ All settings live in `config.py` (pydantic-settings; moves to `tickets/config.py
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `db-backup` (`jobs.backup --reason pre-migrate`: dumps into `./backups` only when migrations are pending; if it fails, migrate and app services don't start), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it), `cron` (supercronic running `jobs/crontab`, Moscow time: backup daily 04:00, debtors every 3 days 20:00; supercronic is PID 1 itself, no `init`). `./backups` is mounted only into `db-backup` and `cron` (dumps contain personal data). App services read `.env`, but `POSTGRES_HOST` and `REDIS_HOST` are set to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `db-backup` (`jobs.backup --reason pre-migrate`: dumps into `./backups` only when migrations are pending; if it fails, migrate and app services don't start), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from the `redis_password` secret, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it), `cron` (supercronic running `jobs/crontab`, Moscow time: backup daily 04:00, debtors every 3 days 20:00; supercronic is PID 1 itself, no `init`). `./backups` is mounted only into `db-backup` and `cron` (dumps contain personal data). App services read `.env`, but `POSTGRES_HOST` and `REDIS_HOST` are set to the service names. Every service logs via the `local` driver, max 5 × 10 MB (`x-logging` anchor) — read logs with `docker compose logs`, not files. Ports are bound to `127.0.0.1`: web 8000 always, Postgres 5432 only in dev.
 
 `compose.dev.yaml` holds only dev differences and is enabled by `COMPOSE_FILE=compose.yaml:compose.dev.yaml` in the local `.env` (unset on the server): `web` with `uvicorn --reload`, `develop.watch` (sync code into `/code`, `sync+restart` for `bot`, rebuild on `pyproject.toml`/`uv.lock`; `.dockerignore` rules apply, so `.venv`/`.env`/`data` are never synced), Postgres port, `bot` and `cron` behind the `bot` / `cron` profiles — the local `.env` holds the real VK token, so the bot starts only with `--profile bot` (use a test community token, ROADMAP stage 3). The image copies code with `--chown=app:app` because watch needs the container user to write to `/code`.
 
