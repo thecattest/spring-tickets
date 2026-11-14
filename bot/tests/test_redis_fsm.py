@@ -4,28 +4,17 @@ Test Redis FSM storage integration with vkbottle.
 Verifies that StatePeer objects are correctly stored and retrieved.
 """
 
-import asyncio
-
 import pytest
-import redis.exceptions
 from vkbottle.dispatch.dispenser.builtin import StatePeer
 
 from bot.fsm.states import BotState
-from bot.fsm.storage import RedisStorage
 
 
 @pytest.mark.asyncio
-async def test_redis_state_peer_storage():
+async def test_redis_state_peer_storage(redis_storage):
     """Test that RedisStorage properly stores and retrieves StatePeer objects."""
-
-    # Отдельная БД Redis (15), чтобы не задеть реальные FSM-состояния в db 0.
-    # Без запущенного Redis тест пропускается (testcontainers — в этапе 8 ROADMAP).
-    storage = RedisStorage(host="localhost", port=6379, db=15)
-    try:
-        await storage.connect()
-    except (redis.exceptions.ConnectionError, redis.exceptions.AuthenticationError) as e:
-        pytest.skip(f"Redis is not available on localhost:6379: {e}")
-
+    # redis_storage — временный Redis из testcontainers (conftest.py), пустой
+    storage = redis_storage
     try:
         peer_id = 999999  # Test user ID
 
@@ -90,11 +79,4 @@ async def test_redis_state_peer_storage():
         print("✅ All Redis FSM integration tests passed!")
 
     finally:
-        # Cleanup
         await storage.delete(peer_id)
-        await storage.close()
-
-
-if __name__ == "__main__":
-    # Run test directly
-    asyncio.run(test_redis_state_peer_storage())

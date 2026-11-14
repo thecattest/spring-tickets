@@ -27,7 +27,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23",
     "ruff>=0.17.5",
-    "testcontainers[postgres]>=4.8",
+    "testcontainers[postgres,redis]>=4.8",
 ]
 
 [tool.uv]

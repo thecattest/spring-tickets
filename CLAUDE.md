@@ -29,9 +29,8 @@ uv run python -m bot
 # Run web UI
 uv run uvicorn web.app:app --reload --port 8000   # or in Compose: docker compose watch
 
-# Run tests (throwaway Postgres container via testcontainers — needs Docker running)
+# Run tests (throwaway Postgres and Redis containers via testcontainers — needs Docker running)
 uv run pytest
-# test_redis_fsm uses local Redis db 15 and is skipped when Redis is not running
 
 # Background jobs (normally run by cron; pg_dump is only in the image, so run backup in Compose)
 docker compose run --rm web python -m jobs.backup [--reason pre-migrate]
@@ -160,4 +159,7 @@ uv run alembic upgrade head --sql   # print SQL without a DB connection
 ## Testing
 
 - Root `conftest.py` starts a throwaway `postgres:18-alpine` container (testcontainers) in `pytest_configure` and sets `POSTGRES_*` to it before any test imports `database.py` (engine is created at import time, so it must happen first; environment beats `.env` in pydantic-settings). The schema is created once per session by `alembic upgrade head`; before every test all tables are truncated (`RESTART IDENTITY`). `bot/tests/test_migrations.py` checks models vs migrations: `alembic check`, plus a full schema comparison against a `create_all()` reference database (constraints via `pg_get_constraintdef`, indexes, columns, comments) that catches what autogenerate misses; and downgrade/upgrade. It asserts the engine points at the test container — tests never touch a real database. Docker must be running.
+- Tests never read the local `.env` or `./secrets/`: `conftest.py` turns off both sources for every settings section and sets test values in the environment (`TEST_OWNER_VK_ID` is the owner).
+- Redis for FSM is a second testcontainer; the `redis_storage` fixture gives an empty `RedisStorage`.
+- **Bot scenario tests** (`bot/tests/test_scenarios.py`, harness in `bot/tests/scenario.py`): the real `Bot` + `Router` + handlers, real Postgres and Redis; only vkbottle's HTTP client is replaced (`FakeVK`: answers `messages.send` and `users.get`, any other VK method fails the test). `await bot.send(peer, text, fwd_from=..., fwd_attachments=[photo(...)])` feeds a `message_new` event and returns what the bot sent; check replies, `await bot.state(peer)` and the DB. The bot is built with `ErrorHandler(raise_exceptions=True)` so a crashing handler fails the test, and real network access (`aiohttp.ClientSession`) is blocked; receipt re-upload is faked (`bot.vk.reuploaded`). These tests pin current behaviour before the ROADMAP stage 7 rewrite; texts are matched by key fragments.
 - Don't override `POSTGRES_*` inside test fixtures: the engine already exists by then, the override has no effect. To change a setting in a test, monkeypatch the getter (`monkeypatch.setattr(module, "vk_settings", ...)`).
