@@ -223,8 +223,12 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
                 if pending_receipt_vk_message_ts:
                     from datetime import datetime
 
+                    from timeutils import ensure_utc
+
                     try:
-                        vk_message_ts = datetime.fromisoformat(pending_receipt_vk_message_ts)
+                        vk_message_ts = ensure_utc(
+                            datetime.fromisoformat(pending_receipt_vk_message_ts)
+                        )
                     except (ValueError, TypeError):
                         vk_message_ts = None
                 await start_payment_flow(

@@ -20,6 +20,7 @@ from bot.messages import format_payment_confirmation, format_reservation_seats
 from bot.utils import db
 from bot.utils.formatting import pluralize_seats
 from models.base import SeatStatus
+from timeutils import ensure_utc
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +191,9 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         payment_vk_message_ts = None
         if payment_vk_message_ts_raw:
             try:
-                payment_vk_message_ts = datetime.fromisoformat(payment_vk_message_ts_raw)
+                payment_vk_message_ts = ensure_utc(
+                    datetime.fromisoformat(payment_vk_message_ts_raw)
+                )
             except (ValueError, TypeError):
                 payment_vk_message_ts = None
 

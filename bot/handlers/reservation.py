@@ -27,6 +27,7 @@ from bot.utils import db
 from bot.utils.formatting import pluralize_seats
 from bot.utils.layout import get_seat_count
 from models.base import SeatStatus
+from timeutils import from_unix
 
 logger = logging.getLogger(__name__)
 
@@ -184,9 +185,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                     reservation_id = current_context.get("reservation_id")
                     vk_message_ts = None
                     if forwarded.date:
-                        from datetime import datetime as dt
-
-                        vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                        vk_message_ts = from_unix(forwarded.date)
                     await start_payment_flow(
                         message,
                         storage,
@@ -231,9 +230,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                         # Build vk_message_ts for pending receipt context
                         vk_message_ts_iso = None
                         if forwarded.date:
-                            from datetime import datetime as dt
-
-                            vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
+                            vk_message_ts_iso = from_unix(forwarded.date).isoformat()
 
                         await storage.set(
                             message.from_id,
@@ -307,9 +304,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
                 vk_message_ts = None
                 if forwarded.date:
-                    from datetime import datetime as dt
-
-                    vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                    vk_message_ts = from_unix(forwarded.date)
                 await start_payment_flow(
                     message,
                     storage,
@@ -339,9 +334,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             # Build vk_message_ts for pending receipt context (if receipt)
             vk_message_ts_iso = None
             if is_receipt and forwarded.date:
-                from datetime import datetime as dt
-
-                vk_message_ts_iso = dt.utcfromtimestamp(forwarded.date).isoformat()
+                vk_message_ts_iso = from_unix(forwarded.date).isoformat()
 
             # Save pending switch info
             await storage.set(
@@ -393,9 +386,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
                 vk_message_ts = None
                 if forwarded.date:
-                    from datetime import datetime as dt
-
-                    vk_message_ts = dt.utcfromtimestamp(forwarded.date)
+                    vk_message_ts = from_unix(forwarded.date)
                 await start_payment_flow(
                     message,
                     storage,

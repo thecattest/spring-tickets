@@ -25,6 +25,7 @@ from models.reservation import Reservation
 from models.seat_assignment import SeatAssignment
 from models.user import AppUser
 from models.vk_user import VkUser
+from timeutils import utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def get_or_create_vk_user(vk_id: int, display_name: str) -> VkUser:
                 # Update display name if changed
                 if vk_user.display_name != display_name:
                     vk_user.display_name = display_name
-                    vk_user.updated_at = datetime.utcnow()
+                    vk_user.updated_at = utcnow()
                     session.commit()
                     logger.info(f"Updated VK user {vk_id}: {display_name}")
                 return vk_user
@@ -313,7 +314,7 @@ def add_seats_to_reservation(
             # Update reservation last_activity_at
             stmt = select(Reservation).where(Reservation.id == reservation_id)
             reservation = session.execute(stmt).scalar_one()
-            reservation.last_activity_at = datetime.utcnow()
+            reservation.last_activity_at = utcnow()
             session.commit()
 
             # Audit log
@@ -537,7 +538,7 @@ def release_seats(reservation_id: int, row: int, seats: list[int], user_id: int)
                 )
 
             # Release all seats
-            now = datetime.utcnow()
+            now = utcnow()
             for assignment in assignments:
                 assignment.released_at = now
                 assignment.released_by_user_id = user_id
@@ -621,7 +622,7 @@ def cancel_reservation(reservation_id: int, user_id: int, is_admin: bool) -> boo
                 )
 
             # Release all seats
-            now = datetime.utcnow()
+            now = utcnow()
             for seat in seats:
                 seat.released_at = now
                 seat.released_by_user_id = user_id
@@ -738,7 +739,7 @@ def record_payment(
             # Update reservation last_activity_at
             reservation_stmt = select(Reservation).where(Reservation.id == reservation_id)
             reservation = session.execute(reservation_stmt).scalar_one()
-            reservation.last_activity_at = datetime.utcnow()
+            reservation.last_activity_at = utcnow()
 
             # Audit log
             audit = AuditLog(
@@ -989,7 +990,7 @@ def release_reserve(row: int, seats: list[int], user_id: int) -> list[dict]:
             previous_notes = [{"seat": a.seat_number, "note": a.note} for a in assignments]
 
             # Release all seats
-            now = datetime.utcnow()
+            now = utcnow()
             for assignment in assignments:
                 assignment.released_at = now
                 assignment.released_by_user_id = user_id
@@ -1073,7 +1074,7 @@ def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
             )
 
             if min_days > 0:
-                threshold = datetime.utcnow() - timedelta(days=min_days)
+                threshold = utcnow() - timedelta(days=min_days)
                 stmt = stmt.where(Reservation.last_activity_at <= threshold)
 
             if seller_id is not None:
@@ -1081,7 +1082,7 @@ def get_debtors(seller_id: int | None = None, min_days: int = 0) -> list[dict]:
 
             rows = session.execute(stmt).all()
 
-            now = datetime.utcnow()
+            now = utcnow()
             result = []
             for reservation, vk_user, booked_count in rows:
                 days_since = (now - reservation.last_activity_at).days
