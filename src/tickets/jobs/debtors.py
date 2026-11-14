@@ -15,11 +15,29 @@ import random
 from vkbottle import API
 
 from tickets.bot.messages import format_reminder
-from tickets.bot.utils.db import get_all_active_sellers, get_debtors, log_reminder_sent
 from tickets.config import app_settings, vk_settings
+from tickets.db import unit_of_work
 from tickets.jobs.runner import run_job
+from tickets.models.user import AppUser
+from tickets.services import reports, users
 
 logger = logging.getLogger("jobs.debtors")
+
+
+# Короткие транзакции; отправка в VK — между ними, не внутри (ROADMAP → Транзакции)
+def get_all_active_sellers() -> list[AppUser]:
+    with unit_of_work() as session:
+        return users.active_sellers(session)
+
+
+def get_debtors(seller_id: int, min_days: int) -> list[dict]:
+    with unit_of_work() as session:
+        return reports.debtors(session, seller_id=seller_id, min_days=min_days)
+
+
+def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
+    with unit_of_work() as session:
+        reports.log_reminder_sent(session, seller_id, debtor_count)
 
 
 async def send_reminders() -> None:

@@ -11,8 +11,11 @@ Usage:
 Схемой управляет Alembic (migrations/): `uv run alembic upgrade head`.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from tickets.config import PROJECT_ROOT, db_settings
 
@@ -36,6 +39,23 @@ SessionLocal = sessionmaker(
     autoflush=False,
     expire_on_commit=False,  # Don't expire objects after commit
 )
+
+
+@contextmanager
+def unit_of_work() -> Iterator[Session]:
+    """
+    Одна транзакция на операцию — граница, которая коммитит (ROADMAP → Транзакции).
+
+        with unit_of_work() as session:
+            reservations.create(session, ...)
+            seats.add_to_reservation(session, ...)
+        # здесь — COMMIT; исключение внутри блока — ROLLBACK
+
+    Сервисы (tickets.services) сессию получают аргументом и сами никогда не
+    коммитят. Побочные эффекты (сообщения VK, уведомления) — после блока.
+    """
+    with SessionLocal() as session, session.begin():
+        yield session
 
 
 def alembic_config():

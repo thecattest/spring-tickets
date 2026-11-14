@@ -62,12 +62,13 @@ src/tickets/
   time.py      aware UTC helpers                  db.py       engine, SessionLocal, migrations from code
   hall.py      hall geometry from layout.json     notify.py   notify_owner()
   models/      ORM models and enums               jobs/       backup, debtors, runner, crontab
+  services/    business logic (users, reservations, seats, payments, reports, audit)
   bot/         VK bot (handlers/, fsm/, utils/)   web/        FastAPI app, templates
 ```
 
 Two interfaces share the same database and models:
 
-- **Bot** (`tickets/bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `tickets/bot/handlers/` orchestrate conversations; business logic lives in `tickets/bot/utils/db.py`.
+- **Bot** (`tickets/bot/`) — VK bot using vkbottle with FSM (finite state machine) handlers. Redis stores FSM state. Handlers in `tickets/bot/handlers/` orchestrate conversations; they still call the transitional facade `tickets/bot/utils/db.py`.
 - **Web** (`tickets/web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`. `/health` (app + `SELECT 1`, 503 if the DB is down) is the Compose healthcheck; successful `/health` calls are filtered out of the uvicorn access log.
 - **Models** (`tickets/models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
 - **Database** (`tickets/db.py`) — Engine, `SessionLocal` factory, `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; connection settings come from `config.db_settings()`.
@@ -76,12 +77,18 @@ Two interfaces share the same database and models:
 ### Key data flow
 
 ```
-VK message → bot handler → tickets/bot/utils/db.py → SQLAlchemy models → PostgreSQL
+VK message → bot handler → tickets/bot/utils/db.py (facade, one unit_of_work per call) → tickets.services → SQLAlchemy models → PostgreSQL
                                                     ↓
 Web UI (read-only) ← FastAPI ← SQLAlchemy queries ←─┘
 ```
 
 All state changes are recorded in the `AuditLog` table.
+
+## Services and transactions
+
+- `tickets.services.*`: plain functions, `session` first; they **never** call `commit()`/`rollback()` (guard: `tests/test_guards.py`), use `session.flush()` for new ids. They know nothing about VK. Errors are `tickets.services.errors` (`ServiceError` and subclasses: `SeatOccupiedError`, `InsufficientSeatsError`, `ReservationNotActiveError`, `NotAllowedError`, `NotFoundError`).
+- The boundary owns the transaction: `with tickets.db.unit_of_work() as session:` — COMMIT on success, ROLLBACK on exception. Jobs already do it; bot handlers go through `tickets/bot/utils/db.py`, a temporary facade where each function is one unit of work and old exception names are kept (`DatabaseError` = `ServiceError`); handlers move to calling services directly in ROADMAP stage 7 step 5. No network calls inside a transaction; side effects (VK messages) after it.
+- Everything that changes a reservation first calls `reservations.lock_active()` (`SELECT … FOR UPDATE` + must be ACTIVE): concurrent changes of one reservation are serialized, a cancelled one can't be changed. Seats are taken by `seats.occupy()`: check, then insert in a SAVEPOINT; a race on the unique index becomes `SeatOccupiedError` with re-read conflicts. Audit (`services.audit.log`, `AuditAction`) is written in the same transaction as the change.
 
 ## Key Domain Concepts
 
