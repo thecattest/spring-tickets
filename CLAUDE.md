@@ -81,7 +81,7 @@ All state changes are recorded in the `AuditLog` table.
 ## Dependencies
 
 - `pyproject.toml` + `uv.lock` are the source of truth. Add a dependency: `uv add <pkg>` (dev tools: `uv add --dev <pkg>`); update one: `uv lock --upgrade-package <pkg>`.
-- `requirements.txt` is **generated** from `uv.lock` (no dev deps) for the current pip-based server deploy and Dockerfile. Never edit it by hand — the pre-commit hook regenerates it. It goes away when deploy and Dockerfile move to uv (ROADMAP stages 3 and 5).
+- `requirements.txt` is **generated** from `uv.lock` (no dev deps) only for the old pip-based server deploy (`deploy/deploy.sh`); the Dockerfile uses `uv sync --frozen --no-dev`. Never edit it by hand — the pre-commit hook regenerates it. It goes away with the old deploy (ROADMAP stage 5).
 
 ## Code Conventions
 
@@ -108,18 +108,21 @@ Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE
 
 `database.py` loads the project-root `.env` itself (`override=False`), so every entry point — bot, web, scripts, `python database.py` — sees the same `DATABASE_URL`. Variables already set in the environment win (Docker `--env-file`/`environment:`, `conftest.py` in tests). No fallback: without `DATABASE_URL` it raises. Log `database.DATABASE_URL_SAFE` (password hidden), never `DATABASE_URL`.
 
-### Local Postgres
+### Local run with Docker Compose
 
-Until Compose (ROADMAP stage 3), run a dev database by hand:
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`) and `web` (built from `Dockerfile`, uv-based). `web` reads `.env` but `DATABASE_URL` is overridden to the service name `postgres`. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host).
 
 ```bash
-docker run -d --name tickets-pg -e POSTGRES_USER=tickets -e POSTGRES_PASSWORD=tickets -e POSTGRES_DB=tickets -p 127.0.0.1:5432:5432 -v tickets-pg:/var/lib/postgresql postgres:18-alpine
-# DATABASE_URL=postgresql+psycopg://tickets:tickets@localhost:5432/tickets
-# Copy old SQLite data once (target must be empty):
-uv run python scripts/migrate_sqlite_to_postgres.py data/tickets.db
+docker compose up -d --build                         # start / rebuild
+docker compose run --rm web python database.py       # create tables (until Alembic, ROADMAP stage 2)
+# or copy the old SQLite data instead (creates the schema itself, target must be empty):
+docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_to_postgres.py data/tickets.db
+docker compose logs -f web
 ```
 
-`scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `scripts/backup_db.py` now runs `pg_dump` (needs a `pg_dump` of the server's major version or newer).
+Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. The bot, Redis, cron, secrets and Alembic are not in Compose yet (ROADMAP stages 2–4).
+
+`scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `scripts/backup_db.py` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer).
 
 ## Testing
 

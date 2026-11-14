@@ -45,11 +45,12 @@
 
 ## Этап 3. Docker / Compose
 
-- [ ] **Образ:** Python 3.12, `uv sync --frozen --no-dev` (вместо `pip install -r requirements.txt`), пользователь не root, пакет `tzdata`, клиент `pg_dump` из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер.
-- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`.
+- [x] **Образ:** Python 3.12, `uv sync --frozen --no-dev` (вместо `pip install -r requirements.txt`), пользователь не root, пакет `tzdata`.
+- [ ] **Клиент `pg_dump` в образе** из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер (для бэкапов, этап 4).
+- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`. Сейчас есть `postgres` и `web`.
 - [ ] **Порядок старта:** `db-backup` → `migrate` (`alembic upgrade head`, `restart: "no"`) → `web`, `bot`, `cron` через `condition: service_completed_successfully`.
 - [ ] **Healthcheck** у каждого сервиса, `depends_on` с условиями, `restart: unless-stopped` для постоянных сервисов.
-- [ ] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).
+- [x] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).
 - [ ] **Ротация логов Docker** (`max-size` / `max-file`).
 - [ ] **Redis:** пароль, `appendonly yes`, named volume. TTL для FSM не используем.
 - [ ] **Секреты** — Compose `secrets:` (→ Секреты и доступы).
