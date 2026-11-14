@@ -12,7 +12,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # pg_dump не работает с сервером новее себя, а в Debian только 17 —
 # поэтому из официального репозитория PostgreSQL (PGDG).
 #
-# supercronic — cron для контейнеров (сервис cron, jobs/crontab): работает без
+# supercronic — cron для контейнеров (сервис cron, src/tickets/jobs/crontab): работает без
 # root и демона, пишет вывод задач в stdout. Бинарник с GitHub, проверка SHA-256
 # для архитектуры сборки (TARGETARCH подставляет BuildKit: amd64 / arm64).
 #
@@ -46,11 +46,13 @@ RUN apt-get update \
 
 WORKDIR /code
 
+# Сначала только зависимости (без самого пакета tickets): слой кешируется и
+# не пересобирается, пока не меняются pyproject.toml / uv.lock
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    uv sync --frozen --no-dev --no-install-project
 
-# /backups — для jobs.backup; без смонтированного каталога тоже доступен app
+# /backups — для tickets.jobs.backup; без смонтированного каталога тоже доступен app
 RUN useradd --create-home app && install -d -o app -g app /backups
 
 # Код принадлежит app: docker compose watch (compose.dev.yaml) синхронизирует
@@ -58,7 +60,12 @@ RUN useradd --create-home app && install -d -o app -g app /backups
 # зависимости приложение изменить не может.
 COPY --chown=app:app . .
 
+# Сам пакет tickets — editable: в .venv ссылка на /code/tickets, а не копия,
+# поэтому код, синхронизированный watch, сразу и выполняется
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
 USER app
 
 EXPOSE 8000
-CMD ["uvicorn", "web.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "tickets.web.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -26,9 +26,6 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(PROJECT_ROOT))
-
 from sqlalchemy import (
     JSON,
     BigInteger,
@@ -42,11 +39,11 @@ from sqlalchemy import (
     text,
 )
 
-import models  # noqa: F401 — регистрирует все модели в Base.metadata
-from database import DATABASE_URL_SAFE, engine, upgrade_db
-from logging_config import setup_logging
-from models.base import Base
-from timeutils import ensure_utc
+import tickets.models  # noqa: F401 — регистрирует все модели в Base.metadata
+from tickets.db import DATABASE_URL_SAFE, engine, upgrade_db
+from tickets.logging import setup_logging
+from tickets.models.base import Base
+from tickets.time import ensure_utc
 
 logger = logging.getLogger("migrate_sqlite_to_postgres")
 

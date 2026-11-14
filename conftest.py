@@ -38,7 +38,7 @@ def _isolate_settings() -> None:
     Тесты не читают локальные .env и ./secrets/: значения только из окружения,
     которое задаёт этот файл (иначе, например, SEAT_PRICE из .env меняет суммы).
     """
-    import config as app_config
+    import tickets.config as app_config
 
     for section in app_config._Section.__subclasses__():
         section.model_config["env_file"] = None
@@ -80,7 +80,7 @@ def pytest_unconfigure(config):
 @pytest_asyncio.fixture
 async def redis_storage():
     """FSM-хранилище на временном Redis, пустое перед каждым тестом."""
-    from bot.fsm.storage import RedisStorage
+    from tickets.bot.fsm.storage import RedisStorage
 
     storage = RedisStorage(
         host=_redis.get_container_host_ip(), port=int(_redis.get_exposed_port(6379))
@@ -96,8 +96,8 @@ async def bot(redis_storage, monkeypatch):
     """Бот с подменённым VK (bot/tests/scenario.py); выход в сеть запрещён."""
     import aiohttp
 
-    from bot.tests.scenario import BotHarness
-    from bot.utils import attachments
+    from tests.scenario import BotHarness
+    from tickets.bot.utils import attachments
 
     def no_network(*args, **kwargs):
         raise AssertionError("Real HTTP request in test: aiohttp.ClientSession")
@@ -114,7 +114,7 @@ async def bot(redis_storage, monkeypatch):
 @pytest.fixture(scope="session")
 def migrated_db():
     """Схема временной базы — миграциями, один раз на сессию."""
-    import database
+    from tickets import db as database
 
     # Защита: если database импортировали раньше, engine смотрит не туда —
     # лучше упасть, чем мигрировать и чистить настоящую базу.
@@ -127,9 +127,9 @@ def migrated_db():
 @pytest.fixture(autouse=True)
 def clean_db(migrated_db):
     """Перед каждым тестом — пустые таблицы, счётчики id с 1."""
-    import database
-    import models  # noqa: F401 — регистрирует все модели в Base.metadata
-    from models.base import Base
+    import tickets.models  # noqa: F401 — регистрирует все модели в Base.metadata
+    from tickets import db as database
+    from tickets.models.base import Base
 
     tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
     with database.engine.begin() as conn:

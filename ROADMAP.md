@@ -92,7 +92,7 @@
 Делается вместе с этапом 6, по шагам — каждый своей веткой и вливанием в master: (1) тесты сценариев бота с подменённым VK (пункт этапа 8, подтянут сюда — страховка переписывания); (2) пакет `tickets/`; (3) сервисы + unit of work + исправления этапа 6; (4) async SQLAlchemy; (5) бот; (6) веб; (7) mypy и «проверить» из этапа 6.
 
 
-- [ ] **Пакет `tickets/`** с подпакетами и правилом зависимостей «только вниз» (→ Архитектура); `package = true` в `[tool.uv]` (перенесено с этапа 0 — до появления папки `tickets/` включить нельзя).
+- [x] **Пакет `tickets`** в `src/tickets/` (src-раскладка, `uv_build`), `package = true`, editable-установка (в образе тоже); импорты только `from tickets…`; тесты — в `tests/`. Правило зависимостей «только вниз» (→ Архитектура) — по мере переписывания (шаги 3–6).
 - [ ] **Сервисы** из `bot/utils/db.py`: `users`, `reservations`, `seats`, `payments`, `reports`, `audit`.
 - [ ] **Транзакции:** сервисы не коммитят; unit of work на границе; побочные эффекты после коммита; тест-страж.
 - [ ] **Async SQLAlchemy на psycopg 3 (async-режим)** — тот же драйвер, что у Alembic и скриптов, вместо asyncpg; вместе с переходом на сервисы: `AsyncSession`, явные `selectinload`, async-роуты, `pytest-asyncio`.
@@ -122,12 +122,12 @@
 
 ### Структура
 ```
-tickets/
+src/tickets/
   config.py     pydantic-settings
   logging.py    setup_logging()
   time.py       utcnow(), перевод в DISPLAY_TZ
   db.py         engine, фабрика сессий, unit_of_work()
-  hall.py       геометрия зала из layout.json (сейчас bot/utils/layout.py)
+  hall.py       геометрия зала из layout.json
   notify.py     notify_owner(): сообщения и файлы владельцу в VK
   models/       ORM-модели и enum'ы
   services/     users, reservations, seats, payments, reports, audit
@@ -163,7 +163,7 @@ config, logging, time  ← ни от чего не зависят
 - Транзакцию открывает и завершает граница: веб — FastAPI-dependency на запрос; бот — явный `async with unit_of_work() as session:` в хендлере (не middleware на весь хендлер); задачи — обёртка запуска. Успех → COMMIT, исключение → ROLLBACK.
 - Побочные эффекты (сообщения VK, `notify_owner`, файлы) — только после коммита.
 - Внутри транзакции нет сетевых вызовов: сначала данные из VK, потом короткая транзакция, потом ответ.
-- Тест-страж: падает при `.commit(` / `.rollback(` в `tickets/services/`.
+- Тест-страж: падает при `.commit(` / `.rollback(` в `src/tickets/services/`.
 
 ### Конфиг
 - `pydantic-settings`. Умолчания в коде — только несекретное и одинаковое везде (`LOG_LEVEL=INFO`, `DISPLAY_TZ=Europe/Moscow`, …). Секреты и всё, что зависит от окружения, — без умолчаний: приложение не стартует, если их нет.

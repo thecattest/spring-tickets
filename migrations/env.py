@@ -10,10 +10,10 @@ import logging
 
 from alembic import context
 
-import models  # noqa: F401 — регистрирует все модели в Base.metadata
-from database import DATABASE_URL, DATABASE_URL_SAFE, engine
-from logging_config import setup_logging
-from models.base import Base
+import tickets.models  # noqa: F401 — регистрирует все модели в Base.metadata
+from tickets.db import DATABASE_URL, DATABASE_URL_SAFE, engine
+from tickets.logging import setup_logging
+from tickets.models.base import Base
 
 logger = logging.getLogger("alembic.env")
 target_metadata = Base.metadata

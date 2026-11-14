@@ -18,7 +18,7 @@ services:
   web:
     # --reload: uvicorn сам перезапускается при изменении .py;
     # шаблоны Jinja перечитываются без перезапуска
-    command: uvicorn web.app:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn tickets.web.app:app --host 0.0.0.0 --port 8000 --reload
     develop:
       watch:
         - action: sync
@@ -44,7 +44,7 @@ services:
     # Не стартует при обычном up/watch: с боевым токеном из .env задачи
     # рассылали бы настоящие напоминания билетёрам и бэкапы владельцу.
     # Включить: docker compose --profile cron up -d cron
-    # Разово, без расписания: docker compose run --rm cron python -m jobs.backup
+    # Разово, без расписания: docker compose run --rm cron python -m tickets.jobs.backup
     profiles: [ cron ]
 
   postgres:

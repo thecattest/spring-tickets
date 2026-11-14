@@ -30,10 +30,14 @@ dev = [
     "testcontainers[postgres,redis]>=4.8",
 ]
 
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14"]
+build-backend = "uv_build"
+
 [tool.uv]
-# Пока проект — набор модулей в корне, не устанавливаемый пакет.
-# Пакет `tickets` появится на этапе 7 ROADMAP (тогда — package = true).
-package = false
+# Проект — устанавливаемый пакет tickets: uv sync ставит его в .venv
+# (editable), импорты `from tickets…` работают из любого каталога
+package = true
 
 [tool.ruff]
 target-version = "py312"
@@ -51,13 +55,11 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# sys.path.insert и load_dotenv до импортов — уйдёт с переходом на python -m (этап 4)
-"scripts/*" = ["E402"]
 # raise без from в старом слое БД — переписывается в сервисы на этапе 7
-"bot/utils/db.py" = ["B904"]
+"src/tickets/bot/utils/db.py" = ["B904"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bot", "web", "models", "scripts", "database", "logging_config", "timeutils", "migrations", "notify", "jobs", "config"]
+known-first-party = ["tickets", "migrations", "scripts", "tests"]
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"

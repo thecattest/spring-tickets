@@ -126,13 +126,13 @@ docker compose exec postgres psql -U tickets
 
 ## Бэкапы
 
-- **Регулярные:** сервис `cron`, каждый день в 04:00 по Москве (`jobs/crontab`). Дамп уходит владельцам (`OWNER_VK_IDS`) в VK; отключить — `BACKUP_SEND_TO_VK=false`.
+- **Регулярные:** сервис `cron`, каждый день в 04:00 по Москве (`src/tickets/jobs/crontab`). Дамп уходит владельцам (`OWNER_VK_IDS`) в VK; отключить — `BACKUP_SEND_TO_VK=false`.
 - **Перед миграциями:** сервис `db-backup` при `docker compose up`, только если есть ненакатанные миграции.
 - Файлы — `./backups/tickets-<regular|pre-migrate>-<UTC-время>.dump` (формат `pg_dump -Fc`), хранятся последние 14 каждого вида (`BACKUP_KEEP`).
 - Сделать бэкап вручную (без отправки в VK):
 
   ```bash
-  docker compose run --rm -e BACKUP_SEND_TO_VK=false cron python -m jobs.backup
+  docker compose run --rm -e BACKUP_SEND_TO_VK=false cron python -m tickets.jobs.backup
   ```
 
 Дамп содержит персональные данные покупателей — не передавать никому, кроме владельца.
@@ -150,7 +150,7 @@ docker compose exec postgres psql -U tickets
 2. На всякий случай сохранить текущее состояние:
 
    ```bash
-   docker compose run --rm -e BACKUP_SEND_TO_VK=false cron python -m jobs.backup
+   docker compose run --rm -e BACKUP_SEND_TO_VK=false cron python -m tickets.jobs.backup
    ```
 
 3. Восстановить. `--clean --if-exists` удаляет существующие объекты перед созданием, `--single-transaction` — либо всё, либо ничего:

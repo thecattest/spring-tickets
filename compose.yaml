@@ -30,7 +30,7 @@ services:
   # (иначе пропускает). Упал — migrate и всё, что после, не стартует.
   db-backup:
     <<: *app
-    command: python -m jobs.backup --reason pre-migrate
+    command: python -m tickets.jobs.backup --reason pre-migrate
     restart: "no"
     secrets: [ postgres_password, vk_bot_token ]   # токен — для уведомления о сбое
     # Дампы — на хосте в ./backups; в web и bot не монтируем (персональные данные)
@@ -51,7 +51,7 @@ services:
 
   web:
     <<: *app
-    command: uvicorn web.app:app --host 0.0.0.0 --port 8000
+    command: uvicorn tickets.web.app:app --host 0.0.0.0 --port 8000
     # vk_bot_token — для уведомления владельцу об ошибках 500
     secrets: [ postgres_password, payments_password, cookie_secret, vk_bot_token ]
     # Ключ из якоря заменяется целиком (<< сливает только верхний уровень),
@@ -72,7 +72,7 @@ services:
 
   bot:
     <<: *app
-    command: python -m bot
+    command: python -m tickets.bot
     secrets: [ postgres_password, redis_password, vk_bot_token ]
     depends_on:
       postgres:
@@ -96,12 +96,12 @@ services:
       retries: 3
       start_period: 60s
 
-  # Фоновые задачи по расписанию (jobs/crontab). supercronic — PID 1 сам:
+  # Фоновые задачи по расписанию (src/tickets/jobs/crontab). supercronic — PID 1 сам:
   # пересылает сигналы задачам и подбирает зомби, поэтому без init: true.
   # -passthrough-logs: вывод задач в лог как есть, без обёртки supercronic.
   cron:
     <<: *app
-    command: supercronic -passthrough-logs jobs/crontab
+    command: supercronic -passthrough-logs src/tickets/jobs/crontab
     secrets: [ postgres_password, vk_bot_token ]
     depends_on:
       postgres:

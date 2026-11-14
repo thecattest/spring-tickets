@@ -10,7 +10,7 @@ Two formats are tested:
 - Legacy format:  "<value>"           (plain enum value, for backward compat)
 """
 
-from bot.fsm.states import BotState
+from tickets.bot.fsm.states import BotState
 
 
 class TestBotStateRestorationFromModernFormat:
