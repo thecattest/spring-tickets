@@ -68,5 +68,6 @@ class SeatStatus(str, enum.Enum):
 class ActorType(str, enum.Enum):
     """Тип актора в аудит-логе."""
 
-    USER = "user"
-    SYSTEM = "system"
+    USER = "user"  # билетёр или админ в боте (actor_user_id — AppUser.id)
+    SYSTEM = "system"  # фоновые задачи
+    WEB_ADMIN = "web_admin"  # вход на /payments по паролю (учёток в вебе нет; IP — в payload)

@@ -27,7 +27,7 @@ uv run alembic upgrade head  # create / update the schema
 uv run python -m tickets.bot
 
 # Run web UI
-uv run uvicorn tickets.web.app:app --reload --port 8000   # or in Compose: docker compose watch
+uv run uvicorn tickets.web.main:app --reload --port 8000   # or in Compose: docker compose watch
 
 # Run tests (throwaway Postgres and Redis containers via testcontainers — needs Docker running)
 uv run pytest
@@ -70,7 +70,7 @@ src/tickets/
 Two interfaces share the same database and models:
 
 - **Bot** (`tickets/bot/`) — VK bot on vkbottle with an FSM in Redis; see «Bot structure».
-- **Web** (`tickets/web/app.py`) — FastAPI app with Jinja2 templates. Public hall map at `/`, password-protected payments dashboard at `/payments`, concert day booking list at `/concert-day`. `/health` (app + `SELECT 1`, 503 if the DB is down) is the Compose healthcheck; successful `/health` calls are filtered out of the uvicorn access log.
+- **Web** (`tickets/web/`) — FastAPI + Jinja2: public hall map at `/`, password-protected payments page at `/payments` and concert-day list at `/concert-day`; see «Web structure».
 - **Models** (`tickets/models/`) — SQLAlchemy ORM. `SeatAssignment` is the critical table: a partial unique index on `(row_number, seat_number) WHERE released_at IS NULL` prevents double-booking at the DB level.
 - **Database** (`tickets/db.py`) — `async_engine` / `AsyncSessionLocal` / `unit_of_work()` for the app; sync `engine` / `SessionLocal` only for Alembic, scripts, test checks and (until ROADMAP stage 7 step 6) the web; `upgrade_db()` / `alembic_config()` for running migrations from code. PostgreSQL only; connection settings come from `config.db_settings()`.
 - **Migrations** (`migrations/`) — Alembic; the schema is never created by the app (`create_all()` is not used).
@@ -129,6 +129,15 @@ All state changes are recorded in the `AuditLog` table.
 - `vk.py` — everything VK: `incoming(message)` (buyer from forward/reply/link, a profile link in the text wins; receipt = photo/doc), `full_name()`, `answer()` / `send()` with a unique `random_id` (never call `message.answer` directly).
 - `auth.py` — `current_user()`, `requires_registered()`, `requires_admin(denied=…)`, `owner_only`, `guard_state()`.
 - Unexpected errors: `bot.main.on_error` (logs, `notify_owner`, and a generic `ERR_UNEXPECTED` reply when it failed on a user's message). Business errors (`ServiceError` subclasses) are handled inside flows.
+
+## Web structure
+
+- `main.py` — `uvicorn tickets.web.main:app`: includes routers, handlers for `LoginRequired` (303 → `/payments/login`) and any exception (500 + log + `notify_owner`), filter that drops successful `/health` from the access log.
+- `deps.py` — `Session` = one `unit_of_work` per request with `Depends(..., scope="function")`, so COMMIT happens **before** the response (the default `scope="request"` would commit after it); `Admin` = login cookie check (signed with `COOKIE_SECRET`, HttpOnly, Secure unless `COOKIE_SECURE=false`, SameSite=Lax); `client_ip()` = `X-Real-IP` from nginx.
+- `routers/` — `public` (`/`, favicon), `health`, `concert_day`, `payments` (login, page, `POST /payments/verify-all`). Routes are thin: data from `services.reports` / `services.payments`, shaping for templates in the route.
+- `filters.py` — `templates` and Jinja filters (`local_dt`, `rub`, `seat_ranges`).
+- «Проверено» marks all unverified payments at once (no per-payment toggle); one audit entry `payments_verified` with actor `web_admin`, the ids and the client IP. Logins are not audited (rate-limited by nginx).
+- External scripts: exact version + SRI `integrity` (Chart.js `4.6.1` from jsDelivr).
 
 ## Bot entry point
 

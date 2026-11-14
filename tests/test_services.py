@@ -72,7 +72,8 @@ async def test_audit_written_with_the_change(seller_id):
     rid = await new_reservation(seller_id, 301, 5, [1, 2])
     added = AuditLog.action_type == audit.AuditAction.SEATS_ADDED.value
     assert await count(AuditLog, added) == 1
-    assert await count(AuditLog, AuditLog.entity_id == str(rid)) == 2  # создание + места
+    of_reservation = (AuditLog.entity_type == "reservation", AuditLog.entity_id == str(rid))
+    assert await count(AuditLog, *of_reservation) == 2  # создание + места
 
 
 # --- неактивная бронь -------------------------------------------------------

@@ -68,4 +68,4 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 USER app
 
 EXPOSE 8000
-CMD ["uvicorn", "tickets.web.app:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "tickets.web.main:app", "--host", "0.0.0.0", "--port", "8000"]

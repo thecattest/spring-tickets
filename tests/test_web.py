@@ -26,7 +26,7 @@ PASSWORD = "test"  # PAYMENTS_PASSWORD из conftest.py
 
 @pytest_asyncio.fixture
 async def client():
-    from tickets.web.app import app
+    from tickets.web.main import app
 
     # https: cookie входа Secure (COOKIE_SECURE по умолчанию true)
     transport = httpx.ASGITransport(app=app, raise_app_exceptions=False)
@@ -136,14 +136,14 @@ async def test_payments_page_stats(admin, data):
 
 
 async def test_verify_all_marks_payments_verified(admin, data):
-    r = await admin.post("/payments/checkpoint")
+    r = await admin.post("/payments/verify-all")
     assert r.status_code == 303 and r.headers["location"] == "/payments"
     with SessionLocal() as session:
         assert [p.is_verified for p in session.scalars(select(Payment))] == [True]
 
 
 async def test_verify_requires_login(client, data):
-    r = await client.post("/payments/checkpoint")
+    r = await client.post("/payments/verify-all")
     assert r.status_code == 303 and r.headers["location"] == "/payments/login"
     with SessionLocal() as session:
         assert [p.is_verified for p in session.scalars(select(Payment))] == [False]
@@ -153,7 +153,8 @@ async def test_verify_requires_login(client, data):
 
 
 async def test_unhandled_error_is_500_and_notifies(client, monkeypatch):
-    from tickets.web import app as web_app
+    from tickets.web import main as web_main
+    from tickets.web.routers import public
 
     sent = []
 
@@ -163,8 +164,35 @@ async def test_unhandled_error_is_500_and_notifies(client, monkeypatch):
     def broken_layout():
         raise RuntimeError("layout broken")
 
-    monkeypatch.setattr(web_app, "notify_owner", fake_notify)
-    monkeypatch.setattr(web_app, "get_layout", broken_layout)
+    monkeypatch.setattr(web_main, "notify_owner", fake_notify)
+    monkeypatch.setattr(public, "get_layout", broken_layout)
     r = await client.get("/")
     assert r.status_code == 500 and r.text == "Internal Server Error"
     assert sent == ["⚠️ Ошибка 500 в вебе: GET /: RuntimeError: layout broken"]
+
+
+async def test_verify_all_is_audited_with_ip(admin, data):
+    from tickets.models.audit import AuditLog
+    from tickets.models.base import ActorType
+
+    with SessionLocal() as session:
+        [payment_id] = session.scalars(select(Payment.id))
+    await admin.post("/payments/verify-all", headers={"X-Real-IP": "203.0.113.7"})
+    await admin.post("/payments/verify-all")  # нечего отмечать — второй записи нет
+
+    with SessionLocal() as session:
+        [entry] = session.scalars(
+            select(AuditLog).where(AuditLog.action_type == "payments_verified")
+        )
+    assert entry.actor_type == ActorType.WEB_ADMIN and entry.actor_user_id is None
+    assert entry.payload == {"payment_ids": [payment_id], "ip": "203.0.113.7"}
+
+
+async def test_per_payment_verify_is_gone(admin, data):
+    """По одной оплаты не отмечаются: только «Проверено» для всех."""
+    assert (await admin.post("/payments/1/verify")).status_code == 404
+    assert (await admin.post("/payments/checkpoint")).status_code == 404
+    page = (await admin.get("/payments")).text
+    assert 'type="checkbox"' not in page
+    assert 'action="/payments/verify-all"' in page
+    assert "chart.js@4.6.1" in page and 'integrity="sha384-' in page

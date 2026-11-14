@@ -78,7 +78,7 @@
     gap: 12px;
   }
   .header h1 { font-size: 1.5rem; }
-  .btn-checkpoint {
+  .btn-verify-all {
     padding: 10px 20px;
     border: none;
     border-radius: 5px;
@@ -89,8 +89,8 @@
     cursor: pointer;
     letter-spacing: 0.03em;
   }
-  .btn-checkpoint:hover { opacity: 0.9; }
-  .btn-checkpoint:disabled {
+  .btn-verify-all:hover { opacity: 0.9; }
+  .btn-verify-all:disabled {
     background: #555;
     cursor: not-allowed;
     opacity: 0.5;
@@ -135,14 +135,6 @@
     color: #777;
     font-size: 0.9rem;
     padding: 16px 0;
-  }
-
-  /* --- Checkbox --- */
-  .verify-cb {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    accent-color: #4CAF50;
   }
 
   /* --- Accordion --- */
@@ -267,8 +259,9 @@
   <main>
     <div class="header">
       <h1>Платежи</h1>
-      <form method="post" action="/payments/checkpoint" style="margin:0;">
-        <button type="submit" class="btn-checkpoint"
+      {# «Проверено» — все текущие непроверенные оплаты разом (по одной не отмечаются) #}
+      <form method="post" action="/payments/verify-all" style="margin:0;">
+        <button type="submit" class="btn-verify-all"
                 {% if not unverified_payments %}disabled{% endif %}
                 onclick="return confirm('Отметить все текущие платежи как проверенные?')">
           Проверено
@@ -281,7 +274,6 @@
       <table class="payments-table">
         <thead>
           <tr>
-            <th></th>
             <th>Покупатель</th>
             <th>Продавец</th>
             <th>Мест</th>
@@ -293,7 +285,6 @@
         <tbody>
           {% for p in unverified_payments %}
             <tr data-payment-id="{{ p.id }}">
-              <td><input type="checkbox" class="verify-cb" data-id="{{ p.id }}"></td>
               <td data-label="Покупатель"><a href="https://vk.com/im?sel={{ p.buyer_vk_id }}" target="_blank" rel="noopener">{{ p.buyer_name }}</a></td>
               <td data-label="Продавец">{{ p.seller_name }}</td>
               <td data-label="Мест">{{ p.seat_count }}</td>
@@ -317,7 +308,6 @@
           <table class="payments-table">
             <thead>
               <tr>
-                <th></th>
                 <th>Покупатель</th>
                 <th>Продавец</th>
                 <th>Мест</th>
@@ -329,7 +319,6 @@
             <tbody>
               {% for p in verified_payments %}
                 <tr data-payment-id="{{ p.id }}">
-                  <td><input type="checkbox" class="verify-cb" data-id="{{ p.id }}" checked></td>
                   <td data-label="Покупатель"><a href="https://vk.com/im?sel={{ p.buyer_vk_id }}" target="_blank" rel="noopener">{{ p.buyer_name }}</a></td>
                   <td data-label="Продавец">{{ p.seller_name }}</td>
                   <td data-label="Мест">{{ p.seat_count }}</td>
@@ -346,7 +335,10 @@
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+{# Точная версия и хеш (SRI): браузер не выполнит скрипт, если CDN отдаст другой файл #}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js"
+        integrity="sha384-Emf5ZVIUiarAdhkgtqK+5/Z5qIvM6QoVrS+qAVtfyZVuD5lIHrac0me485+Antp0"
+        crossorigin="anonymous"></script>
 <script>
   const chartDefaults = {
     responsive: true,
@@ -384,29 +376,6 @@
       }]
     },
     options: chartDefaults,
-  });
-
-  // Checkbox AJAX toggle
-  document.querySelectorAll('.verify-cb').forEach(cb => {
-    cb.addEventListener('change', async function() {
-      const id = this.dataset.id;
-      const checkbox = this;
-      checkbox.disabled = true;
-      try {
-        const resp = await fetch(`/payments/${id}/verify`, { method: 'POST' });
-        if (resp.ok) {
-          // Reload to move row between sections
-          location.reload();
-        } else {
-          // Revert on error
-          checkbox.checked = !checkbox.checked;
-          checkbox.disabled = false;
-        }
-      } catch {
-        checkbox.checked = !checkbox.checked;
-        checkbox.disabled = false;
-      }
-    });
   });
 </script>
 

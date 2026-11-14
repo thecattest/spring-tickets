@@ -75,3 +75,60 @@ async def log_reminder_sent(session: AsyncSession, seller_id: int, debtor_count:
         actor_type=ActorType.SYSTEM,
         payload={"seller_id": seller_id, "debtor_count": debtor_count},
     )
+
+
+# --- страницы веба ----------------------------------------------------------
+
+
+async def occupied_seats(session: AsyncSession) -> set[tuple[int, int]]:
+    """Занятые места зала (ряд, место) — для публичной схемы."""
+    rows = await session.execute(
+        select(SeatAssignment.row_number, SeatAssignment.seat_number).where(
+            SeatAssignment.released_at.is_(None)
+        )
+    )
+    return {(row, seat) for row, seat in rows}
+
+
+async def concert_day(session: AsyncSession) -> tuple[list[dict], list[dict]]:
+    """
+    Для «дня концерта»: места броней (с покупателем) и места резервов.
+
+    Брони: [{'reservation_id', 'buyer_name', 'buyer_profile_url', 'row', 'seat', 'status'}].
+    Резервы: [{'row', 'seat', 'note'}].
+    """
+    bookings = await session.execute(
+        select(
+            SeatAssignment.row_number,
+            SeatAssignment.seat_number,
+            SeatAssignment.status,
+            Reservation.id,
+            VkUser.display_name,
+            VkUser.profile_url,
+        )
+        .join(Reservation, SeatAssignment.reservation_id == Reservation.id)
+        .join(VkUser, Reservation.buyer_vk_user_id == VkUser.id)
+        .where(
+            SeatAssignment.released_at.is_(None),
+            SeatAssignment.status.in_([SeatStatus.BOOKED, SeatStatus.PAID]),
+        )
+    )
+    reserves = await session.execute(
+        select(SeatAssignment.row_number, SeatAssignment.seat_number, SeatAssignment.note).where(
+            SeatAssignment.released_at.is_(None), SeatAssignment.status == SeatStatus.RESERVED
+        )
+    )
+    return (
+        [
+            {
+                "reservation_id": rid,
+                "buyer_name": name,
+                "buyer_profile_url": url,
+                "row": row,
+                "seat": seat,
+                "status": status,
+            }
+            for row, seat, status, rid, name, url in bookings
+        ],
+        [{"row": row, "seat": seat, "note": note} for row, seat, note in reserves],
+    )

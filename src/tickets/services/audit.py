@@ -23,6 +23,9 @@ class AuditAction(str, enum.Enum):
     RESERVE_ADDED = "reserve_added"
     RESERVE_REMOVED = "reserve_removed"
     DEBTORS_NOTIFICATION_SENT = "debtors_notification_sent"
+    PAYMENTS_VERIFIED = "payments_verified"
+    APP_USER_SAVED = "app_user_saved"
+    APP_USER_DEACTIVATED = "app_user_deactivated"
 
 
 def log(

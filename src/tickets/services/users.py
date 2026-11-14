@@ -9,9 +9,10 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tickets.models.base import UserRole
+from tickets.models.base import ActorType, UserRole
 from tickets.models.user import AppUser
 from tickets.models.vk_user import VkUser
+from tickets.services import audit
 from tickets.services.errors import NotAllowedError
 from tickets.time import utcnow
 
@@ -95,25 +96,57 @@ async def active_sellers(session: AsyncSession) -> list[AppUser]:
 
 
 async def add_app_user(
-    session: AsyncSession, vk_user_id: int, display_name: str, role: UserRole
+    session: AsyncSession,
+    vk_user_id: int,
+    display_name: str,
+    role: UserRole,
+    *,
+    by_vk_id: int | None = None,
 ) -> AppUser:
-    """Создать пользователя системы или сменить роль и имя у существующего."""
+    """
+    Создать пользователя системы или сменить роль и имя у существующего.
+    by_vk_id — кто это сделал (владелец, команда бота) — для аудита.
+    """
     user = await get_active_app_user(session, vk_user_id)
+    previous_role = user.role.value if user else None
     if user:
         user.role = role
         user.display_name = display_name
-        logger.info("Updated AppUser %s role to %s", user.id, role.value)
-        return user
-    user = AppUser(vk_user_id=vk_user_id, role=role, display_name=display_name, is_active=True)
-    session.add(user)
-    await session.flush()
-    logger.info("Created AppUser %s with role %s", user.id, role.value)
+    else:
+        user = AppUser(vk_user_id=vk_user_id, role=role, display_name=display_name, is_active=True)
+        session.add(user)
+        await session.flush()
+    await _audit_user(
+        session,
+        audit.AuditAction.APP_USER_SAVED,
+        user,
+        by_vk_id,
+        {"role": role.value, "previous_role": previous_role},
+    )
+    logger.info("Saved AppUser %s with role %s", user.id, role.value)
     return user
 
 
-async def deactivate_app_user(session: AsyncSession, vk_user_id: int) -> None:
+async def _audit_user(session, action, user: AppUser, by_vk_id: int | None, extra: dict) -> None:
+    # Владелец — настройка, а не роль: в app_users его может и не быть
+    actor = await get_active_app_user(session, by_vk_id) if by_vk_id else None
+    audit.log(
+        session,
+        action,
+        entity_type="app_user",
+        entity_id=user.id,
+        actor_user_id=actor.id if actor else None,
+        actor_type=ActorType.USER if by_vk_id else ActorType.SYSTEM,
+        payload={"vk_user_id": user.vk_user_id, "by_vk_id": by_vk_id, **extra},
+    )
+
+
+async def deactivate_app_user(
+    session: AsyncSession, vk_user_id: int, *, by_vk_id: int | None = None
+) -> None:
     """Мягкое удаление: is_active = false (история действий сохраняется)."""
     user = await get_active_app_user(session, vk_user_id)
     if user:
         user.is_active = False
+        await _audit_user(session, audit.AuditAction.APP_USER_DEACTIVATED, user, by_vk_id, {})
         logger.info("Deactivated AppUser %s", user.id)

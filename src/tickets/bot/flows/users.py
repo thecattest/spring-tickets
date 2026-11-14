@@ -37,7 +37,7 @@ async def _add(message: Message, role: UserRole) -> None:
         async with unit_of_work() as session:
             existing = await users.get_active_app_user(session, target)
             role_changed = existing is not None and existing.role != role
-            await users.add_app_user(session, target, name, role)
+            await users.add_app_user(session, target, name, role, by_vk_id=message.from_id)
     except ServiceError as e:
         logger.error("Failed to add user %s as %s: %s", target, role.value, e)
         await vk.answer(message, texts.ERR_ADD_USER_FAILED)
@@ -74,7 +74,7 @@ async def on_remove(message: Message) -> None:
         async with unit_of_work() as session:
             existing = await users.get_active_app_user(session, target)
             if existing is not None:
-                await users.deactivate_app_user(session, target)
+                await users.deactivate_app_user(session, target, by_vk_id=message.from_id)
     except ServiceError as e:
         logger.error("Failed to remove user %s: %s", target, e)
         await vk.answer(message, texts.ERR_ADD_USER_FAILED)

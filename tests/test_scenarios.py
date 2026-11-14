@@ -15,6 +15,7 @@ from sqlalchemy import select
 from conftest import TEST_OWNER_VK_ID
 from tests.scenario import photo
 from tickets.db import SessionLocal, unit_of_work
+from tickets.models.audit import AuditLog
 from tickets.models.base import ReservationState, SeatStatus, UserRole
 from tickets.models.payment import Payment
 from tickets.models.reservation import Reservation
@@ -427,6 +428,19 @@ async def test_add_admin_and_remove_user(bot):
         assert user.is_active is False
     [r] = await bot.send(OWNER, "/removeuser", fwd_from=OWNER)
     assert r.text == "Нельзя удалить самого себя."
+
+    # Управление пользователями аудируется: кто (владелец) и что
+    with SessionLocal() as session:
+        actions = [
+            (e.action_type, e.payload["by_vk_id"], e.payload["vk_user_id"])
+            for e in session.scalars(
+                select(AuditLog).where(AuditLog.entity_type == "app_user").order_by(AuditLog.id)
+            )
+        ]
+    assert actions[-2:] == [
+        ("app_user_saved", OWNER, NEWBIE),
+        ("app_user_deactivated", OWNER, NEWBIE),
+    ]
 
 
 # --- актуальность брони (этап 6) ------------------------------------------
