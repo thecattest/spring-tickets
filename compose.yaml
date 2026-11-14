@@ -7,6 +7,13 @@ x-logging: &logging
     max-size: 10m
     max-file: "5"
 
+# Имя базы и пользователя — одно место для сервиса postgres (создаёт их при
+# первом запуске) и приложений (подключаются к ним). Умолчания в config.py —
+# только для запуска на хосте (uv run), Compose задаёт значения явно.
+x-postgres-env: &postgres-env
+  POSTGRES_USER: tickets
+  POSTGRES_DB: tickets
+
 x-app: &app                     # общий кусок настроек (YAML-якорь)
   build: .
   image: tickets
@@ -16,8 +23,9 @@ x-app: &app                     # общий кусок настроек (YAML-�
     - path: .env
       required: false
   environment:
-    POSTGRES_HOST: postgres           # остальное (пользователь, база) — умолчания config.py
-    REDIS_HOST: redis                 # имя сервиса = имя хоста во внутренней сети
+    <<: *postgres-env
+    POSTGRES_HOST: postgres           # имя сервиса = имя хоста во внутренней сети
+    REDIS_HOST: redis
     BACKUP_DIR: /backups              # jobs.backup; сам каталог смонтирован только в db-backup и cron
   depends_on:
     postgres:
@@ -62,9 +70,9 @@ services:
       migrate:
         condition: service_completed_successfully
     ports: [ "127.0.0.1:8000:8000" ]
-    # curl в образе нет — проверяем Python из образа; HTTP 503 → исключение → код 1
+    # Запрос к /health из контейнера (tickets/web/healthcheck.py; curl в образе нет)
     healthcheck:
-      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)" ]
+      test: [ "CMD", "python", "-m", "tickets.web.healthcheck" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -87,10 +95,9 @@ services:
     # tini также подбирает процессы-зомби.
     init: true
     # Портов нет: Long Poll — исходящие запросы к VK
-    # Healthcheck по отметке HeartbeatPolling: старше 2 минут (VK отвечает
-    # раз в ≤25 с) — polling не получает ответов. Нет файла — ещё не было ответа
+    # Свежесть отметки HeartbeatPolling: путь и порог — в tickets/bot/heartbeat.py
     healthcheck:
-      test: [ "CMD", "python", "-c", "import os, sys, time; sys.exit(time.time() - os.path.getmtime('/tmp/bot-heartbeat') > 120)" ]
+      test: [ "CMD", "python", "-m", "tickets.bot.heartbeat" ]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -115,16 +122,16 @@ services:
     image: postgres:18-alpine
     logging: *logging
     environment:
-      POSTGRES_USER: tickets
+      <<: *postgres-env
       # Официальный образ читает пароль из файла. Применяется только при
       # создании пустого volume: у существующей базы пароль меняют ALTER USER
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRES_DB: tickets
     secrets: [ postgres_password ]
     volumes:
       - pgdata:/var/lib/postgresql
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U tickets -d tickets" ]
+      # $$ — переменная окружения контейнера (из якоря), а не подстановка Compose
+      test: [ "CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\"" ]
       interval: 3s
       retries: 20
     restart: unless-stopped

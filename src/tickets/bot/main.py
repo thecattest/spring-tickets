@@ -8,12 +8,12 @@ await и try/finally. С vkbottle 4.9 run_polling() — обычная кору�
 import asyncio
 import logging
 import signal
-from pathlib import Path
 from typing import Any
 
 from vkbottle import API, BotPolling
 from vkbottle.bot import Bot
 
+from tickets.bot import heartbeat
 from tickets.bot.fsm.storage import RedisStorage
 from tickets.bot.router import Router
 from tickets.config import redis_settings, vk_settings
@@ -23,9 +23,6 @@ from tickets.logging import setup_logging
 from tickets.notify import notify_owner
 
 logger = logging.getLogger(__name__)
-
-# Отметка «polling жив» для healthcheck (compose.yaml): время изменения файла
-HEARTBEAT_FILE = Path("/tmp/bot-heartbeat")
 
 
 class HeartbeatPolling(BotPolling):
@@ -37,7 +34,7 @@ class HeartbeatPolling(BotPolling):
 
     async def get_event(self, server: dict[str, Any]) -> dict[str, Any]:
         event = await super().get_event(server)
-        HEARTBEAT_FILE.touch()
+        heartbeat.touch()
         return event
 
 

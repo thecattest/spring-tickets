@@ -180,10 +180,11 @@ class TestHeartbeat:
     async def test_touched_after_vk_response(self, monkeypatch, tmp_path):
         from vkbottle import API, BotPolling
 
+        from tickets.bot import heartbeat as heartbeat_module
         from tickets.bot import main
 
         heartbeat = tmp_path / "hb"
-        monkeypatch.setattr(main, "HEARTBEAT_FILE", heartbeat)
+        monkeypatch.setattr(heartbeat_module, "HEARTBEAT_FILE", heartbeat)
 
         async def fake_get_event(self, server):
             return {"ts": "1", "updates": []}
@@ -198,10 +199,11 @@ class TestHeartbeat:
     async def test_not_touched_on_network_error(self, monkeypatch, tmp_path):
         from vkbottle import API, BotPolling
 
+        from tickets.bot import heartbeat as heartbeat_module
         from tickets.bot import main
 
         heartbeat = tmp_path / "hb"
-        monkeypatch.setattr(main, "HEARTBEAT_FILE", heartbeat)
+        monkeypatch.setattr(heartbeat_module, "HEARTBEAT_FILE", heartbeat)
 
         async def broken_get_event(self, server):
             raise TimeoutError
@@ -210,3 +212,23 @@ class TestHeartbeat:
         with pytest.raises(TimeoutError):
             await main.HeartbeatPolling(API("vk1.a.fake")).get_event({"server": "x"})
         assert not heartbeat.exists()
+
+
+class TestHeartbeatCheck:
+    """python -m tickets.bot.heartbeat — healthcheck бота."""
+
+    def test_missing_fresh_and_stale(self, monkeypatch, tmp_path):
+        import os
+        import time
+
+        from tickets.bot import heartbeat
+
+        monkeypatch.setattr(heartbeat, "HEARTBEAT_FILE", tmp_path / "hb")
+        assert not heartbeat.is_fresh()  # ещё не было ответа VK
+
+        heartbeat.touch()
+        assert heartbeat.is_fresh()
+
+        old = time.time() - heartbeat.MAX_AGE_SECONDS - 1
+        os.utime(heartbeat.HEARTBEAT_FILE, (old, old))
+        assert not heartbeat.is_fresh()

@@ -30,6 +30,7 @@ from tickets.models.seat_assignment import SeatAssignment
 from tickets.models.user import AppUser
 from tickets.models.vk_user import VkUser
 from tickets.notify import notify_owner
+from tickets.web.healthcheck import HEALTH_PATH
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ async def on_error(request: Request, error: Exception):
     return PlainTextResponse("Internal Server Error", status_code=500)
 
 
-@app.get("/health")
+@app.get(HEALTH_PATH)
 def health():
     """
     Для healthcheck Docker (позже — и для мониторинга): приложение отвечает
