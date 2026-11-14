@@ -64,13 +64,29 @@ bash deploy/deploy.sh
    chmod 600 .env
    ```
 
-6. **nginx** — сайт из `deploy/tickets-nginx.conf` (прокси на `127.0.0.1:8000`, ограничение попыток входа на `/payments/login`), HTTPS — `bash deploy/setup-ssl.sh`. Если конфиг на сервере уже правил certbot, перенести изменения руками, затем:
+6. **nginx** — на хосте, не в Compose. Сайт из `deploy/tickets-nginx.conf`: HTTP на 80, прокси на `127.0.0.1:8000` (`web`), не больше 5 попыток входа в минуту на `/payments/login`.
 
    ```bash
+   sudo apt install -y nginx
+   sudo cp deploy/tickets-nginx.conf /etc/nginx/sites-available/tickets
+   sudo ln -sf /etc/nginx/sites-available/tickets /etc/nginx/sites-enabled/tickets
+   sudo rm -f /etc/nginx/sites-enabled/default
    sudo nginx -t && sudo systemctl reload nginx
    ```
 
-7. **Первый запуск** — с локальной машины `bash deploy/deploy.sh`. Пустая база получит схему от `migrate`.
+7. **HTTPS (Let's Encrypt, certbot)** — после того как A-запись домена указывает на сервер и сайт открывается по HTTP (Let's Encrypt проверяет домен запросом на порт 80):
+
+   ```bash
+   bash deploy/setup-ssl.sh
+   ```
+
+   Скрипт ставит `certbot` и `python3-certbot-nginx`, проверяет, что домен резолвится (утилита `host`), выпускает сертификат через `certbot --nginx` и проверяет автопродление (`certbot renew --dry-run`). Домен задан в начале скрипта (`DOMAIN`, в punycode).
+
+   - `certbot --nginx` **сам дописывает** серверную копию конфига `/etc/nginx/sites-available/tickets`: `listen 443 ssl`, пути к сертификату, редирект с HTTP на HTTPS. Поэтому после этого шага файл из репозитория поверх серверного **не копировать** — изменения из `deploy/tickets-nginx.conf` переносить в серверный файл руками и проверять `sudo nginx -t && sudo systemctl reload nginx`.
+   - Продление — автоматически: пакет certbot ставит systemd-таймер (`systemctl list-timers | grep certbot`), сертификаты на 90 дней продлеваются заранее, nginx перезагружается сам. Проверить вручную — `sudo certbot renew --dry-run`, посмотреть сертификаты — `sudo certbot certificates`.
+   - `COOKIE_SECURE` по умолчанию `true`: cookie страницы оплат передаётся только по HTTPS, так что вход в `/payments` работает только после этого шага.
+
+8. **Первый запуск** — с локальной машины `bash deploy/deploy.sh`. Пустая база получит схему от `migrate`.
 
 ### Переезд со старого деплоя (один раз)
 
@@ -87,7 +103,7 @@ bash deploy/deploy.sh
    Строки, которые `deploy/aliases.sh` добавлял в `~/.bashrc`, удалить вручную.
 
 2. Скопировать `data/tickets.db` в надёжное место (это исходные данные для переноса).
-3. `git pull` и шаги 1, 3–6 первичной настройки.
+3. `git pull` и шаги 1, 3–5 первичной настройки. nginx и сертификат на сервере уже есть — не переустанавливать, а в серверном `/etc/nginx/sites-available/tickets` (его правил certbot) руками: `proxy_pass` на `http://127.0.0.1:8000` вместо 8080 и блок `limit_req` для `/payments/login` из `deploy/tickets-nginx.conf`; затем `sudo nginx -t && sudo systemctl reload nginx`.
 4. Перенести данные из SQLite в пустой Postgres (скрипт сам создаёт схему и сверяет количество строк):
 
    ```bash
