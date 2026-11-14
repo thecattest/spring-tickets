@@ -4,7 +4,7 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.config import app_settings
 from tickets.models.base import SeatStatus
@@ -17,8 +17,8 @@ from tickets.time import utcnow
 logger = logging.getLogger(__name__)
 
 
-def record(
-    session: Session,
+async def record(
+    session: AsyncSession,
     reservation_id: int,
     seat_count: int,
     user_id: int,
@@ -34,9 +34,11 @@ def record(
     оплата той же брони ждёт первую и видит уже оплаченные места — две оплаты
     не выберут одни и те же места.
     """
-    reservation = reservations.lock_active(session, reservation_id)
+    reservation = await reservations.lock_active(session, reservation_id)
     booked = [
-        s for s in seats.of_reservation(session, reservation_id) if s.status == SeatStatus.BOOKED
+        s
+        for s in await seats.of_reservation(session, reservation_id)
+        if s.status == SeatStatus.BOOKED
     ]
     if len(booked) < seat_count:
         raise InsufficientSeatsError(seat_count, len(booked))
@@ -53,7 +55,7 @@ def record(
         receipt_attachments=receipt_attachments,
     )
     session.add(payment)
-    session.flush()  # нужен payment.id для PaymentSeat и аудита
+    await session.flush()  # нужен payment.id для PaymentSeat и аудита
     for seat in selected:
         seat.status = SeatStatus.PAID
         session.add(PaymentSeat(payment_id=payment.id, seat_assignment_id=seat.id))

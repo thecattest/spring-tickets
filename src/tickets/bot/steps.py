@@ -52,7 +52,7 @@ def handle_row_input(text: str) -> RowResult:
     return RowResult(ok=True, row=row)
 
 
-def handle_seat_input(
+async def handle_seat_input(
     text: str,
     row: int,
     mode: Literal["layout_only", "availability", "membership"],
@@ -91,7 +91,7 @@ def handle_seat_input(
 
         occupied_seats = []
         for seat in seats:
-            assignment = db.get_seat_assignment(row, seat)
+            assignment = await db.get_seat_assignment(row, seat)
             if assignment:
                 occupied_seats.append(seat)
         if occupied_seats:
@@ -106,7 +106,7 @@ def handle_seat_input(
         from tickets.bot.utils import db
         from tickets.models.base import SeatStatus
 
-        all_reservation_seats = db.get_reservation_seats(reservation_id)
+        all_reservation_seats = await db.get_reservation_seats(reservation_id)
         seat_map = {(s.row_number, s.seat_number): s for s in all_reservation_seats}
 
         not_in_reservation = [s for s in seats if (row, s) not in seat_map]

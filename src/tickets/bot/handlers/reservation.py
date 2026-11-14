@@ -92,7 +92,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             return
 
         # Permission check
-        role = db.get_user_role(message.from_id)
+        role = await db.get_user_role(message.from_id)
         if role is None:
             await message.answer(texts.ERR_NOT_REGISTERED)
             return
@@ -118,7 +118,7 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
     else:
         # Permission check: only sellers and admins can use forwarded messages
-        role = db.get_user_role(message.from_id)
+        role = await db.get_user_role(message.from_id)
         if role is None:
             await message.answer(texts.ERR_NOT_REGISTERED)
             return
@@ -215,8 +215,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 if is_receipt:
                     # Receipt from different client -> offer context switch with pending_is_receipt flag
                     try:
-                        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
-                        existing_reservation = db.get_active_reservation(vk_user.id)
+                        vk_user = await db.get_or_create_vk_user(buyer_vk_id, display_name)
+                        existing_reservation = await db.get_active_reservation(vk_user.id)
 
                         current_buyer_name = current_context.get(
                             "buyer_display_name", "текущего клиента"
@@ -255,8 +255,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
                 else:
                     # Plain text forward from different client in MAIN_MENU -> context switch (no receipt)
                     try:
-                        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
-                        existing_reservation = db.get_active_reservation(vk_user.id)
+                        vk_user = await db.get_or_create_vk_user(buyer_vk_id, display_name)
+                        existing_reservation = await db.get_active_reservation(vk_user.id)
 
                         current_buyer_name = current_context.get(
                             "buyer_display_name", "текущего клиента"
@@ -329,8 +329,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
 
         # Get or create VK user to check for existing reservation
         try:
-            vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
-            existing_reservation = db.get_active_reservation(vk_user.id)
+            vk_user = await db.get_or_create_vk_user(buyer_vk_id, display_name)
+            existing_reservation = await db.get_active_reservation(vk_user.id)
 
             # Build vk_message_ts for pending receipt context (if receipt)
             vk_message_ts_iso = None
@@ -366,10 +366,10 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
     # Seller is IDLE - proceed with create or show existing
     try:
         # Get or create VK user
-        vk_user = db.get_or_create_vk_user(buyer_vk_id, display_name)
+        vk_user = await db.get_or_create_vk_user(buyer_vk_id, display_name)
 
         # Check if user already has active reservation
-        existing = db.get_active_reservation(vk_user.id)
+        existing = await db.get_active_reservation(vk_user.id)
 
         if existing:
             if is_receipt:
@@ -411,8 +411,8 @@ async def forwarded_message_handler(message: Message, storage: RedisStorage):
             return
 
         # Scenario 1: Create new reservation (always, regardless of receipt for IDLE + no reservation)
-        seller_id = db.get_seller_id(message.from_id)
-        reservation = db.create_reservation(vk_user.id, seller_id)
+        seller_id = await db.get_seller_id(message.from_id)
+        reservation = await db.create_reservation(vk_user.id, seller_id)
 
         # Transition to AWAITING_ROW with context
         await message.ctx_api.messages.send(
@@ -454,7 +454,7 @@ async def awaiting_row_handler(message: Message, storage: RedisStorage):
     row = result.row
 
     # Early row validation: check if row has free seats
-    available = db.get_available_seats_in_row(row)
+    available = await db.get_available_seats_in_row(row)
     if not available:
         await message.answer(texts.ERR_ROW_NO_AVAILABLE_SEATS.format(row=row))
         return
@@ -512,7 +512,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
         await storage.delete(message.from_id)
         return
 
-    result = handle_seat_input(message.text, row=row, mode="availability")
+    result = await handle_seat_input(message.text, row=row, mode="availability")
     if not result.ok:
         await message.answer(result.error_text)
         return
@@ -520,11 +520,11 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
 
     # All seats available - add them
     try:
-        seller_id = db.get_seller_id(message.from_id)
-        db.add_seats_to_reservation(reservation_id, row, seats, seller_id)
+        seller_id = await db.get_seller_id(message.from_id)
+        await db.add_seats_to_reservation(reservation_id, row, seats, seller_id)
 
         # Get total seat count for reservation
-        all_seats = db.get_reservation_seats(reservation_id)
+        all_seats = await db.get_reservation_seats(reservation_id)
         total_count = len(all_seats)
 
         # Success message
@@ -555,7 +555,7 @@ async def awaiting_seats_handler(message: Message, storage: RedisStorage):
             else:
                 status_text = "Бронь" if c["status"] == SeatStatus.BOOKED else "Оплачено"
                 try:
-                    res_seats = db.get_reservation_seats(c["reservation_id"])
+                    res_seats = await db.get_reservation_seats(c["reservation_id"])
                     detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
@@ -602,7 +602,7 @@ async def seat_addition_menu_handler(message: Message, storage: RedisStorage):
 
         # Always send updated client script
         try:
-            seats = db.get_reservation_seats(reservation_id)
+            seats = await db.get_reservation_seats(reservation_id)
             if seats:
                 script = generate_reservation_script(
                     buyer_display_name=buyer_display_name,

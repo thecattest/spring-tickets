@@ -10,7 +10,7 @@
 import logging
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.models.base import ReservationState, SeatStatus
 from tickets.models.reservation import Reservation
@@ -22,21 +22,21 @@ from tickets.time import utcnow
 logger = logging.getLogger(__name__)
 
 
-def get_active(session: Session, buyer_vk_user_id: int) -> Reservation | None:
+async def get_active(session: AsyncSession, buyer_vk_user_id: int) -> Reservation | None:
     """Активная бронь покупателя (buyer_vk_user_id — VkUser.id, не VK ID)."""
     stmt = select(Reservation).where(
         Reservation.buyer_vk_user_id == buyer_vk_user_id,
         Reservation.state == ReservationState.ACTIVE,
     )
-    return session.scalar(stmt)
+    return await session.scalar(stmt)
 
 
-def lock_active(session: Session, reservation_id: int) -> Reservation:
+async def lock_active(session: AsyncSession, reservation_id: int) -> Reservation:
     """
     Бронь под блокировкой строки до конца транзакции; не активна (или нет) —
     ReservationNotActiveError.
     """
-    reservation = session.scalar(
+    reservation = await session.scalar(
         select(Reservation).where(Reservation.id == reservation_id).with_for_update()
     )
     if reservation is None or reservation.state != ReservationState.ACTIVE:
@@ -44,14 +44,14 @@ def lock_active(session: Session, reservation_id: int) -> Reservation:
     return reservation
 
 
-def create(session: Session, buyer_vk_user_id: int, sold_by_user_id: int) -> Reservation:
+async def create(session: AsyncSession, buyer_vk_user_id: int, sold_by_user_id: int) -> Reservation:
     reservation = Reservation(
         buyer_vk_user_id=buyer_vk_user_id,
         sold_by_user_id=sold_by_user_id,
         state=ReservationState.ACTIVE,
     )
     session.add(reservation)
-    session.flush()  # нужен id для аудита
+    await session.flush()  # нужен id для аудита
     audit.log(
         session,
         audit.AuditAction.RESERVATION_CREATED,
@@ -64,12 +64,12 @@ def create(session: Session, buyer_vk_user_id: int, sold_by_user_id: int) -> Res
     return reservation
 
 
-def add_seats(
-    session: Session, reservation_id: int, row: int, seat_list: list[int], user_id: int
+async def add_seats(
+    session: AsyncSession, reservation_id: int, row: int, seat_list: list[int], user_id: int
 ) -> list[SeatAssignment]:
     """Добавить места в активную бронь: все или ни одного (SeatOccupiedError)."""
-    reservation = lock_active(session, reservation_id)
-    assignments = seats.occupy(
+    reservation = await lock_active(session, reservation_id)
+    assignments = await seats.occupy(
         session,
         row,
         seat_list,
@@ -90,12 +90,12 @@ def add_seats(
     return assignments
 
 
-def remove_seats(
-    session: Session, reservation_id: int, row: int, seat_list: list[int], user_id: int
+async def remove_seats(
+    session: AsyncSession, reservation_id: int, row: int, seat_list: list[int], user_id: int
 ) -> int:
     """Убрать неоплаченные места из активной брони; возвращает их число."""
-    reservation = lock_active(session, reservation_id)
-    assignments = seats.booked_of_reservation(session, reservation_id, row, seat_list)
+    reservation = await lock_active(session, reservation_id)
+    assignments = await seats.booked_of_reservation(session, reservation_id, row, seat_list)
     seats.release(session, assignments, user_id)
     reservation.last_activity_at = utcnow()
     audit.log(
@@ -110,10 +110,10 @@ def remove_seats(
     return len(assignments)
 
 
-def cancel(session: Session, reservation_id: int, user_id: int, is_admin: bool) -> None:
+async def cancel(session: AsyncSession, reservation_id: int, user_id: int, is_admin: bool) -> None:
     """Отменить бронь и освободить места; с оплаченными местами — только админ."""
-    reservation = lock_active(session, reservation_id)
-    active = seats.of_reservation(session, reservation_id)
+    reservation = await lock_active(session, reservation_id)
+    active = await seats.of_reservation(session, reservation_id)
     paid = [s for s in active if s.status == SeatStatus.PAID]
     if paid and not is_admin:
         raise NotAllowedError(

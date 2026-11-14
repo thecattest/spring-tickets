@@ -109,7 +109,7 @@ class Router:
             return wrapped
 
         async def guarded(message: Message):
-            role = get_user_role(message.from_id)
+            role = await get_user_role(message.from_id)
             if role is None:
                 await message.answer("У вас нет доступа к этой функции.")
                 await storage.delete(message.from_id)

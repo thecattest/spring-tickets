@@ -40,7 +40,7 @@ async def _show_debtors(message: Message):
     Args:
         message: VK message object
     """
-    app_user = db.get_app_user_by_vk_id(message.from_id)
+    app_user = await db.get_app_user_by_vk_id(message.from_id)
 
     if not app_user:
         await message.answer(texts.ERR_NOT_REGISTERED)
@@ -50,7 +50,7 @@ async def _show_debtors(message: Message):
     seller_id = None if app_user.role == UserRole.ADMIN else app_user.id
 
     try:
-        debtors = db.get_debtors(seller_id=seller_id)
+        debtors = await db.get_debtors(seller_id=seller_id)
     except db.DatabaseError as e:
         logger.error(f"Error fetching debtors for user {message.from_id}: {e}")
         await message.answer(texts.ERR_DB_GET_DEBTORS)

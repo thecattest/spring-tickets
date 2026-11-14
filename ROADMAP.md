@@ -95,7 +95,7 @@
 - [x] **Пакет `tickets`** в `src/tickets/` (src-раскладка, `uv_build`), `package = true`, editable-установка (в образе тоже); импорты только `from tickets…`; тесты — в `tests/`. Правило зависимостей «только вниз» (→ Архитектура) — по мере переписывания (шаги 3–6).
 - [x] **Сервисы** из `bot/utils/db.py`: `users`, `reservations`, `seats`, `payments`, `reports`, `audit`.
 - [ ] **Транзакции:** сервисы не коммитят, тест-страж, `unit_of_work()`, задачи — готово; бот пока через фасад `bot/utils/db.py` (одна транзакция на вызов) — хендлеры на unit of work в шаге 5, веб — в шаге 6.
-- [ ] **Async SQLAlchemy на psycopg 3 (async-режим)** — тот же драйвер, что у Alembic и скриптов, вместо asyncpg; вместе с переходом на сервисы: `AsyncSession`, явные `selectinload`, async-роуты, `pytest-asyncio`.
+- [x] **Async SQLAlchemy на psycopg 3 (async-режим)** — сервисы, фасад бота, задачи, тесты (один loop на сессию pytest); связей `relationship` в моделях нет, `selectinload` не понадобился; веб — в шаге 6 (async-роуты), — тот же драйвер, что у Alembic и скриптов, вместо asyncpg; вместе с переходом на сервисы: `AsyncSession`, явные `selectinload`, async-роуты, `pytest-asyncio`.
 - [ ] **Бот:** тонкие `handlers/`, сценарии в `flows/`, VK-специфика в `vk.py`, права — декораторы в `auth.py`. Отправка сообщений — через `vk.py` с уникальным `random_id` (сейчас `message.answer()` шлёт `random_id=0`, и VK не отбрасывает дубли при ретраях).
 - [ ] **FSM:** pydantic-контекст, `BotState` вместо строк, проверка актуальности брони, без TTL, совместимость форматов (→ Миграции и совместимость).
 - [ ] **Веб:** `main` / `deps` / `routers` / `filters`, тонкие роуты, `require_admin` как dependency, Jinja, Chart.js с фиксированной версией (сейчас плавающая `@4` с CDN).

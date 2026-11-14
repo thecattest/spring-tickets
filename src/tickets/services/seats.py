@@ -11,7 +11,7 @@ import logging
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.hall import get_seat_count
 from tickets.models.base import SeatStatus
@@ -30,26 +30,26 @@ def _active():
 # --- занятость зала ---------------------------------------------------------
 
 
-def get_assignment(session: Session, row: int, seat: int) -> SeatAssignment | None:
+async def get_assignment(session: AsyncSession, row: int, seat: int) -> SeatAssignment | None:
     """Кто сейчас занимает место (бронь или резерв), None — свободно."""
     stmt = _active().where(SeatAssignment.row_number == row, SeatAssignment.seat_number == seat)
-    return session.scalars(stmt).first()
+    return (await session.scalars(stmt)).first()
 
 
-def is_available(session: Session, row: int, seat: int) -> bool:
-    return get_assignment(session, row, seat) is None
+async def is_available(session: AsyncSession, row: int, seat: int) -> bool:
+    return await get_assignment(session, row, seat) is None
 
 
-def available_in_row(session: Session, row: int) -> list[int]:
+async def available_in_row(session: AsyncSession, row: int) -> list[int]:
     """Свободные места ряда по порядку."""
     stmt = select(SeatAssignment.seat_number).where(
         SeatAssignment.row_number == row, SeatAssignment.released_at.is_(None)
     )
-    occupied = set(session.scalars(stmt))
+    occupied = set(await session.scalars(stmt))
     return [s for s in range(1, get_seat_count(row) + 1) if s not in occupied]
 
 
-def find_conflicts(session: Session, row: int, seats: list[int]) -> list[dict]:
+async def find_conflicts(session: AsyncSession, row: int, seats: list[int]) -> list[dict]:
     """Какие из мест уже заняты — в формате SeatOccupiedError.conflicts."""
     stmt = (
         _active()
@@ -64,12 +64,12 @@ def find_conflicts(session: Session, row: int, seats: list[int]) -> list[dict]:
             "note": a.note,
             "reservation_id": a.reservation_id,
         }
-        for a in session.scalars(stmt)
+        for a in await session.scalars(stmt)
     ]
 
 
-def occupy(
-    session: Session,
+async def occupy(
+    session: AsyncSession,
     row: int,
     seats: list[int],
     *,
@@ -86,7 +86,7 @@ def occupy(
     уникальный индекс: откатываем только SAVEPOINT, перечитываем занятые места
     и поднимаем SeatOccupiedError, а не общую ошибку базы.
     """
-    conflicts = find_conflicts(session, row, seats)
+    conflicts = await find_conflicts(session, row, seats)
     if conflicts:
         raise SeatOccupiedError(conflicts)
 
@@ -102,15 +102,15 @@ def occupy(
         for seat in seats
     ]
     try:
-        with session.begin_nested():
+        async with session.begin_nested():
             session.add_all(assignments)
-            session.flush()
+            await session.flush()
     except IntegrityError:
-        raise SeatOccupiedError(find_conflicts(session, row, seats)) from None
+        raise SeatOccupiedError(await find_conflicts(session, row, seats)) from None
     return assignments
 
 
-def release(session: Session, assignments: list[SeatAssignment], user_id: int) -> None:
+def release(session: AsyncSession, assignments: list[SeatAssignment], user_id: int) -> None:
     """Освободить места (мягко: released_at, история сохраняется)."""
     now = utcnow()
     for assignment in assignments:
@@ -121,28 +121,28 @@ def release(session: Session, assignments: list[SeatAssignment], user_id: int) -
 # --- места брони ------------------------------------------------------------
 
 
-def of_reservation(session: Session, reservation_id: int) -> list[SeatAssignment]:
+async def of_reservation(session: AsyncSession, reservation_id: int) -> list[SeatAssignment]:
     """Активные места брони по порядку (ряд, место)."""
     stmt = (
         _active()
         .where(SeatAssignment.reservation_id == reservation_id)
         .order_by(SeatAssignment.row_number, SeatAssignment.seat_number)
     )
-    return list(session.scalars(stmt))
+    return list(await session.scalars(stmt))
 
 
-def of_reservation_in_row(session: Session, reservation_id: int, row: int) -> list[int]:
+async def of_reservation_in_row(session: AsyncSession, reservation_id: int, row: int) -> list[int]:
     """Номера мест брони в ряду (любой статус)."""
     stmt = select(SeatAssignment.seat_number).where(
         SeatAssignment.reservation_id == reservation_id,
         SeatAssignment.row_number == row,
         SeatAssignment.released_at.is_(None),
     )
-    return list(session.scalars(stmt))
+    return list(await session.scalars(stmt))
 
 
-def booked_of_reservation(
-    session: Session, reservation_id: int, row: int, seats: list[int]
+async def booked_of_reservation(
+    session: AsyncSession, reservation_id: int, row: int, seats: list[int]
 ) -> list[SeatAssignment]:
     """
     Неоплаченные места брони из списка — все, иначе NotFoundError (место не
@@ -154,7 +154,7 @@ def booked_of_reservation(
         SeatAssignment.seat_number.in_(seats),
         SeatAssignment.status == SeatStatus.BOOKED,
     )
-    found = list(session.scalars(stmt))
+    found = list(await session.scalars(stmt))
     missing = set(seats) - {a.seat_number for a in found}
     if missing:
         raise NotFoundError(
@@ -173,7 +173,7 @@ def _reserves():
     )
 
 
-def active_reserves(session: Session) -> list[dict]:
+async def active_reserves(session: AsyncSession) -> list[dict]:
     """Резервы, сгруппированные по комментарию и ряду: [{'row', 'seats', 'note'}]."""
     stmt = _reserves().order_by(
         SeatAssignment.note, SeatAssignment.row_number, SeatAssignment.seat_number
@@ -181,22 +181,22 @@ def active_reserves(session: Session) -> list[dict]:
     return [
         {"row": row, "seats": sorted(a.seat_number for a in group), "note": note or ""}
         for (note, row), group in itertools.groupby(
-            session.scalars(stmt), lambda a: (a.note, a.row_number)
+            await session.scalars(stmt), lambda a: (a.note, a.row_number)
         )
     ]
 
 
-def reserved_in_row(session: Session, row: int) -> list[int]:
+async def reserved_in_row(session: AsyncSession, row: int) -> list[int]:
     stmt = select(SeatAssignment.seat_number).where(
         SeatAssignment.row_number == row,
         SeatAssignment.status == SeatStatus.RESERVED,
         SeatAssignment.released_at.is_(None),
         SeatAssignment.reservation_id.is_(None),
     )
-    return list(session.scalars(stmt))
+    return list(await session.scalars(stmt))
 
 
-def reserve_notes(session: Session, row: int, seats: list[int]) -> dict[int, str | None]:
+async def reserve_notes(session: AsyncSession, row: int, seats: list[int]) -> dict[int, str | None]:
     """{место: комментарий} для резервов ряда."""
     stmt = select(SeatAssignment.seat_number, SeatAssignment.note).where(
         SeatAssignment.row_number == row,
@@ -204,10 +204,12 @@ def reserve_notes(session: Session, row: int, seats: list[int]) -> dict[int, str
         SeatAssignment.status == SeatStatus.RESERVED,
         SeatAssignment.released_at.is_(None),
     )
-    return {seat: note for seat, note in session.execute(stmt)}
+    return {seat: note for seat, note in await session.execute(stmt)}
 
 
-def reserves_in_row(session: Session, row: int, seats: list[int]) -> list[SeatAssignment]:
+async def reserves_in_row(
+    session: AsyncSession, row: int, seats: list[int]
+) -> list[SeatAssignment]:
     """Резервы из списка — все, иначе NotFoundError."""
     stmt = select(SeatAssignment).where(
         SeatAssignment.row_number == row,
@@ -215,18 +217,18 @@ def reserves_in_row(session: Session, row: int, seats: list[int]) -> list[SeatAs
         SeatAssignment.status == SeatStatus.RESERVED,
         SeatAssignment.released_at.is_(None),
     )
-    found = list(session.scalars(stmt))
+    found = list(await session.scalars(stmt))
     missing = sorted(set(seats) - {a.seat_number for a in found})
     if missing:
         raise NotFoundError(f"Seats not found as active RESERVED in row {row}: {missing}")
     return found
 
 
-def add_reserve(
-    session: Session, row: int, seats: list[int], comment: str, user_id: int
+async def add_reserve(
+    session: AsyncSession, row: int, seats: list[int], comment: str, user_id: int
 ) -> list[SeatAssignment]:
     """Зарезервировать места под гостей (все или ни одного) — с записью аудита."""
-    assignments = occupy(
+    assignments = await occupy(
         session, row, seats, status=SeatStatus.RESERVED, created_by_user_id=user_id, note=comment
     )
     audit.log(
@@ -246,9 +248,11 @@ def add_reserve(
     return assignments
 
 
-def release_reserve(session: Session, row: int, seats: list[int], user_id: int) -> list[dict]:
+async def release_reserve(
+    session: AsyncSession, row: int, seats: list[int], user_id: int
+) -> list[dict]:
     """Снять резерв; возвращает прежние комментарии [{'seat', 'note'}] — с записью аудита."""
-    assignments = reserves_in_row(session, row, seats)
+    assignments = await reserves_in_row(session, row, seats)
     previous_notes = [{"seat": a.seat_number, "note": a.note} for a in assignments]
     release(session, assignments, user_id)
     audit.log(

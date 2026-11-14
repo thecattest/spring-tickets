@@ -14,7 +14,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.9",
     "redis>=5.0.0",
-    "sqlalchemy>=2.0.0",
+    "sqlalchemy[asyncio]>=2.1",
     # IANA time zones for zoneinfo (slim images have no system tz database)
     "tzdata>=2024.1",
     "uvicorn[standard]>=0.30.0",
@@ -62,7 +62,10 @@ ignore = [
 known-first-party = ["tickets", "migrations", "scripts", "tests"]
 
 [tool.pytest.ini_options]
-asyncio_default_fixture_loop_scope = "function"
+# Один event loop на всю сессию: пул соединений async_engine привязан к loop,
+# и с loop на каждый тест соединения из пула ломались бы между тестами
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 
 
 [tool.alembic]

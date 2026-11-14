@@ -25,33 +25,33 @@ logger = logging.getLogger("jobs.debtors")
 
 
 # Короткие транзакции; отправка в VK — между ними, не внутри (ROADMAP → Транзакции)
-def get_all_active_sellers() -> list[AppUser]:
-    with unit_of_work() as session:
-        return users.active_sellers(session)
+async def get_all_active_sellers() -> list[AppUser]:
+    async with unit_of_work() as session:
+        return await users.active_sellers(session)
 
 
-def get_debtors(seller_id: int, min_days: int) -> list[dict]:
-    with unit_of_work() as session:
-        return reports.debtors(session, seller_id=seller_id, min_days=min_days)
+async def get_debtors(seller_id: int, min_days: int) -> list[dict]:
+    async with unit_of_work() as session:
+        return await reports.debtors(session, seller_id=seller_id, min_days=min_days)
 
 
-def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
-    with unit_of_work() as session:
-        reports.log_reminder_sent(session, seller_id, debtor_count)
+async def log_reminder_sent(seller_id: int, debtor_count: int) -> None:
+    async with unit_of_work() as session:
+        await reports.log_reminder_sent(session, seller_id, debtor_count)
 
 
 async def send_reminders() -> None:
     token = vk_settings().vk_bot_token.get_secret_value()
     min_days = app_settings().debtors_reminder_min_days
 
-    sellers = get_all_active_sellers()
+    sellers = await get_all_active_sellers()
     logger.info("Processing %d active sellers", len(sellers))
 
     sent, skipped, failed = 0, 0, []
     api = API(token)
     try:
         for seller in sellers:
-            debtors = get_debtors(seller_id=seller.id, min_days=min_days)
+            debtors = await get_debtors(seller_id=seller.id, min_days=min_days)
             if not debtors:
                 skipped += 1
                 continue
@@ -70,7 +70,7 @@ async def send_reminders() -> None:
 
             sent += 1
             logger.info("Reminder sent to seller %s: %d debtors", seller.id, len(debtors))
-            log_reminder_sent(seller_id=seller.id, debtor_count=len(debtors))
+            await log_reminder_sent(seller_id=seller.id, debtor_count=len(debtors))
     finally:
         await api.http_client.close()
 

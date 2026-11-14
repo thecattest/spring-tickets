@@ -5,7 +5,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.config import app_settings
 from tickets.models.base import ActorType, ReservationState, SeatStatus
@@ -18,7 +18,9 @@ from tickets.time import utcnow
 logger = logging.getLogger(__name__)
 
 
-def debtors(session: Session, seller_id: int | None = None, min_days: int = 0) -> list[dict]:
+async def debtors(
+    session: AsyncSession, seller_id: int | None = None, min_days: int = 0
+) -> list[dict]:
     """
     Активные брони с неоплаченными местами, давние первыми.
 
@@ -57,13 +59,13 @@ def debtors(session: Session, seller_id: int | None = None, min_days: int = 0) -
             "days_since_activity": (now - reservation.last_activity_at).days,
             "last_activity_at": reservation.last_activity_at,
         }
-        for reservation, vk_user, count in session.execute(stmt)
+        for reservation, vk_user, count in await session.execute(stmt)
     ]
     logger.info("debtors(seller_id=%s): found %d", seller_id, len(result))
     return result
 
 
-def log_reminder_sent(session: Session, seller_id: int, debtor_count: int) -> None:
+async def log_reminder_sent(session: AsyncSession, seller_id: int, debtor_count: int) -> None:
     """Аудит: напоминание о должниках отправлено (после отправки, отдельной транзакцией)."""
     audit.log(
         session,

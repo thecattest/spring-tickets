@@ -130,7 +130,7 @@ async def cancel_handler(message: Message, storage):
             from tickets.bot.messages import format_reserves_list
             from tickets.bot.utils import db
 
-            reserves = db.get_active_reserves()
+            reserves = await db.get_active_reserves()
             reserves_text = format_reserves_list(reserves)
             await message.answer(
                 texts.MSG_RESERVE_ACTION_HEADER.format(reserves=reserves_text),

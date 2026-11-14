@@ -49,10 +49,10 @@ async def _add_user(message: Message, role: UserRole) -> None:
         display_name = f"User {target_vk_id}"
 
     # Проверяем, есть ли уже такой пользователь
-    existing = db.get_app_user_by_vk_id(target_vk_id)
+    existing = await db.get_app_user_by_vk_id(target_vk_id)
 
     try:
-        db.add_app_user(target_vk_id, display_name, role)
+        await db.add_app_user(target_vk_id, display_name, role)
     except Exception as e:
         logger.error(f"Failed to add user {target_vk_id} as {role.value}: {e}")
         await message.answer(texts.ERR_ADD_USER_FAILED)
@@ -107,13 +107,13 @@ async def remove_user_handler(message: Message) -> None:
         await message.answer(texts.ERR_REMOVE_SELF)
         return
 
-    existing = db.get_app_user_by_vk_id(target_vk_id)
+    existing = await db.get_app_user_by_vk_id(target_vk_id)
     if not existing:
         await message.answer(texts.ERR_USER_NOT_FOUND)
         return
 
     try:
-        db.deactivate_app_user(target_vk_id)
+        await db.deactivate_app_user(target_vk_id)
     except Exception as e:
         logger.error(f"Failed to remove user {target_vk_id}: {e}")
         await message.answer(texts.ERR_ADD_USER_FAILED)
@@ -132,7 +132,7 @@ async def list_users_handler(message: Message) -> None:
         await message.answer(texts.ERR_OWNER_ONLY)
         return
 
-    users = db.get_all_app_users()
+    users = await db.get_all_app_users()
     if not users:
         await message.answer(texts.MSG_USERS_LIST_EMPTY, keyboard=commands_keyboard())
         return

@@ -49,7 +49,7 @@ async def start_payment_flow(
         vk_message_ts: VK receipt message timestamp (None for button flow)
     """
     try:
-        seats = db.get_reservation_seats(reservation_id)
+        seats = await db.get_reservation_seats(reservation_id)
         booked_seats = [s for s in seats if s.status == SeatStatus.BOOKED]
 
         if len(booked_seats) == 0:
@@ -140,7 +140,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         except ValueError:
             # Unknown text - re-prompt with current booked count
             try:
-                seats = db.get_reservation_seats(reservation_id)
+                seats = await db.get_reservation_seats(reservation_id)
                 booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
                 await message.answer(
                     texts.PROMPT_SELECT_QUANTITY,
@@ -155,7 +155,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
     # Validate quantity >= 1
     if quantity < 1:
         try:
-            seats = db.get_reservation_seats(reservation_id)
+            seats = await db.get_reservation_seats(reservation_id)
             booked_count = sum(1 for s in seats if s.status == SeatStatus.BOOKED)
             await message.answer(
                 texts.PROMPT_MIN_QUANTITY,
@@ -169,7 +169,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
     # Validate quantity <= available booked seats
     try:
-        seats = db.get_reservation_seats(reservation_id)
+        seats = await db.get_reservation_seats(reservation_id)
         booked_seats = [s for s in seats if s.status == SeatStatus.BOOKED]
 
         if quantity > len(booked_seats):
@@ -186,7 +186,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
     # Record payment
     try:
-        seller_id = db.get_seller_id(message.from_id)
+        seller_id = await db.get_seller_id(message.from_id)
 
         # Parse vk_message_ts from stored ISO string
         payment_vk_message_ts = None
@@ -215,7 +215,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
         receipt_attachments_str = ",".join(reuploaded_ids) if reuploaded_ids else None
 
-        payment, paid_seats = db.record_payment(
+        payment, paid_seats = await db.record_payment(
             reservation_id,
             quantity,
             seller_id,
@@ -225,7 +225,7 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
         )
 
         # Fetch updated seats to get remaining
-        all_seats = db.get_reservation_seats(reservation_id)
+        all_seats = await db.get_reservation_seats(reservation_id)
         remaining_booked = [s for s in all_seats if s.status == SeatStatus.BOOKED]
 
         confirmation = format_payment_confirmation(
@@ -235,9 +235,9 @@ async def payment_quantity_handler(message: Message, storage: RedisStorage):
 
         # Notify all admins about the payment (with re-uploaded receipt)
         try:
-            seller_app_user = db.get_app_user_by_vk_id(message.from_id)
+            seller_app_user = await db.get_app_user_by_vk_id(message.from_id)
             seller_name = seller_app_user.display_name if seller_app_user else "—"
-            admin_vk_ids = db.get_all_admin_vk_ids()
+            admin_vk_ids = await db.get_all_admin_vk_ids()
             notification_text = texts.MSG_PAYMENT_ADMIN_NOTIFICATION.format(
                 buyer_name=buyer_display_name,
                 buyer_vk_id=buyer_vk_api_id,

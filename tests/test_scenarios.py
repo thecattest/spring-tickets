@@ -9,6 +9,7 @@ Redis настоящие (testcontainers).
 """
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import select
 
 from conftest import TEST_OWNER_VK_ID
@@ -35,10 +36,10 @@ MAIN_KEYBOARD = ["Отмена", "Справка", "Должники", "Резе
 RESERVATION_MENU = ["Добавить", "Удалить", "Удалить все", "Оплата"]
 
 
-@pytest.fixture(autouse=True)
-def users(bot):
-    db.add_app_user(SELLER, "Билетёр", UserRole.SELLER)
-    db.add_app_user(ADMIN, "Админ", UserRole.ADMIN)
+@pytest_asyncio.fixture(autouse=True)
+async def users(bot):
+    await db.add_app_user(SELLER, "Билетёр", UserRole.SELLER)
+    await db.add_app_user(ADMIN, "Админ", UserRole.ADMIN)
     bot.vk.users.update(
         {BUYER: ("Иван", "Покупатель"), BUYER2: ("Пётр", "Второй"), NEWBIE: ("Новый", "Билетёр")}
     )

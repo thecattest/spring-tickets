@@ -164,7 +164,7 @@ def format_reserves_list(reserves: list) -> str:
     Format active reserves list for /reserve command display.
 
     Args:
-        reserves: List of dicts from db.get_active_reserves()
+        reserves: List of dicts from await db.get_active_reserves()
                   Each dict has: row, seats (list[int]), note
 
     Returns:
@@ -196,7 +196,7 @@ def format_debtors_list(debtors: list) -> str:
     Format debtor list for /debtors command display.
 
     Args:
-        debtors: List of debtor dicts from db.get_debtors()
+        debtors: List of debtor dicts from await db.get_debtors()
                  Each dict has: buyer_display_name, booked_seat_count,
                  debt_amount, days_since_activity
 
@@ -225,7 +225,7 @@ def format_reminder(debtors: list) -> str:
     Format compact debtor list for VK reminder messages sent to sellers.
 
     Args:
-        debtors: List of debtor dicts from db.get_debtors()
+        debtors: List of debtor dicts from await db.get_debtors()
                  Each dict has: buyer_display_name, buyer_vk_id,
                  booked_seat_count, debt_amount, days_since_activity
 

@@ -6,7 +6,7 @@
 import enum
 from typing import Any
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tickets.models.audit import AuditLog
 from tickets.models.base import ActorType
@@ -26,7 +26,7 @@ class AuditAction(str, enum.Enum):
 
 
 def log(
-    session: Session,
+    session: AsyncSession,
     action: AuditAction,
     *,
     entity_type: str,

@@ -112,17 +112,20 @@ class TestDebtors:
 
         monkeypatch.setattr(debtors, "vk_settings", lambda: _vk(owner_vk_ids=[]))
         monkeypatch.setattr(debtors, "API", FakeAPI)
-        monkeypatch.setattr(debtors, "get_all_active_sellers", lambda: sellers)
-        # У билетёра 2 должников нет
-        monkeypatch.setattr(
-            debtors, "get_debtors", lambda seller_id, min_days: [] if seller_id == 2 else [{}]
-        )
+
+        async def get_all_active_sellers():
+            return sellers
+
+        async def get_debtors(seller_id, min_days):
+            return [] if seller_id == 2 else [{}]  # у билетёра 2 должников нет
+
+        async def log_reminder_sent(seller_id, debtor_count):
+            state["audited"].append(seller_id)
+
+        monkeypatch.setattr(debtors, "get_all_active_sellers", get_all_active_sellers)
+        monkeypatch.setattr(debtors, "get_debtors", get_debtors)
+        monkeypatch.setattr(debtors, "log_reminder_sent", log_reminder_sent)
         monkeypatch.setattr(debtors, "format_reminder", lambda d: "text")
-        monkeypatch.setattr(
-            debtors,
-            "log_reminder_sent",
-            lambda seller_id, debtor_count: state["audited"].append(seller_id),
-        )
         return debtors, state
 
     async def test_sends_only_to_sellers_with_debtors(self, env):

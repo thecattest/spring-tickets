@@ -51,7 +51,7 @@ async def deleting_row_handler(message: Message, storage: RedisStorage):
         return
 
     # Early row validation: check if reservation has seats in this row
-    booked = db.get_reservation_booked_seats_in_row(reservation_id, row)
+    booked = await db.get_reservation_booked_seats_in_row(reservation_id, row)
     if not booked:
         await message.answer(texts.ERR_ROW_NO_BOOKED_SEATS.format(row=row))
         return
@@ -88,7 +88,7 @@ async def deleting_seats_handler(message: Message, storage: RedisStorage):
 
     from tickets.bot.steps import handle_seat_input
 
-    result = handle_seat_input(
+    result = await handle_seat_input(
         message.text, row=row, mode="membership", reservation_id=reservation_id
     )
     if not result.ok:
@@ -135,8 +135,8 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
     if confirmed is True:
         # Release seats
         try:
-            seller_id = db.get_seller_id(message.from_id)
-            released_count = db.release_seats(reservation_id, row, seats, seller_id)
+            seller_id = await db.get_seller_id(message.from_id)
+            released_count = await db.release_seats(reservation_id, row, seats, seller_id)
 
             from tickets.bot.utils.formatting import pluralize_seats
 
@@ -148,7 +148,7 @@ async def deletion_confirm_handler(message: Message, storage: RedisStorage):
             )
 
             # Send updated client script if seats remain
-            remaining = db.get_reservation_seats(reservation_id)
+            remaining = await db.get_reservation_seats(reservation_id)
             if remaining:
                 from tickets.bot.messages import generate_reservation_script
 
@@ -227,11 +227,11 @@ async def cancel_confirm_handler(message: Message, storage: RedisStorage):
     confirmed = handle_confirmation(message.text)
     if confirmed is True:
         # Check if user is admin
-        is_admin = db.is_user_admin(message.from_id)
+        is_admin = await db.is_user_admin(message.from_id)
 
         try:
-            seller_id = db.get_seller_id(message.from_id)
-            db.cancel_reservation(reservation_id, seller_id, is_admin)
+            seller_id = await db.get_seller_id(message.from_id)
+            await db.cancel_reservation(reservation_id, seller_id, is_admin)
 
             await message.answer(texts.MSG_BOOKING_CANCELLED, keyboard=get_empty_keyboard())
 

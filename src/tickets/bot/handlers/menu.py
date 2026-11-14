@@ -50,7 +50,7 @@ async def show_main_menu(
     """
     try:
         # Fetch all seats for reservation
-        seats = db.get_reservation_seats(reservation_id)
+        seats = await db.get_reservation_seats(reservation_id)
 
         # Format seats with status indicators
         formatted_seats = format_reservation_seats(seats)
@@ -111,7 +111,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
     elif text == Btn.DELETE:
         # Check if reservation has any seats
         try:
-            seats = db.get_reservation_seats(reservation_id)
+            seats = await db.get_reservation_seats(reservation_id)
 
             if not seats:
                 await message.answer(texts.ERR_NO_SEATS_TO_DELETE, keyboard=main_menu_keyboard())
@@ -128,7 +128,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
     elif text == Btn.DELETE_ALL:
         # Check if reservation has any seats
         try:
-            seats = db.get_reservation_seats(reservation_id)
+            seats = await db.get_reservation_seats(reservation_id)
 
             if not seats:
                 await message.answer(texts.ERR_NO_SEATS, keyboard=main_menu_keyboard())
@@ -140,7 +140,7 @@ async def main_menu_handler(message: Message, storage: RedisStorage):
 
             if paid_count > 0:
                 # Has paid seats — check admin rights immediately
-                is_admin = db.is_user_admin(message.from_id)
+                is_admin = await db.is_user_admin(message.from_id)
                 if not is_admin:
                     await message.answer(
                         texts.ERR_PAID_CANCEL_ADMIN_ONLY, keyboard=main_menu_keyboard()
@@ -254,8 +254,8 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
             if pending_is_receipt:
                 # Receipt from client with no reservation — can't record payment, create reservation
                 try:
-                    seller_id = db.get_seller_id(message.from_id)
-                    reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
+                    seller_id = await db.get_seller_id(message.from_id)
+                    reservation = await db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(
                         texts.MSG_NEW_BOOKING_NO_RES.format(
@@ -279,8 +279,8 @@ async def context_switch_handler(message: Message, storage: RedisStorage):
             else:
                 # Normal switch with no reservation -> create new reservation
                 try:
-                    seller_id = db.get_seller_id(message.from_id)
-                    reservation = db.create_reservation(pending_buyer_vk_id, seller_id)
+                    seller_id = await db.get_seller_id(message.from_id)
+                    reservation = await db.create_reservation(pending_buyer_vk_id, seller_id)
 
                     await message.answer(
                         texts.MSG_NEW_BOOKING_CREATED.format(

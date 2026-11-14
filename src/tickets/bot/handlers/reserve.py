@@ -37,19 +37,19 @@ async def reserve_command_handler(message: Message, storage: RedisStorage):
 
     Checks admin status and shows reserve action keyboard or rejection.
     """
-    is_admin = db.is_user_admin(message.from_id)
+    is_admin = await db.is_user_admin(message.from_id)
 
     if not is_admin:
         await message.answer(texts.ERR_RESERVE_ADMIN_ONLY)
         return
 
     # Resolve admin's AppUser.id for DB writes
-    app_user = db.get_app_user_by_vk_id(message.from_id)
+    app_user = await db.get_app_user_by_vk_id(message.from_id)
     if not app_user:
         await message.answer(texts.ERR_ACCOUNT_NOT_FOUND)
         return
 
-    reserves = db.get_active_reserves()
+    reserves = await db.get_active_reserves()
     reserves_text = format_reserves_list(reserves)
 
     await message.answer(
@@ -93,7 +93,7 @@ async def reserve_adding_row_handler(message: Message, storage: RedisStorage):
     row = result.row
 
     # Early row validation: check if row has free seats
-    available = db.get_available_seats_in_row(row)
+    available = await db.get_available_seats_in_row(row)
     if not available:
         await message.answer(texts.ERR_ROW_NO_AVAILABLE_SEATS.format(row=row))
         return
@@ -139,7 +139,7 @@ async def reserve_adding_seats_handler(message: Message, storage: RedisStorage):
         await storage.delete(message.from_id)
         return
 
-    result = handle_seat_input(message.text, row=row, mode="availability")
+    result = await handle_seat_input(message.text, row=row, mode="availability")
     if not result.ok:
         await message.answer(result.error_text)
         return
@@ -172,7 +172,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
         return
 
     try:
-        db.add_reserve(row, seats, comment, admin_user_id)
+        await db.add_reserve(row, seats, comment, admin_user_id)
 
         seats_str = format_seat_ranges(sorted(seats))
         await message.answer(
@@ -191,7 +191,7 @@ async def reserve_comment_handler(message: Message, storage: RedisStorage):
             else:
                 status_text = "Бронь" if c["status"] == SeatStatus.BOOKED else "Оплачено"
                 try:
-                    res_seats = db.get_reservation_seats(c["reservation_id"])
+                    res_seats = await db.get_reservation_seats(c["reservation_id"])
                     detail = f"бронь #{c['reservation_id']}, всего: {len(res_seats)} {pluralize_seats(len(res_seats))}"
                 except Exception:
                     detail = f"бронь #{c['reservation_id']}"
@@ -225,7 +225,7 @@ async def reserve_removing_row_handler(message: Message, storage: RedisStorage):
     row = result.row
 
     # Early row validation: check if row has reserved seats
-    reserved = db.get_reserved_seats_in_row(row)
+    reserved = await db.get_reserved_seats_in_row(row)
     if not reserved:
         await message.answer(texts.ERR_ROW_NO_RESERVED_SEATS.format(row=row))
         return
@@ -255,7 +255,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
         await storage.delete(message.from_id)
         return
 
-    result = handle_seat_input(message.text, row=row, mode="layout_only")
+    result = await handle_seat_input(message.text, row=row, mode="layout_only")
     if not result.ok:
         await message.answer(result.error_text)
         return
@@ -266,7 +266,7 @@ async def reserve_removing_seats_handler(message: Message, storage: RedisStorage
     seats_str = format_seat_ranges(sorted(seats))
 
     # Fetch notes for the seats being removed
-    notes = db.get_reserve_notes(row, seats)
+    notes = await db.get_reserve_notes(row, seats)
     unique_notes = set(n for n in notes.values() if n)
     note_text = ""
     if unique_notes:
@@ -299,7 +299,7 @@ async def reserve_remove_confirm_handler(message: Message, storage: RedisStorage
     confirmed = handle_confirmation(message.text)
     if confirmed is True:
         try:
-            previous_notes = db.release_reserve(row, seats, admin_user_id)
+            previous_notes = await db.release_reserve(row, seats, admin_user_id)
 
             seats_str = format_seat_ranges(sorted(seats))
             result_text = f"Резерв снят:\nРяд {row}, места: {seats_str}"
