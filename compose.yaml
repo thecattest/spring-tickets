@@ -10,9 +10,22 @@ x-app: &app                     # общий кусок настроек (YAML-�
   restart: unless-stopped
 
 services:
+  # Разовый: накатывает миграции и завершается; остальные ждут его успеха
+  migrate:
+    <<: *app
+    command: alembic upgrade head
+    restart: "no"
+
   web:
     <<: *app
     command: uvicorn web.app:app --host 0.0.0.0 --port 8000
+    # Ключ из якоря заменяется целиком (<< сливает только верхний уровень),
+    # поэтому postgres повторяем
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports: [ "127.0.0.1:8000:8000" ]
 
   postgres:
