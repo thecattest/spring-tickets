@@ -97,6 +97,10 @@ All state changes are recorded in the `AuditLog` table.
 - Seat input format: `"1-3,5,8-10"` — parsed by `bot/utils/seat_parser.py`
 - Comments and user-facing messages are in Russian
 
+## Bot entry point
+
+`python -m bot` → `bot/__main__.py` → `bot.main.main()` → `asyncio.run(run_bot())`. Plain asyncio (vkbottle ≥ 4.9: `run_polling()` is a regular coroutine, `LoopWrapper` / `run_forever()` are deprecated — don't use them). Init and cleanup are `await` + `try/finally` in `run_bot()` (Redis, VK HTTP session). SIGTERM cancels the main task, SIGINT is handled by `asyncio.run`; both → graceful shutdown, exit 0. Startup and polling errors are not caught (traceback, exit 1).
+
 ## Configuration
 
 Environment variables loaded from `.env` (see `.env.example`). Key vars: `VK_BOT_TOKEN`, `VK_GROUP_ID`, `OWNER_VK_IDS`, `REDIS_*`, `DATABASE_URL`, `SEAT_PRICE`, `PAYMENTS_PASSWORD`, `COOKIE_SECRET`, `COOKIE_SECURE`, `DISPLAY_TZ`, `LOG_LEVEL`, `SQL_ECHO`.
@@ -111,7 +115,7 @@ Config centralized in `bot/config.py` for the bot; `database.py` reads `DATABASE
 
 ### Local run with Docker Compose
 
-`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) and `web` (built from `Dockerfile`, uv-based). `web` reads `.env` but `DATABASE_URL` is overridden to the service name `postgres`. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host).
+`compose.yaml` runs `postgres` (18, volume `tickets_pgdata`), one-off `migrate` (`alembic upgrade head`, `restart: "no"`; `web` starts only after it exits 0) `redis` (8, password from `REDIS_PASSWORD` in `.env` via Compose interpolation, AOF, volume `tickets_redisdata`, not published to the host), `web` and `bot` (both from the one `Dockerfile` image, uv-based, with `pg_dump` 18 from PGDG for backups; `bot` has `init: true` so SIGTERM reaches it). App services read `.env`, but `DATABASE_URL` and `REDIS_HOST` are overridden to the service names. Ports are bound to `127.0.0.1` (web 8000, Postgres 5432 — for `uv run` and DB tools on the host). `.env` holds the real VK token: don't run `bot` locally while the server bot polls the same community (use a test community, ROADMAP stage 3).
 
 ```bash
 docker compose up -d --build                         # start / rebuild (migrate runs first)
@@ -121,7 +125,7 @@ docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_t
 docker compose logs -f web
 ```
 
-Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. The bot, Redis, cron, `db-backup` and secrets are not in Compose yet (ROADMAP stages 3–4). On host-only runs (`uv run`) apply migrations yourself.
+Running on the host instead (`uv run ...`) uses `DATABASE_URL` from `.env` = `localhost:5432`, i.e. the same Compose Postgres through its published port. Cron, `db-backup` and secrets are not in Compose yet (ROADMAP stages 4–5). On host-only runs (`uv run`) apply migrations yourself.
 
 `scripts/migrate_sqlite_to_postgres.py` is one-off and is deleted after the server cutover. `scripts/backup_db.py` runs `pg_dump` (needs a `pg_dump` of the server's major version or newer).
 

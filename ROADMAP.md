@@ -47,13 +47,13 @@
 
 - [x] **Образ:** Python 3.12, `uv sync --frozen --no-dev` (вместо `pip install -r requirements.txt`), пользователь не root, пакет `tzdata`.
 - [ ] **Клиент `pg_dump` в образе** из официального apt-репозитория PostgreSQL той же мажорной версии, что сервер (для бэкапов, этап 4).
-- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`. Сейчас есть `postgres`, `migrate` и `web`.
+- [ ] **Сервисы:** `web`, `bot`, `postgres`, `redis`, `db-backup` (разовый), `migrate` (разовый), `cron`. Сейчас есть `postgres`, `redis`, `migrate`, `web`, `bot`.
 - [ ] **Порядок старта:** `db-backup` → `migrate` (`alembic upgrade head`, `restart: "no"`) → `web`, `bot`, `cron` через `condition: service_completed_successfully`.
 - [ ] **Healthcheck** у каждого сервиса, `depends_on` с условиями, `restart: unless-stopped` для постоянных сервисов.
 - [x] **Порты только на `127.0.0.1`** (nginx на хосте проксирует).
 - [ ] **Ротация логов Docker** (`max-size` / `max-file`).
 - [ ] **Redis:** пароль, `appendonly yes`, named volume. TTL для FSM не используем.
-- [ ] **Секреты** — Compose `secrets:` (→ Секреты и доступы).
+- [ ] **`/health` в вебе** (приложение + `SELECT 1`) и healthcheck по нему (перенесено с этапа 5).
 - [ ] **Dev-режим:** `compose.dev.yaml` только с отличиями (`--reload`/`fastapi dev`, порты, `develop.watch`), подключается через `COMPOSE_FILE=compose.yaml:compose.dev.yaml` в локальном `.env`; `docker compose watch` — `sync` кода, `rebuild` при изменении `pyproject.toml` / `uv.lock`. `compose.override.yaml` не используем.
 - [ ] **Тестовое VK-сообщество** для локальной разработки (свой токен).
 
@@ -69,7 +69,8 @@
 
 - [ ] **Новый `deploy/deploy.sh`:** `ssh` → `git pull --ff-only` → `docker compose up -d --build` → `docker compose ps` → `docker image prune -f`. Отката пока нет — чиним вперёд.
 - [ ] **Удалить:** `tickets-*.service`, `install.sh`, `aliases.sh`, `bootstrap.sh`, `setup-cron.sh`, `setup-backup-cron.sh`, `web/run.sh`, `deploy/README.md` (→ README), сгенерированный `requirements.txt` и хук `uv-export` в `.pre-commit-config.yaml`. Системный `redis-server` на сервере больше не нужен.
-- [ ] **Мониторинг:** `/health` в вебе (приложение + БД) как healthcheck; heartbeat цикла Long Poll для бота; `notify_owner()` для технических алертов (→ Архитектура). Внешнюю проверку доступности пока не делаем.
+- [ ] **Секреты** — Compose `secrets:` (→ Секреты и доступы) вместе с конфигом на `pydantic-settings` (перенесён сюда с этапа 7, до переезда сервера). До этого секреты в `.env`, на сервере `chmod 600`.
+- [ ] **Мониторинг:** heartbeat цикла Long Poll для бота; `notify_owner()` для технических алертов (→ Архитектура). Внешнюю проверку доступности пока не делаем.
 - [ ] **Бот остаётся на Long Poll**; источник событий заменяемый (Callback — в бэклоге).
 
 ## Этап 6. Логические баги — требования к новым сервисам
@@ -87,7 +88,6 @@
 ## Этап 7. Архитектура
 
 - [ ] **Пакет `tickets/`** с подпакетами и правилом зависимостей «только вниз» (→ Архитектура); `package = true` в `[tool.uv]` (перенесено с этапа 0 — до появления папки `tickets/` включить нельзя).
-- [ ] **Конфиг на `pydantic-settings`** вместо `bot/config.py` и `database.py`.
 - [ ] **Сервисы** из `bot/utils/db.py`: `users`, `reservations`, `seats`, `payments`, `reports`, `audit`.
 - [ ] **Транзакции:** сервисы не коммитят; unit of work на границе; побочные эффекты после коммита; тест-страж.
 - [ ] **Async SQLAlchemy + asyncpg** вместе с переходом на сервисы: `AsyncSession`, явные `selectinload`, async-роуты, `pytest-asyncio`.
