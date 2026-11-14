@@ -4,6 +4,7 @@ x-app: &app                     # общий кусок настроек (YAML-�
   env_file: .env
   environment:
     DATABASE_URL: postgresql+psycopg://tickets:tickets@postgres:5432/tickets
+    REDIS_HOST: redis                 # имя сервиса = имя хоста во внутренней сети
   depends_on:
     postgres:
       condition: service_healthy
@@ -28,6 +29,23 @@ services:
         condition: service_completed_successfully
     ports: [ "127.0.0.1:8000:8000" ]
 
+  bot:
+    <<: *app
+    command: python -m bot
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # PID 1 в контейнере — tini, а не python. SIGTERM бот обрабатывает сам,
+    # но только после старта loop; до этого python как PID 1 сигнал бы
+    # проигнорировал (ядро не доставляет PID 1 сигналы без обработчика).
+    # tini также подбирает процессы-зомби.
+    init: true
+    # Портов нет: Long Poll — исходящие запросы к VK
+
   postgres:
     image: postgres:18-alpine
     environment:
@@ -43,5 +61,24 @@ services:
       retries: 20
     restart: unless-stopped
 
+  redis:
+    image: redis:8-alpine
+    # Пароль подставляет Compose из .env при запуске (интерполяция ${...});
+    # :? — не стартовать вовсе, если переменная пустая.
+    # appendonly — журнал операций на диске: состояния FSM переживают рестарт.
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required} --appendonly yes
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}  # redis-cli берёт пароль отсюда (для healthcheck)
+    # Порт на хост не публикуем: бот ходит по внутренней сети Compose,
+    # а на хосте 6379 занят локальным Redis для тестов
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 3s
+      retries: 20
+    restart: unless-stopped
+
 volumes:
   pgdata:
+  redisdata:
