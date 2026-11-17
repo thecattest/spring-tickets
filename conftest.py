@@ -1,43 +1,44 @@
 """
-Общая настройка pytest: тесты работают с временным Postgres в Docker
-(testcontainers), а не с базой проекта. Нужен запущенный Docker.
+Общая настройка pytest.
 
-Контейнер стартует в pytest_configure — до того, как тестовые модули
-импортируют database.py и создадут engine; параметры подключения (POSTGRES_*)
-выставляются в окружение туда же. Окружение у pydantic-settings важнее .env,
-поэтому значения из .env сюда не попадут.
+Тесты не читают локальные .env и ./secrets/: настройки только из окружения,
+которое задаёт этот файл.
 
-Схема создаётся один раз миграциями (alembic upgrade head) — так тесты
-заодно проверяют сами миграции. Перед каждым тестом таблицы очищаются.
+Интеграционные тесты (tests/integration/) работают с временными Postgres и
+Redis в Docker (testcontainers), а не с базой проекта. Контейнеры стартуют в
+pytest_configure — до того, как тестовые модули импортируют tickets.db и
+создадут engine; параметры подключения (POSTGRES_*) выставляются в окружение
+туда же. Окружение у pydantic-settings важнее .env.
+
+Если в запуске нет интеграционных тестов (`pytest tests/unit`), Docker не нужен:
+контейнеры не стартуют, а POSTGRES_HOST указывает в никуда — случайное
+обращение к базе из юнит-теста падает, а не уходит в чужую базу.
+
+Фикстуры базы, Redis и бота — в tests/integration/conftest.py.
 """
 
 import os
+from pathlib import Path
 
 import pytest
-import pytest_asyncio
-from sqlalchemy import text
-from sqlalchemy.engine import make_url
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
-# Та же мажорная версия, что будет в Compose
+# Та же мажорная версия, что в Compose
 POSTGRES_IMAGE = "postgres:18-alpine"
 REDIS_IMAGE = "redis:8-alpine"
 
-_container: PostgresContainer | None = None
-_redis: RedisContainer | None = None
-TEST_DATABASE_URL = ""
-
+INTEGRATION_DIR = Path(__file__).resolve().parent / "tests" / "integration"
 
 # Владелец проекта в тестах (OWNER_VK_IDS)
 TEST_OWNER_VK_ID = 900
 
+_postgres: PostgresContainer | None = None
+_redis: RedisContainer | None = None
+
 
 def _isolate_settings() -> None:
-    """
-    Тесты не читают локальные .env и ./secrets/: значения только из окружения,
-    которое задаёт этот файл (иначе, например, SEAT_PRICE из .env меняет суммы).
-    """
+    """Без .env и ./secrets/ (иначе, например, SEAT_PRICE из .env меняет суммы)."""
     import tickets.config as app_config
 
     for section in app_config._Section.__subclasses__():
@@ -54,85 +55,51 @@ def _isolate_settings() -> None:
     )
 
 
-def pytest_configure(config):
-    global _container, _redis, TEST_DATABASE_URL
+def _runs_integration(config: pytest.Config) -> bool:
+    """Попадают ли в запуск tests/integration (по путям в аргументах pytest)."""
+    for arg in config.args:
+        path = Path(arg.split("::")[0]).resolve()
+        if path.is_relative_to(INTEGRATION_DIR) or INTEGRATION_DIR.is_relative_to(path):
+            return True
+    return False
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    global _postgres, _redis
     _isolate_settings()
-    _container = PostgresContainer(POSTGRES_IMAGE, driver="psycopg")
-    _container.start()
-    TEST_DATABASE_URL = _container.get_connection_url()
+    if not _runs_integration(config):
+        # tickets.db создаёт engine при импорте (без подключения) — настройки
+        # должны пройти проверку, но вести в никуда
+        os.environ.update(
+            POSTGRES_HOST="no-database-in-unit-tests.invalid", POSTGRES_PASSWORD="unused"
+        )
+        return
+
+    _postgres = PostgresContainer(POSTGRES_IMAGE, driver="psycopg")
+    _postgres.start()
     os.environ.update(
-        POSTGRES_HOST=_container.get_container_host_ip(),
-        POSTGRES_PORT=str(_container.get_exposed_port(5432)),
-        POSTGRES_USER=_container.username,
-        POSTGRES_PASSWORD=_container.password,
-        POSTGRES_DB=_container.dbname,
+        POSTGRES_HOST=_postgres.get_container_host_ip(),
+        POSTGRES_PORT=str(_postgres.get_exposed_port(5432)),
+        POSTGRES_USER=_postgres.username,
+        POSTGRES_PASSWORD=_postgres.password,
+        POSTGRES_DB=_postgres.dbname,
     )
     # Redis для FSM: сценарии бота и тесты хранилища
     _redis = RedisContainer(REDIS_IMAGE)
     _redis.start()
 
 
-def pytest_unconfigure(config):
-    for container in (_container, _redis):
+def pytest_unconfigure(config: pytest.Config) -> None:
+    for container in (_postgres, _redis):
         if container is not None:
             container.stop()
 
 
-@pytest_asyncio.fixture
-async def redis_storage():
-    """FSM-хранилище на временном Redis, пустое перед каждым тестом."""
-    from tickets.bot.fsm.storage import RedisStorage
-
-    storage = RedisStorage(
-        host=_redis.get_container_host_ip(), port=int(_redis.get_exposed_port(6379))
-    )
-    await storage.connect()
-    await storage.redis.flushdb()
-    yield storage
-    await storage.close()
+def postgres_container() -> PostgresContainer:
+    assert _postgres is not None, "Postgres не запущен: интеграционный тест вне tests/integration?"
+    return _postgres
 
 
-@pytest_asyncio.fixture
-async def bot(redis_storage, monkeypatch):
-    """Бот с подменённым VK (bot/tests/scenario.py); выход в сеть запрещён."""
-    import aiohttp
-
-    from tests.scenario import BotHarness
-    from tickets.bot.utils import attachments
-
-    def no_network(*args, **kwargs):
-        raise AssertionError("Real HTTP request in test: aiohttp.ClientSession")
-
-    monkeypatch.setattr(aiohttp, "ClientSession", no_network)
-
-    harness = BotHarness(redis_storage)
-    # Пересылка чеков админам скачивает фото с CDN VK и загружает заново —
-    # в тесте только запоминаем, что и кому переслали бы
-    monkeypatch.setattr(attachments, "reupload_attachments", harness.vk.reupload)
-    return harness
-
-
-@pytest.fixture(scope="session")
-def migrated_db():
-    """Схема временной базы — миграциями, один раз на сессию."""
-    from tickets import db as database
-
-    # Защита: если database импортировали раньше, engine смотрит не туда —
-    # лучше упасть, чем мигрировать и чистить настоящую базу.
-    assert make_url(database.DATABASE_URL) == make_url(TEST_DATABASE_URL), (
-        f"Тесты подключены не к временной базе: {database.DATABASE_URL_SAFE}"
-    )
-    database.upgrade_db()
-
-
-@pytest.fixture(autouse=True)
-def clean_db(migrated_db):
-    """Перед каждым тестом — пустые таблицы, счётчики id с 1."""
-    import tickets.models  # noqa: F401 — регистрирует все модели в Base.metadata
-    from tickets import db as database
-    from tickets.models.base import Base
-
-    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
-    with database.engine.begin() as conn:
-        conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
-    yield
+def redis_container() -> RedisContainer:
+    assert _redis is not None, "Redis не запущен: интеграционный тест вне tests/integration?"
+    return _redis

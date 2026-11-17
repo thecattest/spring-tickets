@@ -14,7 +14,7 @@ from tickets.bot.fsm.states import BotState
 @pytest.mark.asyncio
 async def test_redis_state_peer_storage(redis_storage):
     """Test that RedisStorage properly stores and retrieves StatePeer objects."""
-    # redis_storage — временный Redis из testcontainers (conftest.py), пустой
+    # redis_storage — временный Redis из testcontainers (tests/integration/conftest.py), пустой
     storage = redis_storage
     try:
         peer_id = 999999  # Test user ID

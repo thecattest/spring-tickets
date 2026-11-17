@@ -13,7 +13,7 @@ import pytest_asyncio
 from sqlalchemy import select
 
 from conftest import TEST_OWNER_VK_ID
-from tests.scenario import photo
+from tests.integration.scenario import photo
 from tickets.db import SessionLocal, unit_of_work
 from tickets.models.audit import AuditLog
 from tickets.models.base import ReservationState, SeatStatus, UserRole

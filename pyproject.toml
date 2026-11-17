@@ -28,6 +28,7 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=7.0.0",
     "pytest-asyncio>=0.23",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.5",
     "testcontainers[postgres,redis]>=4.8",
 ]
@@ -68,6 +69,20 @@ known-first-party = ["tickets", "migrations", "scripts", "tests"]
 # и с loop на каждый тест соединения из пула ломались бы между тестами
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+# Покрытие: uv run pytest --cov (порога нет — смотрим, что не покрыто)
+[tool.coverage.run]
+source = ["tickets"]
+branch = true
+# SQLAlchemy asyncio выполняет запросы в greenlet — без этого строки внутри
+# сессии считались бы непокрытыми
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+skip_empty = true
 
 
 [tool.alembic]

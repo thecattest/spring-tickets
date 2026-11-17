@@ -38,7 +38,7 @@ def test_db():
     """
     Engine временной тестовой базы.
 
-    Саму базу подменяет и очищает перед каждым тестом корневой conftest.py.
+    Саму базу подменяет корневой conftest.py, очищает перед каждым тестом tests/integration/conftest.py.
 
     Yields:
         Database engine

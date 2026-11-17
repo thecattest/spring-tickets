@@ -107,7 +107,7 @@
 
 ## Этап 8. Качество и CI
 
-- [ ] **Тесты** (→ Тесты): `tests/unit`, `tests/integration`, `tests/test_guards.py`; testcontainers; схема через Alembic; откат транзакции на тест.
+- [x] **Тесты** (→ Тесты): `tests/unit`, `tests/integration`, `tests/test_guards.py`; testcontainers; схема через Alembic; изоляция — TRUNCATE перед тестом; `pytest-cov`.
 - [ ] **CI, шаг 1** — на каждый push/PR: `ruff check`, `ruff format --check`, `mypy`, `pytest`, `alembic check`.
 - [ ] **CI, шаг 2** — только когда шаг 1 стабилен: push в `master` → образ `linux/amd64` в GHCR (тег по коммиту) → деплой по SSH (`docker compose pull && up -d`). Сервер перестаёт собирать образ; откат кода — прошлый тег.
 - [ ] **`README.md`** в корне (→ README); CLAUDE.md ссылается на него и не дублирует.
@@ -238,10 +238,10 @@ web/
 
 ## Тесты
 
-- `tests/unit/` (без БД и сети), `tests/integration/` (сервисы на Postgres, FSM на Redis, веб-роуты через `httpx.AsyncClient`), `tests/test_guards.py`. `bot/tests/` и корневой `conftest.py` переезжают сюда.
-- Postgres и Redis — testcontainers; на SQLite сервисы не тестируем. Схема — `alembic upgrade head`; изоляция — транзакция на тест с откатом.
+- `tests/unit/` (без БД и сети, без Docker: `uv run pytest tests/unit`), `tests/integration/` (сервисы на Postgres, FSM на Redis, сценарии бота, веб-роуты через `httpx.AsyncClient`, миграции), `tests/test_guards.py` и `tests/test_config_guards.py`. Корневой `conftest.py` поднимает контейнеры, только если в запуске есть `tests/integration`.
+- Postgres и Redis — testcontainers; на SQLite сервисы не тестируем. Схема — `alembic upgrade head`; изоляция — `TRUNCATE … RESTART IDENTITY` перед тестом, не откат транзакции: код коммитит сам (`unit_of_work`), а тесты конкурентности нуждаются в нескольких настоящих транзакциях.
 - Приоритет: сервисы (двойное бронирование, частичная оплата, отмена с оплаченными местами, одна активная бронь, должники) → конкурентность оплат → сценарии бота с подменённым VK → веб-роуты.
-- `pytest-asyncio` (auto), `pytest-cov` без жёсткого порога.
+- `pytest-asyncio` (strict: `pytestmark = pytest.mark.asyncio`, один loop на сессию), `pytest-cov` без жёсткого порога: `uv run pytest --cov`.
 
 ## README
 
