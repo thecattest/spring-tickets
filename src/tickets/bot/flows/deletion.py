@@ -86,7 +86,7 @@ async def on_delete_confirm(message: Message, storage: RedisStorage) -> None:
     if confirmed is None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
         return
-    if confirmed is False:
+    if not confirmed:
         await navigation.on_cancel(message, storage)  # как кнопка «Отмена»
         return
 
@@ -130,7 +130,7 @@ async def on_cancel_confirm(message: Message, storage: RedisStorage) -> None:
     if confirmed is None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
         return
-    if confirmed is False:
+    if not confirmed:
         await navigation.on_cancel(message, storage)  # как кнопка «Отмена»
         return
 
