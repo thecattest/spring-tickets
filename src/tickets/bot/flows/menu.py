@@ -108,9 +108,9 @@ async def on_menu_button(message: Message, storage: RedisStorage) -> None:
 async def on_switch_answer(message: Message, storage: RedisStorage) -> None:
     """CONTEXT_SWITCH_CONFIRM: «Да» — к новому клиенту, «Нет» — вернуться к прежнему."""
     _, context = await storage.load(message.from_id)
-    text = message.text.strip()
+    confirmed = common.parse_confirmation(message.text)
 
-    if text == Btn.NO:
+    if confirmed is False:
         saved = context.saved
         if saved and saved.state != BotState.IDLE:
             await storage.save(message.from_id, saved.state, saved.context)
@@ -123,7 +123,7 @@ async def on_switch_answer(message: Message, storage: RedisStorage) -> None:
             await vk.answer(message, texts.MSG_CANCELLED)
         return
 
-    if text != Btn.YES:
+    if confirmed is None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=context_switch_keyboard())
         return
 

@@ -91,12 +91,19 @@ async def parse_seat_list(
     return seat_list
 
 
+# Ответы на подтверждения: кнопки и то же самое текстом, без учёта регистра.
+# «Отмена» как кнопку перехватывает команда /cancel ещё в роутере — сюда
+# доходит «нет», набранное текстом; сценарии обрабатывают его так же (шаг назад)
+_YES = {Btn.CONFIRM.lower(), Btn.YES.lower()}
+_NO = {Btn.CANCEL.lower(), Btn.NO.lower()}
+
+
 def parse_confirmation(text: str) -> bool | None:
-    """«Подтвердить» — True, «Отмена» — False, другое — None."""
-    stripped = text.strip()
-    if stripped == Btn.CONFIRM:
+    """«Подтвердить» / «да» — True, «Отмена» / «нет» — False, другое — None."""
+    answer = text.strip().lower()
+    if answer in _YES:
         return True
-    if stripped == Btn.CANCEL:
+    if answer in _NO:
         return False
     return None
 

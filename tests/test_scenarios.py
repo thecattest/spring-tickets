@@ -458,3 +458,99 @@ async def test_reservation_cancelled_elsewhere_resets_seller(bot):
     [r] = await bot.send(SELLER, "Добавить")
     assert r.text == "Бронь #1 уже отменена. Перешлите сообщение клиента, чтобы начать заново."
     assert await bot.state(SELLER) is None
+
+
+# --- «да» / «нет» текстом -------------------------------------------------
+
+
+async def test_yes_typed_confirms_cancellation(bot):
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(ADMIN, "", fwd_from=BUYER)
+    await bot.send(ADMIN, "Удалить все")
+    [r] = await bot.send(ADMIN, "да")
+    assert r.text.startswith("Бронь отменена")
+    assert reservations()[0].state == ReservationState.CANCELLED
+
+
+async def test_no_typed_on_confirm_acts_like_cancel_button(bot):
+    """«нет» текстом = кнопка «Отмена» на том же экране (шаг назад)."""
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    for text in ("Удалить", "5", "5"):
+        await bot.send(SELLER, text)
+    [by_text] = await bot.send(SELLER, "Нет")
+    assert by_text.text == "Введите номер ряда для удаления:"
+    assert await bot.state(SELLER) == "BotState:deleting_row"
+    assert len(seats()) == 3
+
+
+async def test_yes_no_any_case(bot):
+    await bot.send(ADMIN, "Резерв")
+    for text in ("Добавить", "1", "1-2", "Гости"):
+        await bot.send(ADMIN, text)
+    for text in ("Удалить", "1", "1"):
+        await bot.send(ADMIN, text)
+    [r] = await bot.send(ADMIN, "  ДА ")
+    assert "Резерв снят" in r.text
+    assert seats() == [(1, 2, "reserved")]
+
+    # Переключение клиента — те же синонимы
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    await bot.send(SELLER, "", fwd_from=BUYER2)
+    [r] = await bot.send(SELLER, "нет")
+    assert r.text == "Продолжаем работу с Иван Покупатель."
+
+
+async def test_no_outside_confirmation_is_plain_text(bot):
+    """«нет» — не команда: вне подтверждений это обычный текст своего шага."""
+    # Свободное состояние: ответа нет, ничего не меняется
+    assert await bot.send(SELLER, "нет") == []
+    assert await bot.state(SELLER) is None
+
+    # Меню брони: непонятная кнопка — меню снова, состояние то же
+    await book(bot, SELLER, BUYER, "5", "3-5")
+    await bot.send(SELLER, "", fwd_from=BUYER)
+    [r] = await bot.send(SELLER, "нет")
+    assert r.text == "Выберите действие:" and r.buttons == RESERVATION_MENU
+    assert await bot.state(SELLER) == "BotState:main_menu"
+
+    # Ввод ряда: «нет» — неверный ряд, не отмена
+    await bot.send(SELLER, "Добавить")
+    [r] = await bot.send(SELLER, "нет")
+    assert "Неверный формат" in r.text
+    assert await bot.state(SELLER) == "BotState:awaiting_row"
+
+    # Комментарий резерва: «нет» — это и есть комментарий
+    await bot.send(ADMIN, "Резерв")
+    for text in ("Добавить", "1", "1"):
+        await bot.send(ADMIN, text)
+    [r] = await bot.send(ADMIN, "нет")
+    assert "Резерв создан" in r.text and "Комментарий: нет" in r.text
+    assert (1, 1, "reserved") in seats()
+
+
+# --- ссылки на веб --------------------------------------------------------
+
+
+async def test_keyboard_links_from_site_url(bot, monkeypatch):
+    import json
+
+    from tickets.bot import keyboards
+    from tickets.config import AppSettings
+
+    def links(keyboard_json: str) -> list[str]:
+        return [
+            b["action"]["link"]
+            for row in json.loads(keyboard_json)["buttons"]
+            for b in row
+            if b["action"]["type"] == "open_link"
+        ]
+
+    # SITE_URL из conftest: https://tickets.test
+    assert links(keyboards.commands_keyboard()) == [
+        "https://tickets.test/payments",
+        "https://tickets.test/concert-day",
+    ]
+    monkeypatch.setattr(keyboards, "app_settings", lambda: AppSettings(site_url=None))
+    assert links(keyboards.commands_keyboard()) == []

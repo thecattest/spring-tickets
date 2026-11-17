@@ -114,6 +114,15 @@ class AppSettings(_Section):
     display_tz: ZoneInfo = ZoneInfo("Europe/Moscow")
     seat_price: int = 1500
     debtors_reminder_min_days: int = 7
+    # Адрес веба для ссылок из бота («Оплаты», «День концерта»), например
+    # https://мехмат-билеты.рф. Своё у каждого окружения — умолчания нет;
+    # не задан — кнопки-ссылки не показываются
+    site_url: str | None = None
+
+    @field_validator("site_url", mode="after")
+    @classmethod
+    def _no_trailing_slash(cls, value: str | None) -> str | None:
+        return value.rstrip("/") if value else None
 
     @field_validator("display_tz", mode="before")
     @classmethod

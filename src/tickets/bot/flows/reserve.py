@@ -10,7 +10,7 @@ from vkbottle.bot import Message
 
 from tickets.bot import auth, texts, vk
 from tickets.bot.constants import Btn
-from tickets.bot.flows import common
+from tickets.bot.flows import common, navigation
 from tickets.bot.fsm.context import Context
 from tickets.bot.fsm.states import BotState
 from tickets.bot.fsm.storage import RedisStorage
@@ -230,7 +230,7 @@ async def on_remove_confirm(message: Message, storage: RedisStorage) -> None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
         return
     if confirmed is False:
-        await _back_to_actions(message, storage, texts.MSG_CANCELLED_BRIEF, admin_id)
+        await navigation.on_cancel(message, storage)  # как кнопка «Отмена»
         return
 
     try:

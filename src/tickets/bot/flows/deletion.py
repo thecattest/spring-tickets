@@ -5,7 +5,7 @@ import logging
 from vkbottle.bot import Message
 
 from tickets.bot import texts, vk
-from tickets.bot.flows import common, menu
+from tickets.bot.flows import common, menu, navigation
 from tickets.bot.fsm.states import BotState
 from tickets.bot.fsm.storage import RedisStorage
 from tickets.bot.keyboards import confirmation_keyboard, get_empty_keyboard
@@ -87,8 +87,7 @@ async def on_delete_confirm(message: Message, storage: RedisStorage) -> None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
         return
     if confirmed is False:
-        await vk.answer(message, texts.MSG_CANCELLED_BRIEF, keyboard=get_empty_keyboard())
-        await menu.show(message, storage, client)
+        await navigation.on_cancel(message, storage)  # как кнопка «Отмена»
         return
 
     try:
@@ -132,8 +131,7 @@ async def on_cancel_confirm(message: Message, storage: RedisStorage) -> None:
         await vk.answer(message, texts.PROMPT_SELECT_ACTION, keyboard=confirmation_keyboard())
         return
     if confirmed is False:
-        await vk.answer(message, texts.MSG_CANCELLED_BRIEF, keyboard=get_empty_keyboard())
-        await menu.show(message, storage, client)
+        await navigation.on_cancel(message, storage)  # как кнопка «Отмена»
         return
 
     try:

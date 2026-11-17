@@ -60,6 +60,7 @@ bash deploy/deploy.sh
    cat > .env <<'EOF'
    VK_GROUP_ID=<id сообщества>
    OWNER_VK_IDS=<ваш VK ID>
+   SITE_URL=https://мехмат-билеты.рф   # ссылки «Оплаты» и «День концерта» в боте
    EOF
    chmod 600 .env
    ```

@@ -7,6 +7,7 @@ Provides inline keyboards for user interactions.
 from vkbottle import Keyboard, KeyboardButtonColor, OpenLink, Text
 
 from tickets.bot.constants import Btn
+from tickets.config import app_settings
 
 
 def commands_keyboard() -> str:
@@ -27,11 +28,11 @@ def commands_keyboard() -> str:
     keyboard.row()
     keyboard.add(Text(Btn.DEBTORS_CMD), color=KeyboardButtonColor.PRIMARY)
     keyboard.add(Text(Btn.RESERVE_CMD), color=KeyboardButtonColor.POSITIVE)
-    keyboard.row()
-    keyboard.add(OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/payments", label="Оплаты"))
-    keyboard.add(
-        OpenLink("https://xn----7sbendrvcb5df1a1g.xn--p1ai/concert-day", label="День концерта")
-    )
+    site = app_settings().site_url
+    if site:  # ссылки на веб — только если его адрес задан (SITE_URL)
+        keyboard.row()
+        keyboard.add(OpenLink(f"{site}/payments", label="Оплаты"))
+        keyboard.add(OpenLink(f"{site}/concert-day", label="День концерта"))
 
     return keyboard.get_json()
 

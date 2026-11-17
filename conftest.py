@@ -50,6 +50,7 @@ def _isolate_settings() -> None:
         REDIS_PASSWORD="test",
         PAYMENTS_PASSWORD="test",
         COOKIE_SECRET="test",
+        SITE_URL="https://tickets.test",
     )
 
 
