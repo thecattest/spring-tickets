@@ -1,6 +1,7 @@
 """
-Сервисы: транзакции и исправления этапа 6 (ROADMAP) — атомарность, блокировка
-при оплате, конфликт мест при гонке, неактивная бронь, аудит в транзакции.
+Сервисы на настоящем Postgres: атомарность и аудит в транзакции, неактивная
+бронь, двойное занятие мест (в том числе при гонке), частичная оплата и
+блокировка при параллельной оплате, отмена с оплаченными местами, должники.
 """
 
 import asyncio
@@ -12,11 +13,13 @@ from sqlalchemy import func, select
 from tickets.db import unit_of_work
 from tickets.models.audit import AuditLog
 from tickets.models.base import SeatStatus, UserRole
-from tickets.models.payment import Payment
+from tickets.models.payment import Payment, PaymentSeat
 from tickets.models.seat_assignment import SeatAssignment
-from tickets.services import audit, payments, reservations, seats, users
+from tickets.services import audit, payments, reports, reservations, seats, users
 from tickets.services.errors import (
     InsufficientSeatsError,
+    NotAllowedError,
+    NotFoundError,
     ReservationNotActiveError,
     SeatOccupiedError,
 )
@@ -209,3 +212,166 @@ async def test_last_activity_counts_changes_not_views(seller_id):
     assert await activity_after(lambda s: reservations.remove_seats(s, rid, 5, [4], seller_id))
     assert await activity_after(lambda s: payments.record(s, rid, 1, seller_id))
     assert await activity_after(lambda s: reservations.cancel(s, rid, seller_id, is_admin=True))
+
+
+# --- двойное занятие: бронь и резерв ----------------------------------------
+
+
+async def test_reserve_and_booking_do_not_share_seats(seller_id):
+    """Резерв под гостей и бронь занимают места из одного пула."""
+    rid = await new_reservation(seller_id, 301, 5, [1])
+    async with unit_of_work() as s:
+        await seats.add_reserve(s, 5, [2], "Гости", seller_id)
+
+    with pytest.raises(SeatOccupiedError) as error:
+        async with unit_of_work() as s:
+            await seats.add_reserve(s, 5, [1], "Гости", seller_id)
+    assert error.value.conflicts[0]["reservation_id"] == rid
+
+    with pytest.raises(SeatOccupiedError) as error:
+        async with unit_of_work() as s:
+            await reservations.add_seats(s, rid, 5, [2], seller_id)
+    [conflict] = error.value.conflicts
+    assert (conflict["status"], conflict["note"]) == (SeatStatus.RESERVED, "Гости")
+
+
+# --- частичная оплата -------------------------------------------------------
+
+
+async def test_partial_payment_takes_first_seats_by_row_then_seat(seller_id):
+    """Оплата N из M: первые неоплаченные по (ряд, место), сумма N × цена."""
+    rid = await new_reservation(seller_id, 301, 5, [3, 1])
+    async with unit_of_work() as s:
+        await reservations.add_seats(s, rid, 2, [7], seller_id)
+
+    async with unit_of_work() as s:
+        payment, paid = await payments.record(s, rid, 2, seller_id)
+        assert [(a.row_number, a.seat_number) for a in paid] == [(2, 7), (5, 1)]
+        assert (payment.seat_count, payment.payment_amount) == (2, 2 * 1500)
+
+    # Осталось одно неоплаченное: больше оплатить нельзя, ничего не меняется
+    with pytest.raises(InsufficientSeatsError) as error:
+        async with unit_of_work() as s:
+            await payments.record(s, rid, 2, seller_id)
+    assert (error.value.requested, error.value.available) == (2, 1)
+    assert await count(Payment) == 1
+
+    async with unit_of_work() as s:
+        _, paid = await payments.record(s, rid, 1, seller_id)
+        assert [(a.row_number, a.seat_number) for a in paid] == [(5, 3)]
+    assert await active_seats(SeatStatus.PAID) == 3
+    assert await count(PaymentSeat) == 3
+
+    recorded = AuditLog.action_type == audit.AuditAction.PAYMENT_RECORDED.value
+    async with unit_of_work() as s:
+        flags = [a.payload["partial"] for a in await s.scalars(select(AuditLog).where(recorded))]
+    assert sorted(flags) == [False, True]
+
+
+async def test_paid_seats_cannot_be_removed(seller_id):
+    """Убрать из брони можно только неоплаченные места."""
+    rid = await new_reservation(seller_id, 301, 5, [1, 2])
+    async with unit_of_work() as s:
+        await payments.record(s, rid, 1, seller_id)  # оплачено место 1
+    with pytest.raises(NotFoundError):
+        async with unit_of_work() as s:
+            await reservations.remove_seats(s, rid, 5, [1, 2], seller_id)
+    assert await active_seats() == 2  # и место 2 осталось: всё или ничего
+
+
+# --- отмена брони с оплаченными местами -------------------------------------
+
+
+async def test_seller_cannot_cancel_reservation_with_paid_seats(seller_id):
+    rid = await new_reservation(seller_id, 301, 5, [1, 2, 3])
+    async with unit_of_work() as s:
+        await payments.record(s, rid, 1, seller_id)
+
+    with pytest.raises(NotAllowedError):
+        async with unit_of_work() as s:
+            await reservations.cancel(s, rid, seller_id, is_admin=False)
+
+    async with unit_of_work() as s:
+        assert await reservations.is_active(s, rid)
+    assert await active_seats() == 3
+    assert await active_seats(SeatStatus.PAID) == 1
+
+
+async def test_seller_can_cancel_unpaid_reservation(seller_id):
+    rid = await new_reservation(seller_id, 301, 5, [1, 2])
+    async with unit_of_work() as s:
+        await reservations.cancel(s, rid, seller_id, is_admin=False)
+    assert await active_seats() == 0
+
+
+async def test_admin_cancel_releases_paid_seats_and_hides_payment(seller_id):
+    """
+    Админ отменяет бронь с оплатой: освобождаются все места (и оплаченные),
+    оплата пропадает со страницы оплат и из суммы, места снова можно занять.
+    """
+    rid = await new_reservation(seller_id, 301, 5, [1, 2])
+    async with unit_of_work() as s:
+        await payments.record(s, rid, 1, seller_id)
+    async with unit_of_work() as s:
+        assert len((await payments.page(s))["payments"]) == 1
+
+    async with unit_of_work() as s:
+        await reservations.cancel(s, rid, seller_id, is_admin=True)
+
+    assert await active_seats() == 0
+    async with unit_of_work() as s:
+        page = await payments.page(s)
+        assert (page["payments"], page["total_paid"], page["seats_by_status"]) == ([], 0, {})
+        assert await reports.debtors(s) == []
+    cancelled = AuditLog.action_type == audit.AuditAction.RESERVATION_CANCELLED.value
+    async with unit_of_work() as s:
+        entry = await s.scalar(select(AuditLog).where(cancelled))
+        assert entry.payload == {"total_seats": 2, "paid_seats": 1, "is_admin": True}
+
+    # Освободившиеся места — свободны для другой брони
+    await new_reservation(seller_id, 302, 5, [1, 2])
+    assert await active_seats() == 2
+
+
+# --- должники ---------------------------------------------------------------
+
+
+async def test_debtors_are_active_reservations_with_unpaid_seats(seller_id):
+    """
+    Должник — активная бронь с неоплаченными местами: полностью оплаченная,
+    отменённая и пустая брони не в списке. Давние первыми; фильтры по
+    билетёру и по числу дней без активности.
+    """
+    from datetime import timedelta
+
+    from tickets.models.reservation import Reservation
+    from tickets.time import utcnow
+
+    async with unit_of_work() as s:
+        other_seller = (await users.add_app_user(s, 202, "Второй", UserRole.SELLER)).id
+
+    old = await new_reservation(seller_id, 301, 5, [1, 2])  # 2 неоплаченных
+    paid = await new_reservation(seller_id, 302, 5, [3])
+    recent = await new_reservation(other_seller, 303, 6, [1, 2])  # 1 из 2 оплачено
+    cancelled = await new_reservation(seller_id, 304, 7, [1])
+    await new_reservation(seller_id, 305, 5, [])  # пустая
+    async with unit_of_work() as s:
+        await payments.record(s, paid, 1, seller_id)
+        await payments.record(s, recent, 1, other_seller)
+        await reservations.cancel(s, cancelled, seller_id, is_admin=False)
+
+    async with unit_of_work() as s:
+        (await s.get(Reservation, old)).last_activity_at = utcnow() - timedelta(days=10)
+        (await s.get(Reservation, recent)).last_activity_at = utcnow() - timedelta(days=3)
+
+    async with unit_of_work() as s:
+        everyone = await reports.debtors(s)
+        assert [
+            (d["reservation_id"], d["buyer_vk_id"], d["booked_seat_count"], d["debt_amount"])
+            for d in everyone
+        ] == [(old, 301, 2, 2 * 1500), (recent, 303, 1, 1500)]
+        assert [d["days_since_activity"] for d in everyone] == [10, 3]
+
+        assert [d["reservation_id"] for d in await reports.debtors(s, seller_id)] == [old]
+        assert [d["reservation_id"] for d in await reports.debtors(s, other_seller)] == [recent]
+        assert [d["reservation_id"] for d in await reports.debtors(s, min_days=7)] == [old]
