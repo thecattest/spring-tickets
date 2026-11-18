@@ -375,3 +375,21 @@ async def test_debtors_are_active_reservations_with_unpaid_seats(seller_id):
         assert [d["reservation_id"] for d in await reports.debtors(s, seller_id)] == [old]
         assert [d["reservation_id"] for d in await reports.debtors(s, other_seller)] == [recent]
         assert [d["reservation_id"] for d in await reports.debtors(s, min_days=7)] == [old]
+
+
+# --- сортировка по-русски (ICU ru-RU, compose: POSTGRES_INITDB_ARGS) ---------
+
+
+async def test_names_sorted_in_russian_order():
+    """
+    База создана с ICU ru-RU: кириллица по алфавиту без учёта регистра, «ё»
+    рядом с «е». В libc на musl (alpine) было бы по кодам символов:
+    «Ёлкин» первым, строчные после всех заглавных.
+    """
+    names = ["Яковлев", "ёлкин", "Борисов", "Ежов", "арбузов", "Ёлкина"]
+    async with unit_of_work() as s:
+        for vk_id, name in enumerate(names, start=500):
+            await users.add_app_user(s, vk_id, name, UserRole.SELLER)
+    async with unit_of_work() as s:
+        ordered = [u.display_name for u in await users.active_users(s)]
+    assert ordered == ["арбузов", "Борисов", "Ежов", "ёлкин", "Ёлкина", "Яковлев"]

@@ -119,13 +119,19 @@ services:
       - ./backups:/backups
 
   postgres:
-    image: postgres:18-alpine
+    # Debian, не alpine: в musl нет правил сортировки по языку (кириллица шла
+    # бы по кодам символов: «Ё» раньше «А», заглавные раньше строчных)
+    image: postgres:18
     logging: *logging
     environment:
       <<: *postgres-env
       # Официальный образ читает пароль из файла. Применяется только при
       # создании пустого volume: у существующей базы пароль меняют ALTER USER
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      # Сортировка и сравнение строк — по правилам ICU для русского, а не libc
+      # (правила libc меняются с обновлением ОС и ломают порядок в индексах).
+      # Тоже только при создании volume: локаль существующей базы не меняется
+      POSTGRES_INITDB_ARGS: --locale-provider=icu --icu-locale=ru-RU
     secrets: [ postgres_password ]
     volumes:
       - pgdata:/var/lib/postgresql

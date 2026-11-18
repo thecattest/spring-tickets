@@ -67,3 +67,14 @@ def test_healthchecks_call_existing_modules(compose):
         if test[:3] == ["CMD", "python", "-m"]:
             module = test[3]
             assert importlib.util.find_spec(module) is not None, f"{name}: {module}"
+
+
+def test_tests_use_same_postgres_and_redis_as_compose(compose):
+    """Тесты на той же базе, что сервер: образ и локаль (порядок строк) совпадают."""
+    import conftest
+
+    services = compose["services"]
+    assert services["postgres"]["image"] == conftest.POSTGRES_IMAGE
+    initdb_args = services["postgres"]["environment"]["POSTGRES_INITDB_ARGS"]
+    assert initdb_args == conftest.POSTGRES_INITDB_ARGS
+    assert services["redis"]["image"] == conftest.REDIS_IMAGE

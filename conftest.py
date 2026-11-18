@@ -24,8 +24,9 @@ import pytest
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
-# Та же мажорная версия, что в Compose
-POSTGRES_IMAGE = "postgres:18-alpine"
+# Те же образы и локаль базы, что в Compose (сверяет tests/test_config_guards.py)
+POSTGRES_IMAGE = "postgres:18"
+POSTGRES_INITDB_ARGS = "--locale-provider=icu --icu-locale=ru-RU"
 REDIS_IMAGE = "redis:8-alpine"
 
 INTEGRATION_DIR = Path(__file__).resolve().parent / "tests" / "integration"
@@ -75,7 +76,9 @@ def pytest_configure(config: pytest.Config) -> None:
         )
         return
 
-    _postgres = PostgresContainer(POSTGRES_IMAGE, driver="psycopg")
+    _postgres = PostgresContainer(POSTGRES_IMAGE, driver="psycopg").with_env(
+        "POSTGRES_INITDB_ARGS", POSTGRES_INITDB_ARGS
+    )
     _postgres.start()
     os.environ.update(
         POSTGRES_HOST=_postgres.get_container_host_ip(),
