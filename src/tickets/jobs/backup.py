@@ -9,7 +9,7 @@
 отправляется. Хранятся последние BACKUP_KEEP (по умолчанию 14) дампов
 каждого вида; файлы tickets-<reason>-<UTC-время>.dump.
 
-Восстановление: pg_restore --clean --if-exists -d <url> <файл> (см. README).
+Восстановление: pg_restore --clean --if-exists -d <url> <файл> (см. docs/operations.md).
 Дамп содержит персональные данные — только владельцу.
 """
 

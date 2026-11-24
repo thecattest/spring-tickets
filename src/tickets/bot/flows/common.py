@@ -124,7 +124,7 @@ async def require_client(
 async def require_active(message: Message, storage: RedisStorage, client: Client) -> bool:
     """
     Бронь клиента ещё активна (её могли отменить с другого аккаунта, пока
-    билетёр был в сценарии). Нет — сообщение, сброс и False (этап 6 ROADMAP).
+    билетёр был в сценарии). Нет — сообщение, сброс и False.
     """
     async with unit_of_work() as session:
         if await reservations.is_active(session, client.reservation_id):

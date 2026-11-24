@@ -1,4 +1,4 @@
-"""Стражи правил архитектуры (ROADMAP → Транзакции)."""
+"""Стражи правил архитектуры (docs/architecture.md → Транзакции)."""
 
 import re
 from pathlib import Path

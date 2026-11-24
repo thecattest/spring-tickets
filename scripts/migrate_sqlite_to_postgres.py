@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Одноразовый перенос данных из старой SQLite-базы в PostgreSQL (ROADMAP, этап 1).
+Одноразовый перенос данных из старой SQLite-базы в PostgreSQL (docs/operations.md → Переезд со старого деплоя).
 
 Использование:
     uv run python scripts/migrate_sqlite_to_postgres.py data/tickets.db   # база — POSTGRES_* из .env

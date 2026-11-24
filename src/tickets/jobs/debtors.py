@@ -24,7 +24,7 @@ from tickets.services import reports, users
 logger = logging.getLogger("jobs.debtors")
 
 
-# Короткие транзакции; отправка в VK — между ними, не внутри (ROADMAP → Транзакции)
+# Короткие транзакции; отправка в VK — между ними, не внутри (docs/architecture.md → Транзакции)
 async def get_all_active_sellers() -> list[AppUser]:
     async with unit_of_work() as session:
         return await users.active_sellers(session)

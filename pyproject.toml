@@ -116,7 +116,7 @@ warn_unused_ignores = true
 warn_redundant_casts = true
 strict_equality = true
 
-# Строго для бизнес-логики и моделей (ROADMAP, этап 7). strict нельзя задать
+# Строго для бизнес-логики и моделей (docs/architecture.md). strict нельзя задать
 # для отдельных модулей — перечислены флаги, которые он включает
 [[tool.mypy.overrides]]
 module = ["tickets.services.*", "tickets.models.*"]

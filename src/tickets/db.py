@@ -59,7 +59,7 @@ AsyncSessionLocal = async_sessionmaker(
 @asynccontextmanager
 async def unit_of_work() -> AsyncIterator[AsyncSession]:
     """
-    Одна транзакция на операцию — граница, которая коммитит (ROADMAP → Транзакции).
+    Одна транзакция на операцию — граница, которая коммитит (docs/architecture.md → Транзакции).
 
         async with unit_of_work() as session:
             reservation = await reservations.create(session, ...)
