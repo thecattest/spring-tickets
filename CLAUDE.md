@@ -42,15 +42,15 @@ docker compose run --rm web python -m tickets.jobs.debtors
 uv run ruff check --fix . && uv run ruff format .
 uv run mypy
 
-# Deploy (run locally — SSHes into server, git pull, docker compose up --build --wait)
+# Deploy (on the server: git pull, docker compose up --build --wait)
 bash deploy/deploy.sh
 ```
 
 ## Deployment
 
-Server SSH alias: `tickets`. Project dir on server: `~/spring-tickets`. Everything runs in Docker Compose (`compose.yaml` only, no dev file); nginx and certbot are on the host. Server setup, HTTPS and the one-time cutover from the old systemd deploy: `docs/operations.md`.
+Project dir on server: `~/spring-tickets`. Everything runs in Docker Compose (`compose.yaml` only, no dev file); nginx and certbot are on the host. Server setup, HTTPS and the one-time cutover from the old systemd deploy: `docs/operations.md`.
 
-- `deploy/deploy.sh` — main deploy script, run locally. Does: `ssh tickets` → `git pull --ff-only` → `docker compose up -d --build --wait --remove-orphans` (db-backup → migrate → services, fails if anything is not healthy) → `docker compose ps` → `docker image prune -f`.
+- `deploy/deploy.sh` — main deploy script, run on the server. Does: `git pull --ff-only` → `docker compose up -d --build --wait --remove-orphans` (db-backup → migrate → services, fails if anything is not healthy) → `docker compose ps` → `docker image prune -f`.
 - `deploy/tickets-nginx.conf` — nginx site: proxy to `127.0.0.1:8000`, rate limit on `/payments/login`. The server copy was modified by certbot, so changes are applied there by hand.
 - `deploy/setup-ssl.sh` — Let's Encrypt certificate via `certbot --nginx` + renewal check. Keep it.
 - On the server: secrets in `~/spring-tickets/secrets/`, non-secret settings in `.env`, both readable by uid 1000 (`app` in the image); dumps in `./backups`.

@@ -21,11 +21,10 @@
 - [ ] **Переезд сервера на Compose** — по [operations.md](operations.md), «Переезд со старого деплоя». Новый деплой проверен только локально; на сервере в `.env` добавить `SITE_URL`. После переезда удалить `scripts/migrate_sqlite_to_postgres.py`.
 - [ ] **Тестовое VK-сообщество** для локальной разработки (свой токен): бот в dev сейчас запускается только с боевым токеном.
 - [ ] **CI, шаг 1** — на каждый push/PR: `ruff check`, `ruff format --check`, `mypy`, `pytest` (интеграционные тесты — testcontainers в раннере GitHub), `alembic check`.
-- [ ] **CI, шаг 2** — только когда шаг 1 стабилен: push в `master` → образ `linux/amd64` в GHCR (тег — SHA коммита) → деплой по SSH (`docker compose pull && up -d --wait`). Сервер перестаёт собирать образ.
+- [ ] **CI, шаг 2** — только когда шаг 1 стабилен: push в `master` → образ `linux/amd64` в GHCR (тег — SHA коммита) → деплой на сервере (`docker compose pull && up -d --wait`). Сервер перестаёт собирать образ.
   - В `compose.yaml` — `image: ghcr.io/…/tickets:${TICKETS_TAG}` вместо `build:`; запущенный тег записывается на сервере (`.env`), чтобы `docker compose up` без аргументов поднимал то же.
   - Откат кода — деплой с прошлым SHA, без пересборки. База не откатывается (expand/contract). Решить: `migrate` из старого образа не знает новой ревизии базы и падает (`Can't locate revision`) — пропускать этот случай или откатывать без `migrate`.
   - Хранить в GHCR последние N тегов (политика очистки).
-  - Доступы — [architecture.md](architecture.md), «Секреты и доступы».
 
 ## Бэклог
 

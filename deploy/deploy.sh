@@ -1,25 +1,18 @@
 #!/usr/bin/env bash
-# Деплой: запускается локально, на сервере всё делает по SSH.
+# Деплой — запускается на сервере:
 #
 #   bash deploy/deploy.sh
 #
-# На сервере: git pull → сборка образа → db-backup (дамп, если есть миграции)
-# → migrate → перезапуск изменившихся сервисов → ожидание healthy → чистка
-# старых образов. Если что-то не поднялось (бэкап, миграция, healthcheck),
-# скрипт завершается с ошибкой; уже работающие контейнеры старой версии
-# остаются как были. Отката нет — чиним вперёд (docs/architecture.md → Миграции и совместимость).
+# git pull → сборка образа → db-backup (дамп, если есть миграции) → migrate →
+# перезапуск изменившихся сервисов → ожидание healthy → чистка старых образов.
+# Если что-то не поднялось (бэкап, миграция, healthcheck), скрипт завершается
+# с ошибкой; уже работающие контейнеры старой версии остаются как были.
+# Отката нет — чиним вперёд (docs/architecture.md → Миграции и совместимость).
 #
 # Первичная настройка сервера — docs/operations.md.
 set -euo pipefail
 
-SSH_HOST="${DEPLOY_HOST:-tickets}"   # Host из ~/.ssh/config
-REMOTE_DIR="${DEPLOY_DIR:-spring-tickets}"
-
-echo "=== Деплой на $SSH_HOST:~/$REMOTE_DIR ==="
-
-ssh "$SSH_HOST" bash -s -- "$REMOTE_DIR" <<'REMOTE'
-set -euo pipefail
-cd ~/"$1"
+cd "$(dirname "$0")/.."   # каталог проекта, откуда бы ни запустили
 
 echo "--- git pull ---"
 git pull --ff-only
@@ -38,4 +31,3 @@ echo "--- cleanup ---"
 docker image prune -f
 
 echo "=== Деплой завершён ==="
-REMOTE

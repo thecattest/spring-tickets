@@ -90,7 +90,7 @@ uv run ruff check . && uv run ruff format --check . && uv run mypy
 На сервере всё работает в Docker Compose; на хосте — только Docker и nginx (HTTPS через Let's Encrypt, прокси на `127.0.0.1:8000`).
 
 ```bash
-bash deploy/deploy.sh          # с локальной машины: ssh → git pull → docker compose up --build --wait
+bash deploy/deploy.sh          # на сервере: git pull → docker compose up --build --wait
 ```
 
 При запуске Compose сначала снимает дамп базы (если есть новые миграции), затем применяет миграции и только потом перезапускает сервисы; деплой ждёт, пока все healthcheck станут зелёными. Бэкапы — каждый день, дамп уходит владельцу в VK.

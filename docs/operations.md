@@ -4,11 +4,11 @@
 
 ## Сервер
 
-Всё работает в Docker Compose (`compose.yaml`): `postgres`, `redis`, `web`, `bot`, `cron`, разовые `db-backup` и `migrate`. На хосте — только Docker и nginx (HTTPS, прокси на `127.0.0.1:8000`). Каталог проекта — `~/spring-tickets`, SSH-хост на своей машине — `tickets` в `~/.ssh/config`.
+Всё работает в Docker Compose (`compose.yaml`): `postgres`, `redis`, `web`, `bot`, `cron`, разовые `db-backup` и `migrate`. На хосте — только Docker и nginx (HTTPS, прокси на `127.0.0.1:8000`). Каталог проекта — `~/spring-tickets`.
 
 ### Обновление
 
-С локальной машины:
+На сервере:
 
 ```bash
 bash deploy/deploy.sh
@@ -25,10 +25,10 @@ bash deploy/deploy.sh
    docker compose version
    ```
 
-2. **Код** — клонировать с deploy key (только чтение):
+2. **Код:**
 
    ```bash
-   git clone git@github.com:thecattest/spring-tickets.git ~/spring-tickets
+   git clone https://github.com/thecattest/spring-tickets.git ~/spring-tickets
    cd ~/spring-tickets
    ```
 
@@ -85,7 +85,7 @@ bash deploy/deploy.sh
    - Продление — автоматически: пакет certbot ставит systemd-таймер (`systemctl list-timers | grep certbot`), сертификаты на 90 дней продлеваются заранее, nginx перезагружается сам. Проверить вручную — `sudo certbot renew --dry-run`, посмотреть сертификаты — `sudo certbot certificates`.
    - `COOKIE_SECURE` по умолчанию `true`: cookie страницы оплат передаётся только по HTTPS, так что вход в `/payments` работает только после этого шага.
 
-8. **Первый запуск** — с локальной машины `bash deploy/deploy.sh`. Пустая база получит схему от `migrate`.
+8. **Первый запуск** — `bash deploy/deploy.sh`. Пустая база получит схему от `migrate`.
 
 ### Переезд со старого деплоя (один раз)
 
@@ -110,7 +110,7 @@ bash deploy/deploy.sh
    docker compose run --rm -v ./data:/code/data web python scripts/migrate_sqlite_to_postgres.py data/tickets.db
    ```
 
-5. С локальной машины `bash deploy/deploy.sh`, проверить сайт, `/payments` и ответ бота.
+5. `bash deploy/deploy.sh`, проверить сайт, `/payments` и ответ бота.
 6. Убрать остатки: системный Redis (`sudo apt remove redis-server`), `~/spring-tickets/.venv`, `~/spring-tickets/logs`, старые бэкапы `~/tickets-backup` — когда новые бэкапы приходят.
 
 ### Повседневные команды
